@@ -17,13 +17,13 @@
     "react-dom": "^19.2.1"
   },
   "devDependencies": {
-    "@tailwindcss/vite": "^4.1.17",
+    "@tailwindcss/vite": "^4.1.18",
     "@types/node": "^24.10.4",
     "@types/react": "^19.2.6",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.2",
     "npm-run-all2": "^8.0.4",
-    "tailwindcss": "^4.1.17",
+    "tailwindcss": "^4.1.18",
     "vite": "^7.2.7"
   }
 }
