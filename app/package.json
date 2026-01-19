@@ -9,7 +9,11 @@
     "dev:backend": "convex dev",
     "predev": "convex dev --until-success && convex dashboard",
     "build": "tsc -b && vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "lint": "bun run --cwd .. lint",
+    "typecheck": "bun run --cwd .. typecheck",
+    "format": "bun run --cwd .. format",
+    "format:check": "bun run --cwd .. format:check"
   },
   "dependencies": {
     "@radix-ui/react-dialog": "^1.1.15",
