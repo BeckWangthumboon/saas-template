@@ -1,4 +1,5 @@
 dist
 node_modules
 app/convex/_generated
+app/src/routeTree.gen.ts
 bun.lock

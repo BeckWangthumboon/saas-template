@@ -13,6 +13,7 @@ export default tseslint.config(
       '**/dist/**',
       '**/node_modules/**',
       'app/convex/_generated/**',
+      'app/src/routeTree.gen.ts',
       'eslint.config.js',
       'app/postcss.config.js',
       'app/tailwind.config.js',
