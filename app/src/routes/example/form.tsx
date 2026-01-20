@@ -3,7 +3,7 @@
  *
  * This demonstrates the form pattern using:
  * - TanStack Form for state management
- * - Inline validators (you can also use Zod/Valibot with adapters)
+ * - Inline validators 
  * - shadcn/ui Field components for accessible forms
  * - onBlur validation mode (validates when user leaves a field)
  *
