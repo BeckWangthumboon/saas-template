@@ -6,7 +6,7 @@
     "app"
   ],
   "scripts": {
-    "lint": "eslint . --fix",
+    "lint": "eslint . --fix --cache --cache-location .eslintcache",
     "typecheck": "tsc -b --noEmit",
     "format": "prettier --write .",
     "format:check": "prettier --check ."
