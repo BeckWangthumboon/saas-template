@@ -54,7 +54,7 @@ function ExampleLayout() {
               void navigate({ to: href });
             }}
           >
-            <SelectTrigger className="h-7 w-auto gap-1.5 text-xs">
+            <SelectTrigger size="sm" className="w-[140px] bg-muted/40 shadow-none">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
