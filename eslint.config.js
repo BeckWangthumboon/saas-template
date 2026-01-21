@@ -50,24 +50,27 @@ export default tseslint.config(
       'simple-import-sort/imports': 'error',
       'simple-import-sort/exports': 'error',
 
-      // Strict TypeScript rules
+      // TypeScript overrides for React/shadcn compatibility
       '@typescript-eslint/no-unused-vars': [
         'error',
         { varsIgnorePattern: '^_', argsIgnorePattern: '^_' },
       ],
-      '@typescript-eslint/no-explicit-any': 'error',
-      '@typescript-eslint/no-unsafe-argument': 'error',
-      '@typescript-eslint/no-unsafe-assignment': 'error',
-      '@typescript-eslint/no-unsafe-call': 'error',
-      '@typescript-eslint/no-unsafe-member-access': 'error',
-      '@typescript-eslint/no-unsafe-return': 'error',
-      '@typescript-eslint/require-await': 'error',
-      '@typescript-eslint/ban-ts-comment': 'error',
       '@typescript-eslint/consistent-type-imports': [
         'error',
         { prefer: 'type-imports', fixStyle: 'inline-type-imports' },
       ],
       '@typescript-eslint/no-import-type-side-effects': 'error',
+
+      // Relax strict rules that conflict with React patterns
+      '@typescript-eslint/no-misused-promises': [
+        'error',
+        { checksVoidReturn: { attributes: false } },
+      ],
+      '@typescript-eslint/restrict-template-expressions': [
+        'error',
+        { allowNumber: true, allowBoolean: true },
+      ],
+      '@typescript-eslint/no-empty-object-type': 'off',
 
       // Convex handlers often don't need await
       '@typescript-eslint/require-await': 'off',

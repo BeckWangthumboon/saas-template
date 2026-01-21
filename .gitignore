@@ -36,6 +36,7 @@ pnpm-lock.yaml
 *.njsproj
 *.sln
 *.sw?
+.claude
 
 # OS files
 .DS_Store

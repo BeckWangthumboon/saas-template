@@ -113,11 +113,16 @@
   --sidebar-ring: oklch(0.556 0 0);
 }
 
+.root {
+  isolation: isolate;
+}
+
 @layer base {
   * {
     @apply border-border outline-ring/50;
   }
   body {
     @apply bg-background text-foreground;
+    position: relative;
   }
 }

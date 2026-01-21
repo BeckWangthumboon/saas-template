@@ -3,7 +3,7 @@
  *
  * This demonstrates a basic app shell pattern with:
  * - Full-width header at top
- * - Sidebar navigation on the left 
+ * - Sidebar navigation on the left
  * - Main content area with Outlet
  *
  * Use this as a reference for building your own layout in _app/route.tsx
@@ -31,7 +31,7 @@ function NavItem({
   isActive,
 }: {
   href: string;
-  icon: typeof LayoutDashboardIcon  ;
+  icon: typeof LayoutDashboardIcon;
   label: string;
   isActive: boolean;
 }) {

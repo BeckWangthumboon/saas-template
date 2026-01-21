@@ -3,7 +3,7 @@
  *
  * This demonstrates the form pattern using:
  * - TanStack Form for state management
- * - Inline validators 
+ * - Inline validators
  * - shadcn/ui Field components for accessible forms
  * - onBlur validation mode (validates when user leaves a field)
  *
@@ -208,8 +208,10 @@ function ExampleFormPage() {
                       <Select
                         name={field.name}
                         value={field.state.value}
-                        onValueChange={(value) => {
-                          field.handleChange(value);
+                        onValueChange={(value: string | null) => {
+                          if (value) {
+                            field.handleChange(value);
+                          }
                         }}
                       >
                         <SelectTrigger
@@ -311,7 +313,7 @@ function ExampleFormPage() {
                       <RadioGroup
                         name={field.name}
                         value={field.state.value}
-                        onValueChange={(value) => {
+                        onValueChange={(value: string) => {
                           field.handleChange(value);
                         }}
                       >
@@ -381,8 +383,9 @@ function ExampleFormPage() {
                     </FieldDescription>
                     <Slider
                       value={field.state.value}
-                      onValueChange={(value) => {
-                        field.handleChange(value);
+                      onValueChange={(value: number | readonly number[]) => {
+                        const next = typeof value === 'number' ? [value] : [...value];
+                        field.handleChange(next);
                       }}
                       min={7}
                       max={365}
