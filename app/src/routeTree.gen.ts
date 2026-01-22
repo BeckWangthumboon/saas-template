@@ -14,6 +14,7 @@ import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthCallbackRouteImport } from './routes/_auth/callback'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppFormRouteImport } from './routes/_app/form'
 
 const AuthRouteRoute = AuthRouteRouteImport.update({
@@ -39,6 +40,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   path: '/callback',
   getParentRoute: () => AuthRouteRoute,
 } as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 const AppFormRoute = AppFormRouteImport.update({
   id: '/form',
   path: '/form',
@@ -48,12 +54,14 @@ const AppFormRoute = AppFormRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
   '/form': typeof AppFormRoute
+  '/settings': typeof AppSettingsRoute
   '/callback': typeof AuthCallbackRoute
   '/sign-in': typeof AuthSignInRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
   '/form': typeof AppFormRoute
+  '/settings': typeof AppSettingsRoute
   '/callback': typeof AuthCallbackRoute
   '/sign-in': typeof AuthSignInRoute
 }
@@ -62,20 +70,22 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteRouteWithChildren
   '/_auth': typeof AuthRouteRouteWithChildren
   '/_app/form': typeof AppFormRoute
+  '/_app/settings': typeof AppSettingsRoute
   '/_auth/callback': typeof AuthCallbackRoute
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_app/': typeof AppIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/form' | '/callback' | '/sign-in'
+  fullPaths: '/' | '/form' | '/settings' | '/callback' | '/sign-in'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/form' | '/callback' | '/sign-in'
+  to: '/' | '/form' | '/settings' | '/callback' | '/sign-in'
   id:
     | '__root__'
     | '/_app'
     | '/_auth'
     | '/_app/form'
+    | '/_app/settings'
     | '/_auth/callback'
     | '/_auth/sign-in'
     | '/_app/'
@@ -123,6 +133,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof AuthRouteRoute
     }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_app/form': {
       id: '/_app/form'
       path: '/form'
@@ -135,11 +152,13 @@ declare module '@tanstack/react-router' {
 
 interface AppRouteRouteChildren {
   AppFormRoute: typeof AppFormRoute
+  AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppFormRoute: AppFormRoute,
+  AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
 }
 

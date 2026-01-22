@@ -1,4 +1,4 @@
-import { type AuthFunctions,AuthKit } from '@convex-dev/workos-authkit';
+import { type AuthFunctions, AuthKit } from '@convex-dev/workos-authkit';
 
 import { components, internal } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
@@ -7,14 +7,16 @@ const authFunctions: AuthFunctions = internal.auth;
 
 const authKit = new AuthKit<DataModel>(components.workOSAuthKit, {
   authFunctions,
-}); 
+});
 
 export const { authKitEvent } = authKit.events({
   'user.created': async (ctx, event) => {
     const userData = {
       authId: event.data.id,
       email: event.data.email,
-      name: event.data.firstName ?? undefined,
+      firstName: event.data.firstName ?? undefined,
+      lastName: event.data.lastName ?? undefined,
+      profilePictureUrl: event.data.profilePictureUrl ?? undefined,
     };
     await ctx.db.insert('users', userData);
   },
@@ -29,7 +31,7 @@ export const { authKitEvent } = authKit.events({
     }
     await ctx.db.patch('users', user._id, {
       email: event.data.email,
-      name: event.data.firstName ?? undefined,
+      profilePictureUrl: event.data.profilePictureUrl ?? undefined,
     });
   },
   'user.deleted': async (ctx, event) => {

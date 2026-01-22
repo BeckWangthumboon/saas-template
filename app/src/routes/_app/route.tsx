@@ -1,7 +1,7 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { useAuth } from '@workos-inc/authkit-react';
 import { Authenticated, Unauthenticated } from 'convex/react';
-import { FileTextIcon, LayoutDashboardIcon } from 'lucide-react';
+import { FileTextIcon, LayoutDashboardIcon, SettingsIcon } from 'lucide-react';
 import { useEffect } from 'react';
 
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,7 @@ export const Route = createFileRoute('/_app')({
 const appPages = [
   { label: 'Overview', href: '/', icon: LayoutDashboardIcon },
   { label: 'Form', href: '/form', icon: FileTextIcon },
+  { label: 'Settings', href: '/settings', icon: SettingsIcon },
 ] as const;
 
 function NavItem({
