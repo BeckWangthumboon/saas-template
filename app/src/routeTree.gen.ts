@@ -9,19 +9,13 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
-import { Route as ExampleRouteRouteImport } from './routes/example/route'
 import { Route as AuthRouteRouteImport } from './routes/_auth/route'
 import { Route as AppRouteRouteImport } from './routes/_app/route'
-import { Route as ExampleIndexRouteImport } from './routes/example/index'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
-import { Route as ExampleFormRouteImport } from './routes/example/form'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
+import { Route as AuthCallbackRouteImport } from './routes/_auth/callback'
+import { Route as AppFormRouteImport } from './routes/_app/form'
 
-const ExampleRouteRoute = ExampleRouteRouteImport.update({
-  id: '/example',
-  path: '/example',
-  getParentRoute: () => rootRouteImport,
-} as any)
 const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/_auth',
   getParentRoute: () => rootRouteImport,
@@ -30,81 +24,70 @@ const AppRouteRoute = AppRouteRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
 } as any)
-const ExampleIndexRoute = ExampleIndexRouteImport.update({
-  id: '/',
-  path: '/',
-  getParentRoute: () => ExampleRouteRoute,
-} as any)
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRouteRoute,
-} as any)
-const ExampleFormRoute = ExampleFormRouteImport.update({
-  id: '/form',
-  path: '/form',
-  getParentRoute: () => ExampleRouteRoute,
 } as any)
 const AuthSignInRoute = AuthSignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
   getParentRoute: () => AuthRouteRoute,
 } as any)
+const AuthCallbackRoute = AuthCallbackRouteImport.update({
+  id: '/callback',
+  path: '/callback',
+  getParentRoute: () => AuthRouteRoute,
+} as any)
+const AppFormRoute = AppFormRouteImport.update({
+  id: '/form',
+  path: '/form',
+  getParentRoute: () => AppRouteRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
-  '/example': typeof ExampleRouteRouteWithChildren
+  '/form': typeof AppFormRoute
+  '/callback': typeof AuthCallbackRoute
   '/sign-in': typeof AuthSignInRoute
-  '/example/form': typeof ExampleFormRoute
-  '/example/': typeof ExampleIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/form': typeof AppFormRoute
+  '/callback': typeof AuthCallbackRoute
   '/sign-in': typeof AuthSignInRoute
-  '/example/form': typeof ExampleFormRoute
-  '/example': typeof ExampleIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteRouteWithChildren
   '/_auth': typeof AuthRouteRouteWithChildren
-  '/example': typeof ExampleRouteRouteWithChildren
+  '/_app/form': typeof AppFormRoute
+  '/_auth/callback': typeof AuthCallbackRoute
   '/_auth/sign-in': typeof AuthSignInRoute
-  '/example/form': typeof ExampleFormRoute
   '/_app/': typeof AppIndexRoute
-  '/example/': typeof ExampleIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/example' | '/sign-in' | '/example/form' | '/example/'
+  fullPaths: '/' | '/form' | '/callback' | '/sign-in'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/sign-in' | '/example/form' | '/example'
+  to: '/' | '/form' | '/callback' | '/sign-in'
   id:
     | '__root__'
     | '/_app'
     | '/_auth'
-    | '/example'
+    | '/_app/form'
+    | '/_auth/callback'
     | '/_auth/sign-in'
-    | '/example/form'
     | '/_app/'
-    | '/example/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   AppRouteRoute: typeof AppRouteRouteWithChildren
   AuthRouteRoute: typeof AuthRouteRouteWithChildren
-  ExampleRouteRoute: typeof ExampleRouteRouteWithChildren
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
-    '/example': {
-      id: '/example'
-      path: '/example'
-      fullPath: '/example'
-      preLoaderRoute: typeof ExampleRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
     '/_auth': {
       id: '/_auth'
       path: ''
@@ -119,26 +102,12 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/example/': {
-      id: '/example/'
-      path: '/'
-      fullPath: '/example/'
-      preLoaderRoute: typeof ExampleIndexRouteImport
-      parentRoute: typeof ExampleRouteRoute
-    }
     '/_app/': {
       id: '/_app/'
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof AppIndexRouteImport
       parentRoute: typeof AppRouteRoute
-    }
-    '/example/form': {
-      id: '/example/form'
-      path: '/form'
-      fullPath: '/example/form'
-      preLoaderRoute: typeof ExampleFormRouteImport
-      parentRoute: typeof ExampleRouteRoute
     }
     '/_auth/sign-in': {
       id: '/_auth/sign-in'
@@ -147,14 +116,30 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthSignInRouteImport
       parentRoute: typeof AuthRouteRoute
     }
+    '/_auth/callback': {
+      id: '/_auth/callback'
+      path: '/callback'
+      fullPath: '/callback'
+      preLoaderRoute: typeof AuthCallbackRouteImport
+      parentRoute: typeof AuthRouteRoute
+    }
+    '/_app/form': {
+      id: '/_app/form'
+      path: '/form'
+      fullPath: '/form'
+      preLoaderRoute: typeof AppFormRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
   }
 }
 
 interface AppRouteRouteChildren {
+  AppFormRoute: typeof AppFormRoute
   AppIndexRoute: typeof AppIndexRoute
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
+  AppFormRoute: AppFormRoute,
   AppIndexRoute: AppIndexRoute,
 }
 
@@ -163,10 +148,12 @@ const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
 )
 
 interface AuthRouteRouteChildren {
+  AuthCallbackRoute: typeof AuthCallbackRoute
   AuthSignInRoute: typeof AuthSignInRoute
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
+  AuthCallbackRoute: AuthCallbackRoute,
   AuthSignInRoute: AuthSignInRoute,
 }
 
@@ -174,24 +161,9 @@ const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
   AuthRouteRouteChildren,
 )
 
-interface ExampleRouteRouteChildren {
-  ExampleFormRoute: typeof ExampleFormRoute
-  ExampleIndexRoute: typeof ExampleIndexRoute
-}
-
-const ExampleRouteRouteChildren: ExampleRouteRouteChildren = {
-  ExampleFormRoute: ExampleFormRoute,
-  ExampleIndexRoute: ExampleIndexRoute,
-}
-
-const ExampleRouteRouteWithChildren = ExampleRouteRoute._addFileChildren(
-  ExampleRouteRouteChildren,
-)
-
 const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
-  ExampleRouteRoute: ExampleRouteRouteWithChildren,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

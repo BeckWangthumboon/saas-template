@@ -1,24 +1,3 @@
-/**
- * EXAMPLE FORM - Delete this file when building your app
- *
- * This demonstrates the form pattern using:
- * - TanStack Form for state management
- * - Inline validators
- * - shadcn/ui Field components for accessible forms
- * - onBlur validation mode (validates when user leaves a field)
- *
- * Field styles demonstrated:
- * 1. Input (text) - basic text input
- * 2. Textarea - multi-line input
- * 3. Select - dropdown selection
- * 4. Checkbox group - multiple selections
- * 5. Radio group - single selection from options
- * 6. Switch - toggle with horizontal layout
- * 7. Slider - range input
- *
- * Copy this pattern when building forms in your app.
- */
-
 import { useForm } from '@tanstack/react-form';
 import { createFileRoute } from '@tanstack/react-router';
 import { toast } from 'sonner';
@@ -50,14 +29,10 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 
-export const Route = createFileRoute('/example/form')({
-  component: ExampleFormPage,
+export const Route = createFileRoute('/_app/form')({
+  component: FormPage,
 });
 
-/**
- * Options for select, checkbox, and radio fields
- * In a real app, these might come from an API or config
- */
 const roleOptions = [
   { value: 'viewer', label: 'Viewer' },
   { value: 'editor', label: 'Editor' },
@@ -76,7 +51,7 @@ const visibilityOptions = [
   { value: 'public', label: 'Public', description: 'Anyone with the link' },
 ] as const;
 
-function ExampleFormPage() {
+function FormPage() {
   const form = useForm({
     defaultValues: {
       name: '',
@@ -88,7 +63,6 @@ function ExampleFormPage() {
       retentionDays: [30],
     },
     onSubmit: async ({ value }) => {
-      // In a real app, this would call your API
       console.log('Form submitted:', value);
       toast.success('Settings saved!', {
         description: 'Your workspace settings have been updated.',
@@ -101,7 +75,7 @@ function ExampleFormPage() {
       <div className="mb-6">
         <h1 className="text-2xl font-semibold">Workspace Settings</h1>
         <p className="text-muted-foreground mt-1">
-          Example form demonstrating all field patterns. Delete this when building your app.
+          Configure your workspace settings and preferences.
         </p>
       </div>
 
