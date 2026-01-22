@@ -11,8 +11,8 @@ function CallbackPage() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    if (!isLoading && user) {
-      void navigate({ to: '/' });
+    if (!isLoading) {
+      void navigate({ to: user ? '/' : '/sign-in' });
     }
   }, [isLoading, user, navigate]);
 
