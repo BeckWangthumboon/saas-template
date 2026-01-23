@@ -10,23 +10,57 @@ const authKit = new AuthKit<DataModel>(components.workOSAuthKit, {
 });
 
 export const { authKitEvent } = authKit.events({
+  /**
+   * Handles 'user.created' event from WorkOS.
+   * Updates missing user fields if the user exists, or inserts a new user. (idempotent)
+   *
+   * @param ctx - Event context
+   * @param event - WorkOS user event
+   */
   'user.created': async (ctx, event) => {
-    const userData = {
+    const existingUser = await ctx.db
+      .query('users')
+      .withIndex('by_authId', (q) => q.eq('authId', event.data.id))
+      .unique();
+
+    if (existingUser) {
+      const updates: Record<string, string> = {};
+      if (!existingUser.firstName && event.data.firstName) {
+        updates.firstName = event.data.firstName;
+      }
+      if (!existingUser.lastName && event.data.lastName) {
+        updates.lastName = event.data.lastName;
+      }
+      if (!existingUser.profilePictureUrl && event.data.profilePictureUrl) {
+        updates.profilePictureUrl = event.data.profilePictureUrl;
+      }
+      if (Object.keys(updates).length > 0) {
+        await ctx.db.patch('users', existingUser._id, updates);
+      }
+      return;
+    }
+
+    await ctx.db.insert('users', {
       authId: event.data.id,
       email: event.data.email,
       firstName: event.data.firstName ?? undefined,
       lastName: event.data.lastName ?? undefined,
       profilePictureUrl: event.data.profilePictureUrl ?? undefined,
-    };
-    await ctx.db.insert('users', userData);
+    });
   },
+  /**
+   * Handles 'user.updated' events from WorkOS.
+   * Updates the user's email and profile picture URL
+   *
+   * @param ctx - Event context
+   * @param event - WorkOS user event
+   */
   'user.updated': async (ctx, event) => {
     const user = await ctx.db
       .query('users')
       .withIndex('by_authId', (q) => q.eq('authId', event.data.id))
       .unique();
     if (!user) {
-      console.warn(`User not found: ${event.data.id}`);
       return;
     }
     await ctx.db.patch('users', user._id, {
@@ -34,13 +68,19 @@ export const { authKitEvent } = authKit.events({
       profilePictureUrl: event.data.profilePictureUrl ?? undefined,
     });
   },
+  /**
+   * Handles 'user.deleted' events from WorkOS.
+   * Deletes the user from the database.
+   *
+   * @param ctx - Event context
+   * @param event - WorkOS user event
+   */
   'user.deleted': async (ctx, event) => {
     const user = await ctx.db
       .query('users')
       .withIndex('by_authId', (q) => q.eq('authId', event.data.id))
       .unique();
     if (!user) {
-      console.warn(`User not found: ${event.data.id}`);
       return;
     }
     await ctx.db.delete('users', user._id);

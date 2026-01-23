@@ -1,11 +1,14 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { useAuth } from '@workos-inc/authkit-react';
+import { useAction } from 'convex/react';
 import { Authenticated, Unauthenticated } from 'convex/react';
 import { FileTextIcon, LayoutDashboardIcon, SettingsIcon } from 'lucide-react';
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 
 import { Button } from '@/components/ui/button';
 import { cn } from '@/lib/utils';
+
+import { api } from '../../../convex/_generated/api';
 
 export const Route = createFileRoute('/_app')({
   component: AppLayout,
@@ -70,6 +73,24 @@ function RedirectToSignIn() {
 function AuthenticatedLayout() {
   const location = useLocation();
   const { signOut } = useAuth();
+  const ensureUser = useAction(api.user.ensureUser);
+  const [isReady, setIsReady] = useState(false);
+
+  useEffect(() => {
+    ensureUser()
+      .then(() => {
+        setIsReady(true);
+      })
+      .catch(console.error);
+  }, [ensureUser]);
+
+  if (!isReady) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <p className="text-muted-foreground">Loading...</p>
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex flex-col">

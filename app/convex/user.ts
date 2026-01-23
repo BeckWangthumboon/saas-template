@@ -1,10 +1,13 @@
 import { WorkOS } from '@workos-inc/node';
 import { v } from 'convex/values';
 
+import { internal } from './_generated/api';
 import type { Doc } from './_generated/dataModel';
 import {
   action,
   type ActionCtx,
+  internalMutation,
+  internalQuery,
   mutation,
   type MutationCtx,
   query,
@@ -82,5 +85,88 @@ export const deleteAccount = action({
 
     const workos = getWorkOS();
     await workos.userManagement.deleteUser(identity.subject);
+  },
+});
+
+/**
+ * Ensures the authenticated user exists in the database.
+ * Creates the user from WorkOS API data if they don't exist.
+ * Run when authenticated route is mounted.
+ */
+export const ensureUser = action({
+  args: {},
+  handler: async (ctx): Promise<Doc<'users'>> => {
+    const identity = await ctx.auth.getUserIdentity();
+    if (!identity) {
+      throw new Error('Unauthorized');
+    }
+
+    const authId = identity.subject;
+    const existingUser = await ctx.runQuery(internal.user.getUserByAuthIdInternal, { authId });
+
+    if (existingUser) {
+      return existingUser;
+    }
+
+    const workos = getWorkOS();
+    const workosUser = await workos.userManagement.getUser(authId);
+
+    return await ctx.runMutation(internal.user.getUserOrUpsertInternal, {
+      authId,
+      userData: {
+        email: workosUser.email,
+        firstName: workosUser.firstName ?? undefined,
+        lastName: workosUser.lastName ?? undefined,
+        profilePictureUrl: workosUser.profilePictureUrl ?? undefined,
+      },
+    });
+  },
+});
+
+/**
+ * Get user object by authId
+ */
+export const getUserByAuthIdInternal = internalQuery({
+  args: { authId: v.string() },
+  handler: async (ctx, args) => {
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_authId', (q) => q.eq('authId', args.authId))
+      .unique();
+    return user;
+  },
+});
+
+/**
+ * Get user object or create from provided data
+ * Returns the user document (existing or newly created)
+ */
+export const getUserOrUpsertInternal = internalMutation({
+  args: {
+    authId: v.string(),
+    userData: v.object({
+      email: v.string(),
+      firstName: v.optional(v.string()),
+      lastName: v.optional(v.string()),
+      profilePictureUrl: v.optional(v.string()),
+    }),
+  },
+  handler: async (ctx, args): Promise<Doc<'users'>> => {
+    const existingUser = await ctx.db
+      .query('users')
+      .withIndex('by_authId', (q) => q.eq('authId', args.authId))
+      .unique();
+
+    if (existingUser) {
+      return existingUser;
+    }
+
+    const id = await ctx.db.insert('users', {
+      authId: args.authId,
+      ...args.userData,
+    });
+    const newUser = await ctx.db.get('users', id);
+    if (!newUser) throw new Error('Failed to fetch created user');
+    return newUser;
   },
 });
