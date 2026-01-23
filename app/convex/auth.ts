@@ -1,7 +1,20 @@
 import { type AuthFunctions, AuthKit } from '@convex-dev/workos-authkit';
+import { WorkOS } from '@workos-inc/node';
 
 import { components, internal } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
+
+/**
+ * Creates a WorkOS client instance.
+ * Use this factory function to get a properly configured WorkOS client.
+ */
+export function getWorkOS(): WorkOS {
+  const apiKey = process.env.WORKOS_API_KEY;
+  if (!apiKey) {
+    throw new Error('WORKOS_API_KEY environment variable is not set');
+  }
+  return new WorkOS(apiKey);
+}
 
 const authFunctions: AuthFunctions = internal.auth;
 

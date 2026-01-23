@@ -1,7 +1,7 @@
 import { useForm } from '@tanstack/react-form';
-import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { createFileRoute } from '@tanstack/react-router';
 import { useAuth } from '@workos-inc/authkit-react';
-import { useAction, useMutation, useQuery } from 'convex/react';
+import { useAction, useConvex, useMutation, useQuery } from 'convex/react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -35,13 +35,13 @@ export const Route = createFileRoute('/_app/settings')({
 });
 
 function SettingsPage() {
-  const user = useQuery(api.user.getUser);
+  const user = useQuery(api.user.getUserOrNull);
   const updateName = useMutation(api.user.updateName);
   const deleteAccount = useAction(api.user.deleteAccount);
   const { signOut } = useAuth();
+  const convex = useConvex();
   const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
-  const navigate = useNavigate();
 
   const form = useForm({
     defaultValues: {
@@ -69,26 +69,41 @@ function SettingsPage() {
     setIsDeleting(true);
     try {
       await deleteAccount();
-      toast.success('Account deleted', {
-        description: 'Your account has been permanently deleted.',
-      });
       setDeleteDialogOpen(false);
-      await signOut({ navigate: false });
-      await navigate({ to: '/sign-in' });
     } catch {
       toast.error('Failed to delete account', {
         description: 'Please try again later.',
       });
       setIsDeleting(false);
+      return;
     }
+
+    try {
+      await signOut({ navigate: false });
+    } catch (error) {
+      console.error(error);
+    }
+    convex.clearAuth();
+    window.location.href = '/sign-in';
   };
 
-  if (!user) {
+  if (user === undefined) {
     return (
       <div className="max-w-2xl">
         <div className="mb-6">
           <h1 className="text-2xl font-semibold">Settings</h1>
           <p className="text-muted-foreground mt-1">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (user === null) {
+    return (
+      <div className="max-w-2xl">
+        <div className="mb-6">
+          <h1 className="text-2xl font-semibold">Settings</h1>
+          <p className="text-muted-foreground mt-1">Signing out...</p>
         </div>
       </div>
     );

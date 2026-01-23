@@ -1,7 +1,6 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { useAuth } from '@workos-inc/authkit-react';
-import { useAction } from 'convex/react';
-import { Authenticated, Unauthenticated } from 'convex/react';
+import { Authenticated, Unauthenticated, useAction, useConvex } from 'convex/react';
 import { FileTextIcon, LayoutDashboardIcon, SettingsIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 
@@ -73,16 +72,36 @@ function RedirectToSignIn() {
 function AuthenticatedLayout() {
   const location = useLocation();
   const { signOut } = useAuth();
+  const convex = useConvex();
   const ensureUser = useAction(api.user.ensureUser);
   const [isReady, setIsReady] = useState(false);
 
   useEffect(() => {
+    const handleAuthFailure = async (error?: unknown) => {
+      if (error) {
+        console.error(error);
+      }
+      try {
+        await signOut({ navigate: false });
+      } catch (signOutError) {
+        console.error(signOutError);
+      }
+      convex.clearAuth();
+      window.location.href = '/sign-in';
+    };
+
     ensureUser()
-      .then(() => {
+      .then((user) => {
+        if (!user) {
+          void handleAuthFailure();
+          return;
+        }
         setIsReady(true);
       })
-      .catch(console.error);
-  }, [ensureUser]);
+      .catch((error: unknown) => {
+        void handleAuthFailure(error);
+      });
+  }, [convex, ensureUser, signOut]);
 
   if (!isReady) {
     return (
