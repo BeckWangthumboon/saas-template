@@ -1,6 +1,7 @@
 import type { WorkOS } from '@workos-inc/node';
 import { v } from 'convex/values';
 
+import { Errors } from '../shared/errors';
 import { internal } from './_generated/api';
 import type { Doc } from './_generated/dataModel';
 import {
@@ -22,7 +23,7 @@ import { getWorkOS } from './auth';
 async function getAuthIdentity(ctx: QueryCtx | MutationCtx | ActionCtx) {
   const identity = await ctx.auth.getUserIdentity();
   if (!identity) {
-    throw new Error('Unauthorized');
+    throw Errors.unauthorized({ reason: 'no_identity' });
   }
   return identity;
 }
@@ -40,7 +41,7 @@ export async function getAuthenticatedUser(ctx: QueryCtx | MutationCtx): Promise
     .unique();
 
   if (!user) {
-    throw new Error('User not found');
+    throw Errors.userNotFound({ authId: identity.subject });
   }
 
   return user;
@@ -97,10 +98,10 @@ export const updateName = mutation({
  */
 export const ensureUser = action({
   args: {},
-  handler: async (ctx): Promise<Doc<'users'> | null> => {
+  handler: async (ctx): Promise<Doc<'users'>> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
-      throw new Error('Unauthorized');
+      throw Errors.unauthorized({ reason: 'no_identity' });
     }
 
     const authId = identity.subject;
@@ -116,12 +117,19 @@ export const ensureUser = action({
     try {
       workosUser = await workos.userManagement.getUser(authId);
     } catch (error) {
-      const status = (error as { status?: number }).status;
-      const message = (error as { message?: string }).message;
-      if (status === 404 || message?.toLowerCase().includes('not found')) {
-        return null;
+      const workosError = error as { status?: number; message?: string };
+
+      if (workosError.status === 404 || workosError.message?.toLowerCase().includes('not found')) {
+        throw Errors.workosUserNotFound(authId);
       }
-      throw error;
+      if (workosError.status === 429) {
+        throw Errors.rateLimit();
+      }
+      throw Errors.workosError({
+        operation: 'getUser',
+        status: workosError.status,
+        message: workosError.message,
+      });
     }
 
     return await ctx.runMutation(internal.user.getUserOrUpsertInternal, {
@@ -139,6 +147,8 @@ export const ensureUser = action({
 /**
  * Permanently deletes the authenticated user's account.
  * Removes the user from the Convex database and then from WorkOS.
+ * If WorkOS deletion fails (e.g., user already deleted), the operation
+ * still succeeds since the Convex user has been removed.
  *
  * @throws Error if the user is not authenticated.
  */
@@ -152,7 +162,15 @@ export const deleteAccount = action({
     });
 
     const workos = getWorkOS();
-    await workos.userManagement.deleteUser(identity.subject);
+    try {
+      await workos.userManagement.deleteUser(identity.subject);
+    } catch (error) {
+      const workosError = error as { status?: number; message?: string };
+      if (workosError.status === 404) {
+        return;
+      }
+      console.error('Failed to delete user from WorkOS:', workosError);
+    }
   },
 });
 
@@ -231,7 +249,7 @@ export const getUserOrUpsertInternal = internalMutation({
       ...args.userData,
     });
     const newUser = await ctx.db.get('users', id);
-    if (!newUser) throw new Error('Failed to fetch created user');
+    if (!newUser) throw Errors.internal('Failed to fetch created user');
     return newUser;
   },
 });
