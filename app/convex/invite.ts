@@ -11,6 +11,40 @@ const INVITE_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000;
 
 type InviteRole = 'admin' | 'member';
 
+interface InviterInfo {
+  name: string | null;
+  email: string;
+}
+
+function formatName(firstName: string | null, lastName: string | null): string | null {
+  if (firstName || lastName) {
+    return [firstName, lastName].filter(Boolean).join(' ');
+  }
+  return null;
+}
+
+/**
+ * Gets inviter information from an invite.
+ * Uses current inviter data if the inviter exists, otherwise uses the snapshot.
+ */
+async function getInviterInfo(
+  ctx: QueryCtx | MutationCtx,
+  invite: Doc<'workspaceInvites'>,
+): Promise<InviterInfo> {
+  const inviter = await ctx.db.get('users', invite.invitedByUserId);
+  if (inviter) {
+    return {
+      name: formatName(inviter.firstName ?? null, inviter.lastName ?? null),
+      email: inviter.email,
+    };
+  }
+
+  return {
+    name: invite.inviterDisplayNameSnapshot ?? null,
+    email: invite.inviterDisplayEmailSnapshot,
+  };
+}
+
 /**
  * Validates that the caller has permission to manage invites.
  * Owners can invite admins and members. Admins can only invite members.
@@ -107,7 +141,6 @@ interface ValidatedInvite {
   invite: Doc<'workspaceInvites'>;
   user: Doc<'users'>;
   workspace: Doc<'workspaces'>;
-  inviter: Doc<'users'> | null;
 }
 
 /**
@@ -183,9 +216,7 @@ async function validateInviteForAcceptance(
     return throwAppErrorForConvex(ErrorCode.INVITE_NOT_FOUND, { token });
   }
 
-  const inviter = await ctx.db.get('users', invite.invitedByUserId);
-
-  return { invite, user, workspace, inviter };
+  return { invite, user, workspace };
 }
 
 /**
@@ -263,6 +294,9 @@ export const createInvite = mutation({
         role: args.inviteeRole,
         invitedUserId: inviteeUser?._id,
         updatedAt: now,
+        inviterDisplayNameSnapshot:
+          formatName(user.firstName ?? null, user.lastName ?? null) ?? undefined,
+        inviterDisplayEmailSnapshot: user.email,
       });
       return {
         token: activeInvite.token,
@@ -283,6 +317,9 @@ export const createInvite = mutation({
       invitedUserId: inviteeUser?._id,
       expiresAt,
       updatedAt: now,
+      inviterDisplayNameSnapshot:
+        formatName(user.firstName ?? null, user.lastName ?? null) ?? undefined,
+      inviterDisplayEmailSnapshot: user.email,
     });
 
     return { token, inviteId, wasResent: false };
@@ -309,18 +346,14 @@ export const getInviteForAcceptance = query({
     inviterEmail: string | null;
     expiresAt: number;
   }> => {
-    const { invite, workspace, inviter } = await validateInviteForAcceptance(ctx, args.token);
-
-    const inviterName =
-      inviter?.firstName || inviter?.lastName
-        ? [inviter.firstName, inviter.lastName].filter(Boolean).join(' ')
-        : null;
+    const { invite, workspace } = await validateInviteForAcceptance(ctx, args.token);
+    const inviterInfo = await getInviterInfo(ctx, invite);
 
     return {
       workspaceName: workspace.name,
       role: invite.role,
-      inviterName,
-      inviterEmail: inviter?.email ?? null,
+      inviterName: inviterInfo.name,
+      inviterEmail: inviterInfo.email,
       expiresAt: invite.expiresAt,
     };
   },
@@ -426,7 +459,7 @@ export const getWorkspaceInvites = query({
       invites
         .filter((invite) => invite.status === 'pending')
         .map(async (invite) => {
-          const inviter = await ctx.db.get('users', invite.invitedByUserId);
+          const inviterInfo = await getInviterInfo(ctx, invite);
           return {
             _id: invite._id,
             email: invite.email,
@@ -434,13 +467,11 @@ export const getWorkspaceInvites = query({
             invitedAt: invite._creationTime,
             expiresAt: invite.expiresAt,
             isExpired: invite.expiresAt < now,
-            inviter: inviter
-              ? {
-                  firstName: inviter.firstName,
-                  lastName: inviter.lastName,
-                  email: inviter.email,
-                }
-              : null,
+            inviter: {
+              firstName: inviterInfo.name ? inviterInfo.name.split(' ')[0] : null,
+              lastName: inviterInfo.name ? inviterInfo.name.split(' ').slice(1).join(' ') : null,
+              email: inviterInfo.email,
+            },
           };
         }),
     );

@@ -169,10 +169,6 @@ function OnboardingDialogLoader({ onComplete }: { onComplete: () => void }) {
   const onboardingOpen = onboardingStatusState === 'success' && onboardingStatus === 'not_started';
 
   return (
-    <OnboardingDialog
-      open={onboardingOpen}
-      onOpenChange={onComplete}
-      onComplete={onComplete}
-    />
+    <OnboardingDialog open={onboardingOpen} onOpenChange={onComplete} onComplete={onComplete} />
   );
 }

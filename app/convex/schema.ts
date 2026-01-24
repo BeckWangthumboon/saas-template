@@ -43,6 +43,8 @@ export default defineSchema({
     acceptedByUserId: v.optional(v.id('users')),
     acceptedAt: v.optional(v.number()),
     updatedAt: v.number(),
+    inviterDisplayNameSnapshot: v.optional(v.string()),
+    inviterDisplayEmailSnapshot: v.string(),
   })
     .index('by_token', ['token'])
     .index('by_workspaceId', ['workspaceId'])

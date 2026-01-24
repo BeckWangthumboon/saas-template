@@ -90,7 +90,11 @@ export interface ErrorContextMap {
   [ErrorCode.WORKSPACE_ACCESS_DENIED]: { workspaceId?: string };
   [ErrorCode.WORKSPACE_NAME_EMPTY]: Record<string, never>;
   [ErrorCode.WORKSPACE_LAST_OWNER]: { workspaceId: string };
-  [ErrorCode.WORKSPACE_INSUFFICIENT_ROLE]: { workspaceId: string; requiredRole: string; action: string };
+  [ErrorCode.WORKSPACE_INSUFFICIENT_ROLE]: {
+    workspaceId: string;
+    requiredRole: string;
+    action: string;
+  };
   [ErrorCode.INVITE_NOT_FOUND]: { token?: string; inviteId?: string };
   [ErrorCode.INVITE_EXPIRED]: { token?: string; hasNewerInvite?: boolean };
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: { token?: string; hasNewerInvite?: boolean };
@@ -112,7 +116,8 @@ const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.WORKSPACE_ACCESS_DENIED]: 'You do not have access to this workspace',
   [ErrorCode.WORKSPACE_NAME_EMPTY]: 'Workspace name cannot be empty',
   [ErrorCode.WORKSPACE_LAST_OWNER]: 'You are the only owner. Please delete the workspace instead',
-  [ErrorCode.WORKSPACE_INSUFFICIENT_ROLE]: 'You do not have the required role to perform this action',
+  [ErrorCode.WORKSPACE_INSUFFICIENT_ROLE]:
+    'You do not have the required role to perform this action',
   [ErrorCode.INVITE_NOT_FOUND]: 'Invite not found',
   [ErrorCode.INVITE_EXPIRED]: 'This invite has expired',
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: 'This invite has already been accepted',
