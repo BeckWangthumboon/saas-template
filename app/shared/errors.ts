@@ -18,6 +18,9 @@ export const ErrorCodeSchema = z.enum([
   'AUTH_WORKOS_API_ERROR',
   'AUTH_WORKOS_RATE_LIMIT',
   'WORKSPACE_ACCESS_DENIED',
+  'WORKSPACE_NAME_EMPTY',
+  'WORKSPACE_LAST_OWNER',
+  'WORKSPACE_INSUFFICIENT_ROLE',
   'INTERNAL_ERROR',
 ]);
 
@@ -30,6 +33,9 @@ export const ErrorCode = {
   AUTH_WORKOS_API_ERROR: 'AUTH_WORKOS_API_ERROR',
   AUTH_WORKOS_RATE_LIMIT: 'AUTH_WORKOS_RATE_LIMIT',
   WORKSPACE_ACCESS_DENIED: 'WORKSPACE_ACCESS_DENIED',
+  WORKSPACE_NAME_EMPTY: 'WORKSPACE_NAME_EMPTY',
+  WORKSPACE_LAST_OWNER: 'WORKSPACE_LAST_OWNER',
+  WORKSPACE_INSUFFICIENT_ROLE: 'WORKSPACE_INSUFFICIENT_ROLE',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
 } as const;
 
@@ -40,6 +46,9 @@ const errorCategoryMap: Record<ErrorCode, ErrorCategory> = {
   [ErrorCode.AUTH_WORKOS_API_ERROR]: ErrorCategory.AUTH,
   [ErrorCode.AUTH_WORKOS_RATE_LIMIT]: ErrorCategory.AUTH,
   [ErrorCode.WORKSPACE_ACCESS_DENIED]: ErrorCategory.WORKSPACE,
+  [ErrorCode.WORKSPACE_NAME_EMPTY]: ErrorCategory.WORKSPACE,
+  [ErrorCode.WORKSPACE_LAST_OWNER]: ErrorCategory.WORKSPACE,
+  [ErrorCode.WORKSPACE_INSUFFICIENT_ROLE]: ErrorCategory.WORKSPACE,
   [ErrorCode.INTERNAL_ERROR]: ErrorCategory.INTERNAL,
 };
 
@@ -51,6 +60,9 @@ export interface ErrorContextMap {
   [ErrorCode.AUTH_WORKOS_API_ERROR]: { operation?: string; status?: number; message?: string };
   [ErrorCode.AUTH_WORKOS_RATE_LIMIT]: { retryAfter?: number };
   [ErrorCode.WORKSPACE_ACCESS_DENIED]: { workspaceId?: string };
+  [ErrorCode.WORKSPACE_NAME_EMPTY]: Record<string, never>;
+  [ErrorCode.WORKSPACE_LAST_OWNER]: { workspaceId: string };
+  [ErrorCode.WORKSPACE_INSUFFICIENT_ROLE]: { workspaceId: string; requiredRole: string; action: string };
   [ErrorCode.INTERNAL_ERROR]: { details?: string };
 }
 
@@ -61,6 +73,9 @@ const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.AUTH_WORKOS_API_ERROR]: 'Authentication service error',
   [ErrorCode.AUTH_WORKOS_RATE_LIMIT]: 'Too many requests',
   [ErrorCode.WORKSPACE_ACCESS_DENIED]: 'You do not have access to this workspace',
+  [ErrorCode.WORKSPACE_NAME_EMPTY]: 'Workspace name cannot be empty',
+  [ErrorCode.WORKSPACE_LAST_OWNER]: 'You are the only owner. Please delete the workspace instead',
+  [ErrorCode.WORKSPACE_INSUFFICIENT_ROLE]: 'You do not have the required role to perform this action',
   [ErrorCode.INTERNAL_ERROR]: 'Internal error',
 };
 
@@ -179,6 +194,11 @@ export const ConvexErrors = {
         ErrorCode.WORKSPACE_ACCESS_DENIED,
         workspaceId ? { workspaceId } : undefined,
       ),
+    nameEmpty: () => createAppErrorForConvex(ErrorCode.WORKSPACE_NAME_EMPTY),
+    lastOwner: (workspaceId: string) =>
+      createAppErrorForConvex(ErrorCode.WORKSPACE_LAST_OWNER, { workspaceId }),
+    insufficientRole: (context: ErrorContextMap['WORKSPACE_INSUFFICIENT_ROLE']) =>
+      createAppErrorForConvex(ErrorCode.WORKSPACE_INSUFFICIENT_ROLE, context),
   },
   internal: {
     error: (details?: string) =>

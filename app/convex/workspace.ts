@@ -79,7 +79,7 @@ export const createWorkspace = mutation({
     const user = await getAuthenticatedUser(ctx);
 
     if (!args.name.trim()) {
-      throw new Error('Workspace name cannot be empty');
+      throwAppErrorForConvex(ErrorCode.WORKSPACE_NAME_EMPTY);
     }
 
     const workspaceId = await ctx.db.insert('workspaces', {
@@ -119,7 +119,9 @@ export const leaveWorkspace = mutation({
         .collect();
 
       if (owners.length === 1) {
-        throw new Error('You are the only owner. Please delete the workspace instead');
+        throwAppErrorForConvex(ErrorCode.WORKSPACE_LAST_OWNER, {
+          workspaceId: args.workspaceId as string,
+        });
       }
     }
 
@@ -140,7 +142,11 @@ export const deleteWorkspace = mutation({
     const { membership } = await getWorkspaceMembership(ctx, args.workspaceId);
 
     if (membership.role !== 'owner') {
-      throw new Error('Only owners can delete workspaces');
+      throwAppErrorForConvex(ErrorCode.WORKSPACE_INSUFFICIENT_ROLE, {
+        workspaceId: args.workspaceId as string,
+        requiredRole: 'owner',
+        action: 'delete',
+      });
     }
 
     const allMembers = await ctx.db
