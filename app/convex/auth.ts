@@ -1,6 +1,7 @@
 import { type AuthFunctions, AuthKit } from '@convex-dev/workos-authkit';
 import { WorkOS } from '@workos-inc/node';
 
+import { ErrorCode, throwAppErrorForConvex } from '../shared/errors';
 import { components, internal } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
 
@@ -11,7 +12,9 @@ import type { DataModel } from './_generated/dataModel';
 export function getWorkOS(): WorkOS {
   const apiKey = process.env.WORKOS_API_KEY;
   if (!apiKey) {
-    throw new Error('WORKOS_API_KEY environment variable is not set');
+    return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+      details: 'WORKOS_API_KEY environment variable is not set',
+    });
   }
   return new WorkOS(apiKey);
 }

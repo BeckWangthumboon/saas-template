@@ -1,7 +1,7 @@
 import { useForm } from '@tanstack/react-form';
 import { createFileRoute } from '@tanstack/react-router';
 import { useAuth } from '@workos-inc/authkit-react';
-import { useConvex, useQuery } from 'convex/react';
+import { useConvex } from 'convex/react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -27,7 +27,7 @@ import {
   FieldSeparator,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { useConvexAction, useConvexMutation } from '@/hooks';
+import { useConvexAction, useConvexMutation, useConvexQuery } from '@/hooks';
 
 import { api } from '../../../convex/_generated/api';
 
@@ -36,7 +36,7 @@ export const Route = createFileRoute('/_app/settings')({
 });
 
 function SettingsPage() {
-  const user = useQuery(api.user.getUserOrNull);
+  const { status: userQueryStatus, data: user } = useConvexQuery(api.user.getUserOrNull);
   const { mutate: updateName } = useConvexMutation(api.user.updateName);
   const { execute: deleteAccount, state: deleteState } = useConvexAction(api.user.deleteAccount);
   const { signOut } = useAuth();
@@ -88,7 +88,7 @@ function SettingsPage() {
     window.location.href = '/sign-in';
   };
 
-  if (user === undefined) {
+  if (userQueryStatus === 'loading') {
     return (
       <div className="max-w-2xl">
         <div className="mb-6">

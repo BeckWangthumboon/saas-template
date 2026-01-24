@@ -16,23 +16,12 @@ import {
 import { getWorkOS } from './auth';
 
 type AuthIdentity = NonNullable<Awaited<ReturnType<QueryCtx['auth']['getUserIdentity']>>>;
-type MaybeAuthIdentity = Awaited<ReturnType<QueryCtx['auth']['getUserIdentity']>>;
-
-function assertAuthIdentity(identity: MaybeAuthIdentity): asserts identity is AuthIdentity {
-  if (!identity) {
-    throwAppErrorForConvex(ErrorCode.AUTH_UNAUTHORIZED, { reason: 'no_identity' });
-  }
-}
-
-function assertUser(user: Doc<'users'> | null, authId: string): asserts user is Doc<'users'> {
-  if (!user) {
-    throwAppErrorForConvex(ErrorCode.AUTH_USER_NOT_FOUND, { authId });
-  }
-}
 
 function assertCreatedUser(user: Doc<'users'> | null): asserts user is Doc<'users'> {
   if (!user) {
-    throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, { details: 'Failed to fetch created user' });
+    return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+      details: 'Failed to fetch created user',
+    });
   }
 }
 
@@ -42,7 +31,9 @@ function assertCreatedUser(user: Doc<'users'> | null): asserts user is Doc<'user
  */
 async function getAuthIdentity(ctx: QueryCtx | MutationCtx | ActionCtx): Promise<AuthIdentity> {
   const identity = await ctx.auth.getUserIdentity();
-  assertAuthIdentity(identity);
+  if (!identity) {
+    return throwAppErrorForConvex(ErrorCode.AUTH_UNAUTHORIZED, { reason: 'no_identity' });
+  }
   return identity;
 }
 
@@ -58,7 +49,9 @@ export async function getAuthenticatedUser(ctx: QueryCtx | MutationCtx): Promise
     .withIndex('by_authId', (q) => q.eq('authId', identity.subject))
     .unique();
 
-  assertUser(user, identity.subject);
+  if (!user) {
+    return throwAppErrorForConvex(ErrorCode.AUTH_USER_NOT_FOUND, { authId: identity.subject });
+  }
   return user;
 }
 
@@ -123,9 +116,7 @@ export const ensureUser = action({
     }
 
     const workos = getWorkOS();
-    const workosUser = await (async (): Promise<
-      Awaited<ReturnType<typeof workos.userManagement.getUser>>
-    > => {
+    const workosUser = await (async () => {
       try {
         return await workos.userManagement.getUser(authId);
       } catch (error) {
@@ -135,18 +126,17 @@ export const ensureUser = action({
           workosError.status === 404 ||
           workosError.message?.toLowerCase().includes('not found')
         ) {
-          throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_USER_NOT_FOUND, { authId });
+          return throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_USER_NOT_FOUND, { authId });
         }
         if (workosError.status === 429) {
-          throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_RATE_LIMIT);
+          return throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_RATE_LIMIT);
         }
-        throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_API_ERROR, {
+        return throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_API_ERROR, {
           operation: 'getUser',
           status: workosError.status,
           message: workosError.message,
         });
       }
-      throw new Error('Unhandled WorkOS user fetch error');
     })();
     return await ctx.runMutation(internal.user.getUserOrUpsertInternal, {
       authId,
