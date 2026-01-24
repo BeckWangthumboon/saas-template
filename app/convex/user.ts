@@ -1,7 +1,6 @@
-import type { WorkOS } from '@workos-inc/node';
 import { v } from 'convex/values';
 
-import { Errors } from '../shared/errors';
+import { ErrorCode, throwAppErrorForConvex } from '../shared/errors';
 import { internal } from './_generated/api';
 import type { Doc } from './_generated/dataModel';
 import {
@@ -16,15 +15,34 @@ import {
 } from './_generated/server';
 import { getWorkOS } from './auth';
 
+type AuthIdentity = NonNullable<Awaited<ReturnType<QueryCtx['auth']['getUserIdentity']>>>;
+type MaybeAuthIdentity = Awaited<ReturnType<QueryCtx['auth']['getUserIdentity']>>;
+
+function assertAuthIdentity(identity: MaybeAuthIdentity): asserts identity is AuthIdentity {
+  if (!identity) {
+    throwAppErrorForConvex(ErrorCode.AUTH_UNAUTHORIZED, { reason: 'no_identity' });
+  }
+}
+
+function assertUser(user: Doc<'users'> | null, authId: string): asserts user is Doc<'users'> {
+  if (!user) {
+    throwAppErrorForConvex(ErrorCode.AUTH_USER_NOT_FOUND, { authId });
+  }
+}
+
+function assertCreatedUser(user: Doc<'users'> | null): asserts user is Doc<'users'> {
+  if (!user) {
+    throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, { details: 'Failed to fetch created user' });
+  }
+}
+
 /**
  * Gets the authenticated user's identity from the JWT token.
  * Use this for simple auth checks when you don't need the full DB user.
  */
-async function getAuthIdentity(ctx: QueryCtx | MutationCtx | ActionCtx) {
+async function getAuthIdentity(ctx: QueryCtx | MutationCtx | ActionCtx): Promise<AuthIdentity> {
   const identity = await ctx.auth.getUserIdentity();
-  if (!identity) {
-    throw Errors.unauthorized({ reason: 'no_identity' });
-  }
+  assertAuthIdentity(identity);
   return identity;
 }
 
@@ -40,10 +58,7 @@ export async function getAuthenticatedUser(ctx: QueryCtx | MutationCtx): Promise
     .withIndex('by_authId', (q) => q.eq('authId', identity.subject))
     .unique();
 
-  if (!user) {
-    throw Errors.userNotFound({ authId: identity.subject });
-  }
-
+  assertUser(user, identity.subject);
   return user;
 }
 
@@ -99,11 +114,7 @@ export const updateName = mutation({
 export const ensureUser = action({
   args: {},
   handler: async (ctx): Promise<Doc<'users'>> => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      throw Errors.unauthorized({ reason: 'no_identity' });
-    }
-
+    const identity = await getAuthIdentity(ctx);
     const authId = identity.subject;
     const existingUser = await ctx.runQuery(internal.user.getUserByAuthIdInternal, { authId });
 
@@ -112,26 +123,31 @@ export const ensureUser = action({
     }
 
     const workos = getWorkOS();
-    let workosUser: Awaited<ReturnType<WorkOS['userManagement']['getUser']>>;
+    const workosUser = await (async (): Promise<
+      Awaited<ReturnType<typeof workos.userManagement.getUser>>
+    > => {
+      try {
+        return await workos.userManagement.getUser(authId);
+      } catch (error) {
+        const workosError = error as { status?: number; message?: string };
 
-    try {
-      workosUser = await workos.userManagement.getUser(authId);
-    } catch (error) {
-      const workosError = error as { status?: number; message?: string };
-
-      if (workosError.status === 404 || workosError.message?.toLowerCase().includes('not found')) {
-        throw Errors.workosUserNotFound(authId);
+        if (
+          workosError.status === 404 ||
+          workosError.message?.toLowerCase().includes('not found')
+        ) {
+          throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_USER_NOT_FOUND, { authId });
+        }
+        if (workosError.status === 429) {
+          throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_RATE_LIMIT);
+        }
+        throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_API_ERROR, {
+          operation: 'getUser',
+          status: workosError.status,
+          message: workosError.message,
+        });
       }
-      if (workosError.status === 429) {
-        throw Errors.rateLimit();
-      }
-      throw Errors.workosError({
-        operation: 'getUser',
-        status: workosError.status,
-        message: workosError.message,
-      });
-    }
-
+      throw new Error('Unhandled WorkOS user fetch error');
+    })();
     return await ctx.runMutation(internal.user.getUserOrUpsertInternal, {
       authId,
       userData: {
@@ -249,7 +265,7 @@ export const getUserOrUpsertInternal = internalMutation({
       ...args.userData,
     });
     const newUser = await ctx.db.get('users', id);
-    if (!newUser) throw Errors.internal('Failed to fetch created user');
+    assertCreatedUser(newUser);
     return newUser;
   },
 });
