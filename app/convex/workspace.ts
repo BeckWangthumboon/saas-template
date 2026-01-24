@@ -93,6 +93,7 @@ export const createWorkspace = mutation({
       workspaceId,
       role: 'owner',
       status: 'active',
+      updatedAt: Date.now(),
     });
 
     return workspaceId;
