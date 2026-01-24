@@ -1,13 +1,15 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { useAuth } from '@workos-inc/authkit-react';
-import { Authenticated, Unauthenticated, useAction, useConvex } from 'convex/react';
+import { Authenticated, Unauthenticated, useConvex } from 'convex/react';
 import { FileTextIcon, LayoutDashboardIcon, SettingsIcon } from 'lucide-react';
-import { useEffect, useState } from 'react';
+import { useCallback, useEffect } from 'react';
 
 import { Button } from '@/components/ui/button';
+import { useConvexAction } from '@/hooks';
 import { cn } from '@/lib/utils';
 
 import { api } from '../../../convex/_generated/api';
+import type { AppErrorData } from '../../../shared/errors';
 
 export const Route = createFileRoute('/_app')({
   component: AppLayout,
@@ -73,14 +75,11 @@ function AuthenticatedLayout() {
   const location = useLocation();
   const { signOut } = useAuth();
   const convex = useConvex();
-  const ensureUser = useAction(api.user.ensureUser);
-  const [isReady, setIsReady] = useState(false);
+  const { execute: ensureUser, state: ensureUserState } = useConvexAction(api.user.ensureUser);
 
-  useEffect(() => {
-    const handleAuthFailure = async (error?: unknown) => {
-      if (error) {
-        console.error(error);
-      }
+  const handleAuthFailure = useCallback(
+    async (error: AppErrorData) => {
+      console.error(`Auth failure [${error.code}]: ${error.message}`);
       try {
         await signOut({ navigate: false });
       } catch (signOutError) {
@@ -88,22 +87,19 @@ function AuthenticatedLayout() {
       }
       convex.clearAuth();
       window.location.href = '/sign-in';
-    };
+    },
+    [convex, signOut],
+  );
 
-    ensureUser()
-      .then((user) => {
-        if (!user) {
-          void handleAuthFailure();
-          return;
-        }
-        setIsReady(true);
-      })
-      .catch((error: unknown) => {
-        void handleAuthFailure(error);
-      });
-  }, [convex, ensureUser, signOut]);
+  useEffect(() => {
+    void ensureUser().then((result) => {
+      if (result.isErr()) {
+        void handleAuthFailure(result.error);
+      }
+    });
+  }, [ensureUser, handleAuthFailure]);
 
-  if (!isReady) {
+  if (ensureUserState.status !== 'success') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-muted-foreground">Loading...</p>

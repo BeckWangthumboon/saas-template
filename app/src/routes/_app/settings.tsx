@@ -1,7 +1,7 @@
 import { useForm } from '@tanstack/react-form';
 import { createFileRoute } from '@tanstack/react-router';
 import { useAuth } from '@workos-inc/authkit-react';
-import { useAction, useConvex, useMutation, useQuery } from 'convex/react';
+import { useConvex, useQuery } from 'convex/react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -27,6 +27,7 @@ import {
   FieldSeparator,
 } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
+import { useConvexAction, useConvexMutation } from '@/hooks';
 
 import { api } from '../../../convex/_generated/api';
 
@@ -36,12 +37,12 @@ export const Route = createFileRoute('/_app/settings')({
 
 function SettingsPage() {
   const user = useQuery(api.user.getUserOrNull);
-  const updateName = useMutation(api.user.updateName);
-  const deleteAccount = useAction(api.user.deleteAccount);
+  const { mutate: updateName } = useConvexMutation(api.user.updateName);
+  const { execute: deleteAccount, state: deleteState } = useConvexAction(api.user.deleteAccount);
   const { signOut } = useAuth();
   const convex = useConvex();
-  const [isDeleting, setIsDeleting] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const isDeleting = deleteState.status === 'loading';
 
   const form = useForm({
     defaultValues: {
@@ -49,34 +50,34 @@ function SettingsPage() {
       lastName: user?.lastName ?? '',
     },
     onSubmit: async ({ value }) => {
-      try {
-        await updateName({
-          firstName: value.firstName || undefined,
-          lastName: value.lastName || undefined,
-        });
+      const result = await updateName({
+        firstName: value.firstName || undefined,
+        lastName: value.lastName || undefined,
+      });
+
+      if (result.isOk()) {
         toast.success('Profile updated', {
           description: 'Your name has been updated successfully.',
         });
-      } catch {
+      } else {
         toast.error('Failed to update profile', {
-          description: 'Please try again later.',
+          description: result.error.message,
         });
       }
     },
   });
 
   const handleDeleteAccount = async () => {
-    setIsDeleting(true);
-    try {
-      await deleteAccount();
-      setDeleteDialogOpen(false);
-    } catch {
+    const result = await deleteAccount();
+
+    if (result.isErr()) {
       toast.error('Failed to delete account', {
-        description: 'Please try again later.',
+        description: result.error.message,
       });
-      setIsDeleting(false);
       return;
     }
+
+    setDeleteDialogOpen(false);
 
     try {
       await signOut({ navigate: false });
