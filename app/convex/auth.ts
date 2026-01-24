@@ -65,6 +65,7 @@ export const { authKitEvent } = authKit.events({
       firstName: event.data.firstName ?? undefined,
       lastName: event.data.lastName ?? undefined,
       profilePictureUrl: event.data.profilePictureUrl ?? undefined,
+      onboardingStatus: 'not_started',
       updatedAt: Date.now(),
     });
   },

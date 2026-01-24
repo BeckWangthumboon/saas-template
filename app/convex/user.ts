@@ -254,10 +254,27 @@ export const getUserOrUpsertInternal = internalMutation({
     const id = await ctx.db.insert('users', {
       authId: args.authId,
       ...args.userData,
+      onboardingStatus: 'not_started',
       updatedAt: Date.now(),
     });
     const newUser = await ctx.db.get('users', id);
     assertCreatedUser(newUser);
     return newUser;
+  },
+});
+
+/**
+ * Marks the authenticated user's onboarding as completed.
+ *
+ * @throws Error if not authenticated.
+ */
+export const completeOnboarding = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getAuthenticatedUser(ctx);
+    await ctx.db.patch('users', user._id, {
+      onboardingStatus: 'completed',
+      updatedAt: Date.now(),
+    });
   },
 });
