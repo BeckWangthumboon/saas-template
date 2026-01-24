@@ -8,6 +8,7 @@ export default defineSchema({
     firstName: v.optional(v.string()),
     lastName: v.optional(v.string()),
     profilePictureUrl: v.optional(v.string()),
+    updatedAt: v.number(),
   })
     .index('by_authId', ['authId'])
     .index('by_email', ['email']),

@@ -95,6 +95,7 @@ export const updateName = mutation({
     await ctx.db.patch('users', user._id, {
       firstName: args.firstName,
       lastName: args.lastName,
+      updatedAt: Date.now(),
     });
   },
 });
@@ -253,6 +254,7 @@ export const getUserOrUpsertInternal = internalMutation({
     const id = await ctx.db.insert('users', {
       authId: args.authId,
       ...args.userData,
+      updatedAt: Date.now(),
     });
     const newUser = await ctx.db.get('users', id);
     assertCreatedUser(newUser);

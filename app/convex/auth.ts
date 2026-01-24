@@ -51,7 +51,10 @@ export const { authKitEvent } = authKit.events({
         updates.profilePictureUrl = event.data.profilePictureUrl;
       }
       if (Object.keys(updates).length > 0) {
-        await ctx.db.patch('users', existingUser._id, updates);
+        await ctx.db.patch('users', existingUser._id, {
+          ...updates,
+          updatedAt: Date.now(),
+        });
       }
       return;
     }
@@ -62,6 +65,7 @@ export const { authKitEvent } = authKit.events({
       firstName: event.data.firstName ?? undefined,
       lastName: event.data.lastName ?? undefined,
       profilePictureUrl: event.data.profilePictureUrl ?? undefined,
+      updatedAt: Date.now(),
     });
   },
   /**
@@ -82,6 +86,7 @@ export const { authKitEvent } = authKit.events({
     await ctx.db.patch('users', user._id, {
       email: event.data.email,
       profilePictureUrl: event.data.profilePictureUrl ?? undefined,
+      updatedAt: Date.now(),
     });
   },
   /**
