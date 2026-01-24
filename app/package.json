@@ -8,6 +8,7 @@
     "dev:frontend": "vite --open",
     "dev:backend": "convex dev",
     "predev": "convex dev --until-success && convex dashboard",
+    "generate": "bunx convex dev --once",
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "lint": "bun run --cwd .. lint",
