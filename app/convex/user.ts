@@ -79,6 +79,21 @@ export const getUserOrNull = query({
 });
 
 /**
+ * Gets the authenticated user's onboarding status.
+ *
+ * @returns 'not_started' if not completed, 'completed' if completed.
+ * @throws Error if not authenticated or user not found.
+ */
+export const getOnboardingStatus = query({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getAuthenticatedUser(ctx);
+
+    return user.onboardingStatus;
+  },
+});
+
+/**
  * Updates the authenticated user's first and/or last name.
  *
  * @param firstName - The new first name (optional).

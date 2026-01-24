@@ -5,7 +5,8 @@ import { FileTextIcon, LayoutDashboardIcon, SettingsIcon } from 'lucide-react';
 import { useCallback, useEffect } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { useConvexAction } from '@/hooks';
+import { OnboardingDialog } from '@/features/onboarding/onboarding-dialog';
+import { useConvexAction, useConvexMutation, useConvexQuery } from '@/hooks';
 import { cn } from '@/lib/utils';
 
 import { api } from '../../../convex/_generated/api';
@@ -76,6 +77,7 @@ function AuthenticatedLayout() {
   const { signOut } = useAuth();
   const convex = useConvex();
   const { execute: ensureUser, state: ensureUserState } = useConvexAction(api.user.ensureUser);
+  const { mutate: completeOnboarding } = useConvexMutation(api.user.completeOnboarding);
 
   const handleAuthFailure = useCallback(
     async (error: AppErrorData) => {
@@ -98,6 +100,13 @@ function AuthenticatedLayout() {
       }
     });
   }, [ensureUser, handleAuthFailure]);
+
+  const handleCompleteOnboarding = async () => {
+    const result = await completeOnboarding({});
+    if (result.isErr()) {
+      console.error('Failed to complete onboarding:', result.error);
+    }
+  };
 
   if (ensureUserState.status !== 'success') {
     return (
@@ -147,6 +156,23 @@ function AuthenticatedLayout() {
           <Outlet />
         </main>
       </div>
+
+      <OnboardingDialogLoader onComplete={handleCompleteOnboarding} />
     </div>
+  );
+}
+
+function OnboardingDialogLoader({ onComplete }: { onComplete: () => void }) {
+  const { status: onboardingStatusState, data: onboardingStatus } = useConvexQuery(
+    api.user.getOnboardingStatus,
+  );
+  const onboardingOpen = onboardingStatusState === 'success' && onboardingStatus === 'not_started';
+
+  return (
+    <OnboardingDialog
+      open={onboardingOpen}
+      onOpenChange={onComplete}
+      onComplete={onComplete}
+    />
   );
 }
