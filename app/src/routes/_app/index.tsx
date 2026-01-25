@@ -1,7 +1,9 @@
+import { useForm } from '@tanstack/react-form';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { MailIcon, PlusIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 import { toast } from 'sonner';
+import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -15,8 +17,8 @@ import {
   DialogTitle,
   DialogTrigger,
 } from '@/components/ui/dialog';
+import { Field, FieldError, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
 import { useConvexMutation, useConvexQuery } from '@/hooks';
 import { defaultWorkspaceStorage } from '@/lib/storage';
 
@@ -60,35 +62,56 @@ function OverviewPage() {
   return <NoWorkspacesView />;
 }
 
+const workspaceNameSchema = z
+  .string()
+  .min(1, 'Workspace name is required')
+  .min(2, 'Workspace name must be at least 2 characters')
+  .max(50, 'Workspace name must be at most 50 characters');
+
 function NoWorkspacesView() {
   const navigate = useNavigate();
-  const [workspaceName, setWorkspaceName] = useState('');
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { status: userStatus, data: user } = useConvexQuery(api.user.getUserOrNull);
   const { mutate: createWorkspace, state } = useConvexMutation(api.workspace.createWorkspace);
   const isLoading = state.status === 'loading';
 
-  const handleCreateWorkspace = async () => {
-    if (!workspaceName.trim()) return;
+  const defaultWorkspaceName = user?.firstName ? `${user.firstName}'s workspace` : '';
 
-    const result = await createWorkspace({ name: workspaceName.trim() });
+  const form = useForm({
+    defaultValues: {
+      name: defaultWorkspaceName,
+    },
+    onSubmit: async ({ value }) => {
+      const result = await createWorkspace({ name: value.name.trim() });
 
-    if (result.isOk()) {
-      toast.success('Workspace created', {
-        description: `"${workspaceName.trim()}" is ready to use.`,
-      });
-      setDialogOpen(false);
-      setWorkspaceName('');
-      void navigate({ to: `/workspaces/${result.value}` });
-    } else {
-      toast.error('Failed to create workspace', { description: result.error.message });
-    }
-  };
+      if (result.isOk()) {
+        toast.success('Workspace created', {
+          description: `"${value.name.trim()}" is ready to use.`,
+        });
+        setDialogOpen(false);
+        form.reset();
+        void navigate({ to: `/workspaces/${result.value}` });
+      } else {
+        toast.error('Failed to create workspace', { description: result.error.message });
+      }
+    },
+  });
+
+  if (userStatus === 'loading') {
+    return (
+      <div className="flex min-h-[60vh] items-center justify-center">
+        <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
+      </div>
+    );
+  }
 
   return (
     <div className="p-6 flex min-h-[60vh] items-center justify-center">
       <div className="w-full max-w-md space-y-6">
         <div className="text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">Welcome</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">
+            Welcome{user?.firstName ? `, ${user.firstName}` : ''}!
+          </h1>
           <p className="text-muted-foreground mt-2">
             Get started by creating a workspace or joining an existing one.
           </p>
@@ -120,34 +143,63 @@ function NoWorkspacesView() {
                   Give your workspace a name. You can change this later.
                 </DialogDescription>
               </DialogHeader>
-              <div className="space-y-2">
-                <Label htmlFor="workspace-name">Workspace name</Label>
-                <Input
-                  id="workspace-name"
-                  placeholder="My Workspace"
-                  value={workspaceName}
-                  onChange={(e) => {
-                    setWorkspaceName(e.target.value);
+              <form
+                id="create-workspace-form"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  void form.handleSubmit();
+                }}
+              >
+                <form.Field
+                  name="name"
+                  validators={{
+                    onBlur: ({ value }) => {
+                      const result = workspaceNameSchema.safeParse(value);
+                      if (result.success) return undefined;
+                      return result.error.issues[0].message;
+                    },
                   }}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && workspaceName.trim()) {
-                      void handleCreateWorkspace();
-                    }
+                  children={(field) => {
+                    const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
+                    return (
+                      <Field data-invalid={isInvalid}>
+                        <FieldLabel htmlFor={field.name}>Workspace name</FieldLabel>
+                        <Input
+                          id={field.name}
+                          name={field.name}
+                          value={field.state.value}
+                          onBlur={field.handleBlur}
+                          onChange={(e) => {
+                            field.handleChange(e.target.value);
+                          }}
+                          aria-invalid={isInvalid}
+                          placeholder="My Workspace"
+                          disabled={isLoading}
+                          autoFocus
+                          autoComplete="off"
+                        />
+                        {isInvalid && <FieldError>{field.state.meta.errors.join(', ')}</FieldError>}
+                      </Field>
+                    );
                   }}
-                  disabled={isLoading}
-                  autoFocus
                 />
-              </div>
+              </form>
               <DialogFooter>
                 <DialogClose render={<Button variant="outline" disabled={isLoading} />}>
                   Cancel
                 </DialogClose>
-                <Button
-                  onClick={handleCreateWorkspace}
-                  disabled={!workspaceName.trim() || isLoading}
-                >
-                  {isLoading ? 'Creating...' : 'Create'}
-                </Button>
+                <form.Subscribe
+                  selector={(state) => [state.canSubmit, state.isSubmitting]}
+                  children={([canSubmit, isSubmitting]) => (
+                    <Button
+                      type="submit"
+                      form="create-workspace-form"
+                      disabled={!canSubmit || isSubmitting || isLoading}
+                    >
+                      {isLoading ? 'Creating...' : 'Create'}
+                    </Button>
+                  )}
+                />
               </DialogFooter>
             </DialogContent>
           </Dialog>

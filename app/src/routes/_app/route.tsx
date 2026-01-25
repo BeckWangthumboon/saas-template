@@ -81,7 +81,7 @@ function AuthenticatedLayout() {
   }
 
   return (
-    <div className="min-h-screen flex flex-col">
+    <div className="flex min-h-screen flex-col">
       {/* Header */}
       <header className="h-14 border-b px-4 flex items-center justify-between shrink-0">
         <Link to="/" className="font-semibold text-lg">
@@ -101,8 +101,10 @@ function AuthenticatedLayout() {
       </header>
 
       {/* Content */}
-      <main className="flex-1 overflow-hidden">
-        <Outlet />
+      <main className="flex min-h-0 flex-1 overflow-hidden">
+        <div className="flex min-h-0 flex-1 flex-col">
+          <Outlet />
+        </div>
       </main>
 
       <OnboardingDialogLoader onComplete={handleCompleteOnboarding} />

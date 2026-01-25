@@ -51,7 +51,7 @@ function WorkspaceLayout() {
   const appPages = [
     {
       label: 'Overview',
-      href: `/worksaces/${workspaceId}`,
+      href: `/workspaces/${workspaceId}`,
       icon: LayoutDashboardIcon,
     },
     { label: 'Form', href: `/workspaces/${workspaceId}/form`, icon: FileTextIcon },
@@ -84,7 +84,7 @@ function WorkspaceLayout() {
   }
 
   return (
-    <div className="flex h-[calc(100vh-3.5rem)] min-h-0 overflow-hidden">
+    <div className="flex flex-1 min-h-0 overflow-hidden">
       <aside className="sticky top-0 h-full w-56 shrink-0 border-r bg-muted/40 p-3">
         <nav className="flex flex-col gap-1">
           {appPages.map((page) => (
