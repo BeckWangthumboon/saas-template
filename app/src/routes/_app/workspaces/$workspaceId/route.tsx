@@ -1,7 +1,18 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from '@tanstack/react-router';
-import { FileTextIcon, LayoutDashboardIcon, SettingsIcon } from 'lucide-react';
+import { ChevronsUpDownIcon, FileTextIcon, LayoutDashboardIcon, SettingsIcon } from 'lucide-react';
 import { useEffect } from 'react';
 
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuRadioGroup,
+  DropdownMenuRadioItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useConvexQuery } from '@/hooks';
 import { defaultWorkspaceStorage } from '@/lib/storage';
@@ -55,11 +66,7 @@ function WorkspaceLayout() {
       icon: LayoutDashboardIcon,
     },
     { label: 'Form', href: `/workspaces/${workspaceId}/form`, icon: FileTextIcon },
-    {
-      label: 'Settings',
-      href: `/workspaces/${workspaceId}/settings`,
-      icon: SettingsIcon,
-    },
+    { label: 'Settings', href: `/workspaces/${workspaceId}/settings`, icon: SettingsIcon },
   ];
 
   useEffect(() => {
@@ -84,9 +91,9 @@ function WorkspaceLayout() {
   }
 
   return (
-    <div className="flex flex-1 min-h-0 overflow-hidden">
-      <aside className="sticky top-0 h-full w-56 shrink-0 border-r bg-muted/40 p-3">
-        <nav className="flex flex-col gap-1">
+    <div className="flex h-full min-h-0 overflow-hidden">
+      <aside className="w-56 shrink-0 border-r bg-muted/40 p-3 flex flex-col">
+        <nav className="flex flex-col gap-1 flex-1">
           {appPages.map((page) => (
             <NavItem
               key={page.href}
@@ -97,6 +104,13 @@ function WorkspaceLayout() {
             />
           ))}
         </nav>
+        <div className="border-t pt-3 mt-3">
+          <WorkspaceSwitcher
+            workspaces={workspaces}
+            currentWorkspace={workspace}
+            onNavigate={navigate}
+          />
+        </div>
       </aside>
 
       <main className="flex-1 min-h-0 min-w-0 overflow-hidden">
@@ -107,5 +121,58 @@ function WorkspaceLayout() {
         </ScrollArea>
       </main>
     </div>
+  );
+}
+
+function WorkspaceSwitcher({
+  workspaces,
+  currentWorkspace,
+  onNavigate,
+}: {
+  workspaces: { id: string; name: string; role: 'owner' | 'admin' | 'member' }[];
+  currentWorkspace: { id: string; name: string; role: 'owner' | 'admin' | 'member' };
+  onNavigate: ReturnType<typeof useNavigate>;
+}) {
+  const handleWorkspaceChange = (workspaceId: string) => {
+    void onNavigate({ to: `/workspaces/${workspaceId}` });
+  };
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger
+        className={cn(
+          'flex w-full items-center gap-2 rounded-md px-3 py-2 transition-colors',
+          'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
+          'focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2',
+        )}
+      >
+        <div className="flex-1 min-w-0 text-left">
+          <div className="truncate text-sm font-medium text-foreground">
+            {currentWorkspace.name}
+          </div>
+          <div className="text-xs capitalize">{currentWorkspace.role}</div>
+        </div>
+        <ChevronsUpDownIcon className="size-4 shrink-0 opacity-50" />
+      </DropdownMenuTrigger>
+      <DropdownMenuContent side="top" align="start" sideOffset={8} className="w-52">
+        <DropdownMenuGroup>
+          <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
+          <DropdownMenuRadioGroup value={currentWorkspace.id} onValueChange={handleWorkspaceChange}>
+            {workspaces.map((ws) => (
+              <DropdownMenuRadioItem key={ws.id} value={ws.id}>
+                {ws.name}
+              </DropdownMenuRadioItem>
+            ))}
+          </DropdownMenuRadioGroup>
+        </DropdownMenuGroup>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem
+          onClick={() => void onNavigate({ to: `/workspaces/${currentWorkspace.id}/settings` })}
+        >
+          <SettingsIcon className="size-4" />
+          Settings
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }

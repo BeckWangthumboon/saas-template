@@ -14,7 +14,8 @@
     "lint": "bun run --cwd .. lint",
     "typecheck": "bun run --cwd .. typecheck",
     "format": "bun run --cwd .. format",
-    "format:check": "bun run --cwd .. format:check"
+    "format:check": "bun run --cwd .. format:check",
+    "check": "bun run lint && bun run typecheck && bun run format:check"
   },
   "dependencies": {
     "@base-ui/react": "^1.1.0",

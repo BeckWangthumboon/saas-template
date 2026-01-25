@@ -81,7 +81,7 @@ function AuthenticatedLayout() {
   }
 
   return (
-    <div className="flex min-h-screen flex-col">
+    <div className="flex h-dvh flex-col">
       {/* Header */}
       <header className="h-14 border-b px-4 flex items-center justify-between shrink-0">
         <Link to="/" className="font-semibold text-lg">
