@@ -29,9 +29,9 @@ import {
 import { Input } from '@/components/ui/input';
 import { useConvexAction, useConvexMutation, useConvexQuery } from '@/hooks';
 
-import { api } from '../../../convex/_generated/api';
+import { api } from '../../../../../convex/_generated/api';
 
-export const Route = createFileRoute('/_app/settings')({
+export const Route = createFileRoute('/_app/workspaces/$workspaceId/settings')({
   component: SettingsPage,
 });
 

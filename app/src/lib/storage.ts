@@ -1,4 +1,4 @@
-import type { z } from 'zod';
+import { z } from 'zod';
 
 interface StorageConfig<T> {
   key: string;
@@ -103,3 +103,10 @@ export function defineStorageKey<T>(config: StorageConfig<T>) {
     },
   };
 }
+
+export const defaultWorkspaceStorage = defineStorageKey({
+  key: 'defaultWorkspaceId',
+  schema: z.string().nullable(),
+  default: null,
+  version: 1,
+});

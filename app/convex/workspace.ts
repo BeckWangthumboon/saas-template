@@ -61,7 +61,7 @@ export const getUserWorkspaces = query({
 
     return memberships.flatMap((membership, i) => {
       const workspace = workspaces[i];
-      return workspace ? [{ name: workspace.name, role: membership.role }] : [];
+      return workspace ? [{ id: workspace._id, name: workspace.name, role: membership.role }] : [];
     });
   },
 });

@@ -29,7 +29,7 @@ import { Slider } from '@/components/ui/slider';
 import { Switch } from '@/components/ui/switch';
 import { Textarea } from '@/components/ui/textarea';
 
-export const Route = createFileRoute('/_app/form')({
+export const Route = createFileRoute('/_app/workspaces/$workspaceId/form')({
   component: FormPage,
 });
 
