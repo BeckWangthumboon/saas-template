@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 
 import { ErrorCode, throwAppErrorForConvex } from '../shared/errors';
 import type { Doc, Id } from './_generated/dataModel';
-import { mutation, type MutationCtx, query, type QueryCtx } from './_generated/server';
+import { mutation, type MutationCtx, query, type QueryCtx } from './functions';
 import { getAuthenticatedUser } from './user';
 
 export interface WorkspaceMembership {
@@ -182,7 +182,7 @@ export const leaveWorkspace = mutation({
 });
 
 /**
- * Deletes a workspace and all its members.
+ * Deletes a workspace and all its members and invites.
  * Only workspace owners can delete a workspace.
  *
  * @param workspaceId - The ID of the workspace to delete.
@@ -199,15 +199,6 @@ export const deleteWorkspace = mutation({
         requiredRole: 'owner',
         action: 'delete',
       });
-    }
-
-    const allMembers = await ctx.db
-      .query('workspaceMembers')
-      .withIndex('by_workspaceId', (q) => q.eq('workspaceId', args.workspaceId))
-      .collect();
-
-    for (const member of allMembers) {
-      await ctx.db.delete('workspaceMembers', member._id);
     }
 
     await ctx.db.delete('workspaces', args.workspaceId);

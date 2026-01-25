@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 
 import { ErrorCode, throwAppErrorForConvex } from '../shared/errors';
 import type { Doc, Id } from './_generated/dataModel';
-import { mutation, type MutationCtx, query, type QueryCtx } from './_generated/server';
+import { mutation, type MutationCtx, query, type QueryCtx } from './functions';
 import { getAuthenticatedUser } from './user';
 import { requireWorkspaceAdminOrOwner } from './workspace';
 

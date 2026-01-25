@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import { ErrorCode, throwAppErrorForConvex } from '../shared/errors';
 import { internal } from './_generated/api';
 import type { Doc } from './_generated/dataModel';
+import { getWorkOS } from './auth';
 import {
   action,
   type ActionCtx,
@@ -12,8 +13,7 @@ import {
   type MutationCtx,
   query,
   type QueryCtx,
-} from './_generated/server';
-import { getWorkOS } from './auth';
+} from './functions';
 
 type AuthIdentity = NonNullable<Awaited<ReturnType<QueryCtx['auth']['getUserIdentity']>>>;
 
