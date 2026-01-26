@@ -34,6 +34,7 @@ function AccountSettingsPage() {
   const { signOut } = useAuth();
   const convex = useConvex();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [isSigningOut, setIsSigningOut] = useState(false);
   const isDeleting = deleteState.status === 'loading';
 
   const form = useForm({
@@ -81,18 +82,17 @@ function AccountSettingsPage() {
       return;
     }
 
+    convex.clearAuth();
+    setIsSigningOut(true);
     setDeleteDialogOpen(false);
 
-    try {
-      await signOut({ navigate: false });
-    } catch (error) {
+    void signOut({ navigate: false }).catch((error: unknown) => {
       console.error(error);
-    }
-    convex.clearAuth();
+    });
     window.location.href = '/sign-in';
   };
 
-  if (userQueryStatus === 'loading') {
+  if (userQueryStatus === 'loading' || isSigningOut) {
     return <p className="text-muted-foreground">Loading account...</p>;
   }
 

@@ -9,6 +9,7 @@ This file provides instructions for AI agents working on this Convex + React (Vi
 bun run lint         # ESLint with auto-fix and caching
 bun run typecheck    # TypeScript type checking
 bun run format       # Prettier formatting
+bun run check        # Run lint, typecheck, and format
 bun run generate     # Generate Convex schema and API
 ```
 
@@ -46,7 +47,6 @@ Functional components with typed props. Route files export `Route = createFileRo
 - **Files**: camelCase (`userProfile.tsx`, `user.ts`)
 - **Functions/Variables**: camelCase (`getUserById`, `isLoading`)
 - **Constants**: UPPER_SNAKE_CASE (`API_BASE_URL`)
-- **Interfaces**: Prefix with `I` (`IUser`, `IMutationCtx`)
 
 ### Error Handling
 
@@ -161,10 +161,8 @@ app/
 
 ## Before Committing
 
-1. Run `bun run lint` - auto-fixes issues
-2. Run `bun run typecheck` - ensure type safety
-3. Run `bun run format` - ensure consistent formatting
-4. Test changes manually in the app
+1. Run `bun run check` - automatically runs lint, typecheck, and format
+2. Test changes manually in the app
 
 ## Notes
 

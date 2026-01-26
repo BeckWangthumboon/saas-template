@@ -185,6 +185,21 @@ export const throwAppErrorForConvex = <T extends ErrorCode>(
   throw createAppErrorForConvex(code, context);
 };
 
+const CONVEX_ERROR_SYMBOL = Symbol.for('ConvexError');
+
+const isConvexError = (error: unknown): error is ConvexError<Value> => {
+  if (!error || typeof error !== 'object') return false;
+  const name = (error as { name?: unknown }).name;
+  if (name !== 'ConvexError') return false;
+  if (!('data' in error)) return false;
+  return CONVEX_ERROR_SYMBOL in error;
+};
+
+const parseConvexError = (error: ConvexError<Value>): AppErrorData | null => {
+  const parsed = AppErrorDataSchema.safeParse(error.data);
+  return parsed.success ? (parsed.data as AppErrorData) : null;
+};
+
 /**
  * Parses a caught error to extract structured AppErrorData.
  * For use on the frontend when catching errors from Convex functions.
@@ -205,9 +220,18 @@ export const throwAppErrorForConvex = <T extends ErrorCode>(
  * ```
  */
 export const parseAppError = (error: unknown): AppErrorData | null => {
-  if (!(error instanceof ConvexError)) return null;
-  const parsed = AppErrorDataSchema.safeParse(error.data);
-  return parsed.success ? (parsed.data as AppErrorData) : null;
+  if (isConvexError(error)) {
+    return parseConvexError(error);
+  }
+
+  if (error && typeof error === 'object' && 'cause' in error) {
+    const { cause } = error as { cause?: unknown };
+    if (isConvexError(cause)) {
+      return parseConvexError(cause);
+    }
+  }
+
+  return null;
 };
 
 /**

@@ -22,6 +22,7 @@ import { defaultWorkspaceStorage } from '@/lib/storage';
 
 import { api } from '../../../../../../convex/_generated/api';
 import type { Id } from '../../../../../../convex/_generated/dataModel';
+import { ErrorCode } from '../../../../../../shared/errors';
 
 export const Route = createFileRoute('/_app/workspaces/$workspaceId/settings/workspace')({
   component: WorkspaceSettingsPage,
@@ -42,6 +43,7 @@ function WorkspaceSettingsPage() {
     api.workspace.leaveWorkspace,
   );
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [lastOwnerError, setLastOwnerError] = useState(false);
   const isUpdating = updateState.status === 'loading';
   const isLeaving = leaveState.status === 'loading';
 
@@ -84,6 +86,10 @@ function WorkspaceSettingsPage() {
     const result = await leaveWorkspace({ workspaceId: workspaceId as Id<'workspaces'> });
 
     if (result.isErr()) {
+      if (result.error.code === ErrorCode.WORKSPACE_LAST_OWNER) {
+        setLastOwnerError(true);
+        return;
+      }
       toast.error('Failed to leave workspace', { description: result.error.message });
       return;
     }
@@ -198,7 +204,13 @@ function WorkspaceSettingsPage() {
               You will lose access to this workspace unless invited again.
             </p>
           </div>
-          <Dialog open={leaveDialogOpen} onOpenChange={setLeaveDialogOpen}>
+          <Dialog
+            open={leaveDialogOpen}
+            onOpenChange={(open) => {
+              setLeaveDialogOpen(open);
+              if (!open) setLastOwnerError(false);
+            }}
+          >
             <DialogTrigger render={<Button variant="destructive" />}>Leave</DialogTrigger>
             <DialogContent>
               <DialogHeader>
@@ -208,6 +220,14 @@ function WorkspaceSettingsPage() {
                   rejoin if an owner or admin invites you again.
                 </DialogDescription>
               </DialogHeader>
+              {lastOwnerError &&
+                (console.log('lastOwnerError'),
+                (
+                  <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+                    You are the only owner of this workspace. You must either transfer ownership to
+                    another member or delete the workspace.
+                  </div>
+                ))}
               <DialogFooter>
                 <DialogClose render={<Button variant="outline" disabled={isLeaving} />}>
                   Cancel

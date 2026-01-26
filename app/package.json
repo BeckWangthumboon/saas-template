@@ -13,9 +13,9 @@
     "preview": "vite preview",
     "lint": "bun run --cwd .. lint",
     "typecheck": "bun run --cwd .. typecheck",
-    "format": "bun run --cwd .. format",
+    "format": "bun run --cwd .. format --log-level warn",
     "format:check": "bun run --cwd .. format:check",
-    "check": "bun run lint && bun run typecheck && bun run format:check"
+    "check": "bun run lint && bun run typecheck && bun run format"
   },
   "dependencies": {
     "@base-ui/react": "^1.1.0",

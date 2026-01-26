@@ -161,10 +161,8 @@ app/
 
 ## Before Committing
 
-1. Run `bun run lint` - auto-fixes issues
-2. Run `bun run typecheck` - ensure type safety
-3. Run `bun run format` - ensure consistent formatting
-4. Test changes manually in the app
+1. Run `bun run check` - automatically runs lint, typecheck, and format
+2. Test changes manually in the app
 
 ## Notes
 
