@@ -42,6 +42,33 @@ export async function getWorkspaceMembership(
 }
 
 /**
+ * Ensures the authenticated user is an admin or owner in the workspace.
+ *
+ * @param ctx - The query or mutation context.
+ * @param workspaceId - The ID of the workspace to check access for.
+ * @param action - The action being performed for error context.
+ * @returns The membership and user documents.
+ * @throws WORKSPACE_INSUFFICIENT_ROLE if caller is a regular member.
+ */
+export async function requireWorkspaceAdminOrOwner(
+  ctx: QueryCtx | MutationCtx,
+  workspaceId: Id<'workspaces'>,
+  action: string,
+): Promise<WorkspaceMembership> {
+  const { membership, user } = await getWorkspaceMembership(ctx, workspaceId);
+
+  if (membership.role === 'member') {
+    return throwAppErrorForConvex(ErrorCode.WORKSPACE_INSUFFICIENT_ROLE, {
+      workspaceId: workspaceId as string,
+      requiredRole: 'admin',
+      action,
+    });
+  }
+
+  return { membership, user };
+}
+
+/**
  * Gets all workspaces the authenticated user is a member of.
  *
  * @returns Array of workspaces with the user's role in each workspace.
@@ -97,6 +124,30 @@ export const createWorkspace = mutation({
     });
 
     return workspaceId;
+  },
+});
+
+/**
+ * Updates a workspace's name.
+ * Only owners and admins can update the workspace name.
+ *
+ * @param workspaceId - The ID of the workspace to update.
+ * @param name - The new workspace name.
+ * @throws Error if not authenticated, not a member, or insufficient role.
+ */
+export const updateWorkspaceName = mutation({
+  args: { workspaceId: v.id('workspaces'), name: v.string() },
+  handler: async (ctx, args) => {
+    await requireWorkspaceAdminOrOwner(ctx, args.workspaceId, 'update_name');
+
+    if (!args.name.trim()) {
+      throwAppErrorForConvex(ErrorCode.WORKSPACE_NAME_EMPTY);
+    }
+
+    await ctx.db.patch('workspaces', args.workspaceId, {
+      name: args.name.trim(),
+      updatedAt: Date.now(),
+    });
   },
 });
 

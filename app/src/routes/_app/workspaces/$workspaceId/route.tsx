@@ -20,6 +20,13 @@ import { cn } from '@/lib/utils';
 
 import { api } from '../../../../../convex/_generated/api';
 
+interface AppPage {
+  label: string;
+  href: string;
+  icon: typeof LayoutDashboardIcon;
+  match?: (path: string) => boolean;
+}
+
 export const Route = createFileRoute('/_app/workspaces/$workspaceId')({
   component: WorkspaceLayout,
 });
@@ -59,14 +66,19 @@ function WorkspaceLayout() {
   const workspaces = data ?? [];
   const workspace = workspaces.find((item) => item.id === workspaceId);
 
-  const appPages = [
+  const appPages: AppPage[] = [
     {
       label: 'Overview',
       href: `/workspaces/${workspaceId}`,
       icon: LayoutDashboardIcon,
     },
     { label: 'Form', href: `/workspaces/${workspaceId}/form`, icon: FileTextIcon },
-    { label: 'Settings', href: `/workspaces/${workspaceId}/settings`, icon: SettingsIcon },
+    {
+      label: 'Settings',
+      href: `/workspaces/${workspaceId}/settings/account`,
+      icon: SettingsIcon,
+      match: (path: string) => path.startsWith(`/workspaces/${workspaceId}/settings`),
+    },
   ];
 
   useEffect(() => {
@@ -100,7 +112,9 @@ function WorkspaceLayout() {
               href={page.href}
               icon={page.icon}
               label={page.label}
-              isActive={location.pathname === page.href}
+              isActive={
+                page.match ? page.match(location.pathname) : location.pathname === page.href
+              }
             />
           ))}
         </nav>
@@ -167,7 +181,9 @@ function WorkspaceSwitcher({
         </DropdownMenuGroup>
         <DropdownMenuSeparator />
         <DropdownMenuItem
-          onClick={() => void onNavigate({ to: `/workspaces/${currentWorkspace.id}/settings` })}
+          onClick={() =>
+            void onNavigate({ to: `/workspaces/${currentWorkspace.id}/settings/account` })
+          }
         >
           <SettingsIcon className="size-4" />
           Settings

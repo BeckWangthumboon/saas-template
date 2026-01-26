@@ -4,7 +4,7 @@ import { ErrorCode, throwAppErrorForConvex } from '../shared/errors';
 import type { Doc, Id } from './_generated/dataModel';
 import { mutation, type MutationCtx, query, type QueryCtx } from './_generated/server';
 import { getAuthenticatedUser } from './user';
-import { getWorkspaceMembership } from './workspace';
+import { requireWorkspaceAdminOrOwner } from './workspace';
 
 // 7 days
 const INVITE_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -56,15 +56,7 @@ async function validateInvitePermission(
   ctx: QueryCtx | MutationCtx,
   workspaceId: Id<'workspaces'>,
 ): Promise<{ membership: Doc<'workspaceMembers'>; user: Doc<'users'> }> {
-  const { membership, user } = await getWorkspaceMembership(ctx, workspaceId);
-
-  if (membership.role === 'member') {
-    return throwAppErrorForConvex(ErrorCode.WORKSPACE_INSUFFICIENT_ROLE, {
-      workspaceId: workspaceId as string,
-      requiredRole: 'admin',
-      action: 'invite',
-    });
-  }
+  const { membership, user } = await requireWorkspaceAdminOrOwner(ctx, workspaceId, 'invite');
 
   return { membership, user };
 }
