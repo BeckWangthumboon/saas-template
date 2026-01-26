@@ -4,8 +4,8 @@ import { Authenticated, Unauthenticated, useConvex } from 'convex/react';
 import { useCallback, useEffect } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { AppErrorBoundary } from '@/features/auth/app-error-boundary';
-import { OnboardingDialog } from '@/features/onboarding/onboarding-dialog';
+import { AppErrorBoundary } from '@/features/auth/AppErrorBoundary';
+import { OnboardingDialog } from '@/features/onboarding/OnboardingDialog';
 import { useConvexAction, useConvexMutation, useConvexQuery } from '@/hooks';
 
 import { api } from '../../../convex/_generated/api';
