@@ -47,9 +47,9 @@ function OverviewPage() {
   return <NoWorkspacesView />;
 }
 
-function CreateWorkspaceCard() {
+function CreateWorkspaceCard({ onClick }: { onClick: () => void }) {
   return (
-    <Card className="cursor-pointer transition-colors hover:bg-muted/50">
+    <Card className="cursor-pointer transition-colors hover:bg-muted/50" onClick={onClick}>
       <CardHeader>
         <div className="flex items-center gap-3">
           <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
@@ -100,7 +100,13 @@ function NoWorkspacesView() {
             onSuccess={(workspaceId) => {
               void navigate({ to: `/workspaces/${workspaceId}` });
             }}
-            trigger={<CreateWorkspaceCard />}
+            trigger={
+              <CreateWorkspaceCard
+                onClick={() => {
+                  setDialogOpen(true);
+                }}
+              />
+            }
           />
 
           <Card>
