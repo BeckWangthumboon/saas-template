@@ -21,6 +21,7 @@
     "@base-ui/react": "^1.1.0",
     "@convex-dev/workos": "^0.0.1",
     "@convex-dev/workos-authkit": "^0.1.5",
+    "@convex-dev/workpool": "^0.3.1",
     "@t3-oss/env-core": "^0.13.10",
     "@tanstack/react-form": "^1.27.7",
     "@tanstack/react-router": "^1.154.7",

@@ -5,6 +5,7 @@ import type { DataModel } from './_generated/dataModel';
 import {
   action,
   type ActionCtx,
+  internalAction,
   internalMutation as rawInternalMutation,
   internalQuery,
   mutation as rawMutation,
@@ -19,5 +20,5 @@ export const mutation = customMutation(rawMutation, customCtx(triggers.wrapDB));
 export const internalMutation = customMutation(rawInternalMutation, customCtx(triggers.wrapDB));
 
 export { triggers };
-export { action, internalQuery, query };
+export { action, internalAction, internalQuery, query };
 export type { ActionCtx, MutationCtx, QueryCtx };

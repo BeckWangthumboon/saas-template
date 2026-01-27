@@ -1,16 +1,5 @@
 {
   "name": "saas-template",
-  "private": true,
-  "type": "module",
-  "workspaces": [
-    "app"
-  ],
-  "scripts": {
-    "lint": "eslint . --fix --cache --cache-location .eslintcache",
-    "typecheck": "tsc --noEmit",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
-  },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "^1.1.1",
     "@eslint/js": "^9.39.1",
@@ -23,5 +12,16 @@
     "prettier": "^3.6.2",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.47.0"
-  }
+  },
+  "private": true,
+  "scripts": {
+    "lint": "eslint . --fix --cache --cache-location .eslintcache",
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "format:check": "prettier --check ."
+  },
+  "type": "module",
+  "workspaces": [
+    "app"
+  ]
 }
