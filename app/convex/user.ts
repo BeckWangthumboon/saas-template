@@ -13,6 +13,7 @@ import {
   type MutationCtx,
   query,
   type QueryCtx,
+  triggers,
 } from './functions';
 
 type AuthIdentity = NonNullable<Awaited<ReturnType<QueryCtx['auth']['getUserIdentity']>>>;
@@ -217,8 +218,10 @@ export const getUserByAuthIdInternal = internalQuery({
 /**
  * Internal mutation to delete a user by their auth ID.
  * Does nothing if the user does not exist.
+ * Validates that the user is not the sole owner of any workspace.
  *
  * @param authId - The WorkOS auth ID of the user to delete.
+ * @throws USER_LAST_OWNER_OF_WORKSPACE if user is the only owner of any workspace.
  * @internal
  */
 export const deleteUserByAuthId = internalMutation({
@@ -231,6 +234,34 @@ export const deleteUserByAuthId = internalMutation({
 
     if (!user) {
       return;
+    }
+
+    const ownerMemberships = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', user._id))
+      .filter((q) => q.eq(q.field('role'), 'owner'))
+      .collect();
+
+    const soleOwnerWorkspaceNames: string[] = [];
+    for (const membership of ownerMemberships) {
+      const workspaceOwners = await ctx.db
+        .query('workspaceMembers')
+        .withIndex('by_workspaceId', (q) => q.eq('workspaceId', membership.workspaceId))
+        .filter((q) => q.eq(q.field('role'), 'owner'))
+        .collect();
+
+      if (workspaceOwners.length === 1) {
+        const workspace = await ctx.db.get('workspaces', membership.workspaceId);
+        if (workspace) {
+          soleOwnerWorkspaceNames.push(workspace.name);
+        }
+      }
+    }
+
+    if (soleOwnerWorkspaceNames.length > 0) {
+      return throwAppErrorForConvex(ErrorCode.USER_LAST_OWNER_OF_WORKSPACE, {
+        workspaceNames: soleOwnerWorkspaceNames,
+      });
     }
 
     await ctx.db.delete('users', user._id);
@@ -292,4 +323,19 @@ export const completeOnboarding = mutation({
       updatedAt: Date.now(),
     });
   },
+});
+
+triggers.register('users', async (ctx, change) => {
+  if (change.operation !== 'delete') {
+    return;
+  }
+
+  const memberships = await ctx.db
+    .query('workspaceMembers')
+    .withIndex('by_userId', (q) => q.eq('userId', change.id))
+    .collect();
+
+  for (const membership of memberships) {
+    await ctx.db.delete('workspaceMembers', membership._id);
+  }
 });

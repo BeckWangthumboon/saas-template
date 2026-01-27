@@ -18,6 +18,7 @@ export const ErrorCodeSchema = z.enum([
   'AUTH_WORKOS_USER_NOT_FOUND',
   'AUTH_WORKOS_API_ERROR',
   'AUTH_WORKOS_RATE_LIMIT',
+  'USER_LAST_OWNER_OF_WORKSPACE',
   'WORKSPACE_ACCESS_DENIED',
   'WORKSPACE_NAME_EMPTY',
   'WORKSPACE_LAST_OWNER',
@@ -42,6 +43,7 @@ export const ErrorCode = {
   AUTH_WORKOS_USER_NOT_FOUND: 'AUTH_WORKOS_USER_NOT_FOUND',
   AUTH_WORKOS_API_ERROR: 'AUTH_WORKOS_API_ERROR',
   AUTH_WORKOS_RATE_LIMIT: 'AUTH_WORKOS_RATE_LIMIT',
+  USER_LAST_OWNER_OF_WORKSPACE: 'USER_LAST_OWNER_OF_WORKSPACE',
   WORKSPACE_ACCESS_DENIED: 'WORKSPACE_ACCESS_DENIED',
   WORKSPACE_NAME_EMPTY: 'WORKSPACE_NAME_EMPTY',
   WORKSPACE_LAST_OWNER: 'WORKSPACE_LAST_OWNER',
@@ -64,6 +66,7 @@ const errorCategoryMap: Record<ErrorCode, ErrorCategory> = {
   [ErrorCode.AUTH_WORKOS_USER_NOT_FOUND]: ErrorCategory.AUTH,
   [ErrorCode.AUTH_WORKOS_API_ERROR]: ErrorCategory.AUTH,
   [ErrorCode.AUTH_WORKOS_RATE_LIMIT]: ErrorCategory.AUTH,
+  [ErrorCode.USER_LAST_OWNER_OF_WORKSPACE]: ErrorCategory.AUTH,
   [ErrorCode.WORKSPACE_ACCESS_DENIED]: ErrorCategory.WORKSPACE,
   [ErrorCode.WORKSPACE_NAME_EMPTY]: ErrorCategory.WORKSPACE,
   [ErrorCode.WORKSPACE_LAST_OWNER]: ErrorCategory.WORKSPACE,
@@ -87,6 +90,7 @@ export interface ErrorContextMap {
   [ErrorCode.AUTH_WORKOS_USER_NOT_FOUND]: { authId: string };
   [ErrorCode.AUTH_WORKOS_API_ERROR]: { operation?: string; status?: number; message?: string };
   [ErrorCode.AUTH_WORKOS_RATE_LIMIT]: { retryAfter?: number };
+  [ErrorCode.USER_LAST_OWNER_OF_WORKSPACE]: { workspaceNames: string[] };
   [ErrorCode.WORKSPACE_ACCESS_DENIED]: { workspaceId?: string };
   [ErrorCode.WORKSPACE_NAME_EMPTY]: Record<string, never>;
   [ErrorCode.WORKSPACE_LAST_OWNER]: { workspaceId: string };
@@ -113,6 +117,8 @@ const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.AUTH_WORKOS_USER_NOT_FOUND]: 'User not found in authentication service',
   [ErrorCode.AUTH_WORKOS_API_ERROR]: 'Authentication service error',
   [ErrorCode.AUTH_WORKOS_RATE_LIMIT]: 'Too many requests',
+  [ErrorCode.USER_LAST_OWNER_OF_WORKSPACE]:
+    'Cannot delete account. You are the only owner of one or more workspaces',
   [ErrorCode.WORKSPACE_ACCESS_DENIED]: 'You do not have access to this workspace',
   [ErrorCode.WORKSPACE_NAME_EMPTY]: 'Workspace name cannot be empty',
   [ErrorCode.WORKSPACE_LAST_OWNER]: 'You are the only owner. Please delete the workspace instead',

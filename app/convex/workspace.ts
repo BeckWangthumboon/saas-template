@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 
 import { ErrorCode, throwAppErrorForConvex } from '../shared/errors';
 import type { Doc, Id } from './_generated/dataModel';
-import { mutation, type MutationCtx, query, type QueryCtx } from './functions';
+import { mutation, type MutationCtx, query, type QueryCtx, triggers } from './functions';
 import { getAuthenticatedUser } from './user';
 
 export interface WorkspaceMembership {
@@ -203,4 +203,28 @@ export const deleteWorkspace = mutation({
 
     await ctx.db.delete('workspaces', args.workspaceId);
   },
+});
+
+triggers.register('workspaces', async (ctx, change) => {
+  if (change.operation !== 'delete') {
+    return;
+  }
+
+  const members = await ctx.db
+    .query('workspaceMembers')
+    .withIndex('by_workspaceId', (q) => q.eq('workspaceId', change.id))
+    .collect();
+
+  for (const member of members) {
+    await ctx.db.delete('workspaceMembers', member._id);
+  }
+
+  const invites = await ctx.db
+    .query('workspaceInvites')
+    .withIndex('by_workspaceId', (q) => q.eq('workspaceId', change.id))
+    .collect();
+
+  for (const invite of invites) {
+    await ctx.db.delete('workspaceInvites', invite._id);
+  }
 });

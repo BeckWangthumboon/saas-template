@@ -90,23 +90,6 @@ export const { authKitEvent } = authKit.events({
       updatedAt: Date.now(),
     });
   },
-  /**
-   * Handles 'user.deleted' events from WorkOS.
-   * Deletes the user from the database.
-   *
-   * @param ctx - Event context
-   * @param event - WorkOS user event
-   */
-  'user.deleted': async (ctx, event) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_authId', (q) => q.eq('authId', event.data.id))
-      .unique();
-    if (!user) {
-      return;
-    }
-    await ctx.db.delete('users', user._id);
-  },
 });
 
 export { authKit };
