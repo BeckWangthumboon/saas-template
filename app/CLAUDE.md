@@ -9,6 +9,7 @@ This file provides instructions for AI agents working on this Convex + React (Vi
 bun run lint         # ESLint with auto-fix and caching
 bun run typecheck    # TypeScript type checking
 bun run format       # Prettier formatting
+bun run check        # Run lint, typecheck, and format
 bun run generate     # Generate Convex schema and API
 ```
 
@@ -40,13 +41,16 @@ import { cn } from '@/lib/utils';
 
 Functional components with typed props. Route files export `Route = createFileRoute('/path')` with `component`.
 
+### React Context Providers
+
+Separate UI and state concerns: providers should only manage state, not render UI (loading states, dialogs, etc.). Handle UI separately via composition.
+
 ### Naming Conventions
 
 - **Components**: PascalCase (`UserProfile.tsx`)
 - **Files**: camelCase (`userProfile.tsx`, `user.ts`)
 - **Functions/Variables**: camelCase (`getUserById`, `isLoading`)
 - **Constants**: UPPER_SNAKE_CASE (`API_BASE_URL`)
-- **Interfaces**: Prefix with `I` (`IUser`, `IMutationCtx`)
 
 ### Error Handling
 

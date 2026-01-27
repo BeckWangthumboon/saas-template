@@ -41,6 +41,10 @@ import { cn } from '@/lib/utils';
 
 Functional components with typed props. Route files export `Route = createFileRoute('/path')` with `component`.
 
+### React Context Providers
+
+Separate UI and state concerns: providers should only manage state, not render UI (loading states, dialogs, etc.). Handle UI separately via composition.
+
 ### Naming Conventions
 
 - **Components**: PascalCase (`UserProfile.tsx`)

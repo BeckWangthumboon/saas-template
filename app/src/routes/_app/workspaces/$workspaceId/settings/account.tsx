@@ -19,7 +19,8 @@ import {
 } from '@/components/ui/dialog';
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { useConvexAction, useConvexMutation, useConvexQuery } from '@/hooks';
+import { useUser } from '@/features/auth';
+import { useConvexAction, useConvexMutation } from '@/hooks';
 
 import { api } from '../../../../../../convex/_generated/api';
 
@@ -28,7 +29,8 @@ export const Route = createFileRoute('/_app/workspaces/$workspaceId/settings/acc
 });
 
 function AccountSettingsPage() {
-  const { status: userQueryStatus, data: user } = useConvexQuery(api.user.getUserOrNull);
+  const userContext = useUser();
+  const user = userContext.status === 'ready' ? userContext.user : undefined;
   const { mutate: updateName } = useConvexMutation(api.user.updateName);
   const { execute: deleteAccount, state: deleteState } = useConvexAction(api.user.deleteAccount);
   const { signOut } = useAuth();
@@ -62,7 +64,7 @@ function AccountSettingsPage() {
 
   const firstName = user?.firstName ?? '';
   const lastName = user?.lastName ?? '';
-  const hasUser = user !== null && user !== undefined;
+  const hasUser = user != null;
 
   useEffect(() => {
     if (!hasUser) return;
@@ -92,12 +94,8 @@ function AccountSettingsPage() {
     window.location.href = '/sign-in';
   };
 
-  if (userQueryStatus === 'loading' || isSigningOut) {
+  if (!user || isSigningOut) {
     return <p className="text-muted-foreground">Loading account...</p>;
-  }
-
-  if (user === null) {
-    return <p className="text-muted-foreground">Signing out...</p>;
   }
 
   const initials =

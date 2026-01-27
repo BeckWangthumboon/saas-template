@@ -3,6 +3,7 @@ import { MailIcon, PlusIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useUser } from '@/features/auth';
 import { WorkspaceCreator } from '@/features/workspaces';
 import { useConvexQuery } from '@/hooks';
 import { defaultWorkspaceStorage } from '@/lib/storage';
@@ -68,11 +69,12 @@ function CreateWorkspaceCard({ onClick }: { onClick: () => void }) {
 function NoWorkspacesView() {
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
-  const { status: userStatus, data: user } = useConvexQuery(api.user.getUserOrNull);
+  const userContext = useUser();
+  const user = userContext.status === 'ready' ? userContext.user : undefined;
 
   const defaultWorkspaceName = user?.firstName ? `${user.firstName}'s workspace` : '';
 
-  if (userStatus === 'loading') {
+  if (userContext.status === 'loading') {
     return (
       <div className="flex min-h-[60vh] items-center justify-center">
         <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />

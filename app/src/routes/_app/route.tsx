@@ -1,15 +1,8 @@
-import { createFileRoute, Link, Outlet, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link, Outlet } from '@tanstack/react-router';
 import { useAuth } from '@workos-inc/authkit-react';
-import { Authenticated, Unauthenticated, useConvex } from 'convex/react';
-import { useCallback, useEffect } from 'react';
 
 import { Button } from '@/components/ui/button';
-import { AppErrorBoundary } from '@/features/auth/AppErrorBoundary';
-import { OnboardingDialog } from '@/features/onboarding/OnboardingDialog';
-import { useConvexAction, useConvexMutation, useConvexQuery } from '@/hooks';
-
-import { api } from '../../../convex/_generated/api';
-import type { AppErrorData } from '../../../shared/errors';
+import { AppErrorBoundary, UserProvider } from '@/features/auth';
 
 export const Route = createFileRoute('/_app')({
   component: AppLayout,
@@ -18,69 +11,14 @@ export const Route = createFileRoute('/_app')({
 
 function AppLayout() {
   return (
-    <>
-      <Authenticated>
-        <AuthenticatedLayout />
-      </Authenticated>
-      <Unauthenticated>
-        <RedirectToSignIn />
-      </Unauthenticated>
-    </>
+    <UserProvider>
+      <AuthenticatedLayout />
+    </UserProvider>
   );
-}
-
-function RedirectToSignIn() {
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    void navigate({ to: '/sign-in' });
-  }, [navigate]);
-
-  return null;
 }
 
 function AuthenticatedLayout() {
   const { signOut } = useAuth();
-  const convex = useConvex();
-  const { execute: ensureUser, state: ensureUserState } = useConvexAction(api.user.ensureUser);
-  const { mutate: completeOnboarding } = useConvexMutation(api.user.completeOnboarding);
-
-  const handleAuthFailure = useCallback(
-    async (error: AppErrorData) => {
-      console.error(`Auth failure [${error.code}]: ${error.message}`);
-      try {
-        await signOut({ navigate: false });
-      } catch (signOutError) {
-        console.error(signOutError);
-      }
-      convex.clearAuth();
-      window.location.href = '/sign-in';
-    },
-    [convex, signOut],
-  );
-
-  useEffect(() => {
-    void ensureUser().then((result) => {
-      if (result.isErr()) {
-        void handleAuthFailure(result.error);
-      }
-    });
-  }, [ensureUser, handleAuthFailure]);
-
-  const handleCompleteOnboarding = async () => {
-    const result = await completeOnboarding({});
-    if (result.isErr()) {
-      console.error('Failed to complete onboarding:', result.error);
-    }
-  };
-
-  if (ensureUserState.status !== 'success') {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
-      </div>
-    );
-  }
 
   return (
     <div className="flex h-dvh flex-col">
@@ -108,19 +46,6 @@ function AuthenticatedLayout() {
           <Outlet />
         </div>
       </main>
-
-      <OnboardingDialogLoader onComplete={handleCompleteOnboarding} />
     </div>
-  );
-}
-
-function OnboardingDialogLoader({ onComplete }: { onComplete: () => void }) {
-  const { status: onboardingStatusState, data: onboardingStatus } = useConvexQuery(
-    api.user.getOnboardingStatus,
-  );
-  const onboardingOpen = onboardingStatusState === 'success' && onboardingStatus === 'not_started';
-
-  return (
-    <OnboardingDialog open={onboardingOpen} onOpenChange={onComplete} onComplete={onComplete} />
   );
 }
