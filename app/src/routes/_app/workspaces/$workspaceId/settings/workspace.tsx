@@ -39,15 +39,21 @@ function WorkspaceSettingsPage() {
   const { mutate: leaveWorkspace, state: leaveState } = useConvexMutation(
     api.workspace.leaveWorkspace,
   );
+  const { mutate: deleteWorkspace, state: deleteState } = useConvexMutation(
+    api.workspace.deleteWorkspace,
+  );
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [lastOwnerError, setLastOwnerError] = useState(false);
   const isReady = isWorkspaceReady(workspaceContext);
   const workspace = isReady ? workspaceContext.workspace : null;
   const workspaceId = isReady ? workspaceContext.workspaceId : null;
   const role = workspace?.role ?? null;
   const workspaces = workspaceContext.workspaces;
+  const isOwner = role === 'owner';
   const isUpdating = updateState.status === 'loading';
   const isLeaving = leaveState.status === 'loading';
+  const isDeleting = deleteState.status === 'loading';
   const canEdit = role === 'owner' || role === 'admin';
 
   const form = useForm({
@@ -102,6 +108,30 @@ function WorkspaceSettingsPage() {
     setLeaveDialogOpen(false);
     toast.success('Left workspace', {
       description: `You have left ${workspace.name}.`,
+    });
+
+    const nextWorkspace = workspaces.find((item) => item.id !== workspaceId);
+    defaultWorkspaceStorage.set(nextWorkspace?.id ?? null);
+
+    if (nextWorkspace) {
+      void navigate({ to: `/workspaces/${nextWorkspace.id}` });
+    } else {
+      void navigate({ to: '/' });
+    }
+  };
+
+  const handleDeleteWorkspace = async () => {
+    if (!workspaceId || !workspace) return;
+    const result = await deleteWorkspace({ workspaceId: workspaceId as Id<'workspaces'> });
+
+    if (result.isErr()) {
+      toast.error('Failed to delete workspace', { description: result.error.message });
+      return;
+    }
+
+    setDeleteDialogOpen(false);
+    toast.success('Workspace deleted', {
+      description: `${workspace.name} has been permanently deleted.`,
     });
 
     const nextWorkspace = workspaces.find((item) => item.id !== workspaceId);
@@ -242,6 +272,43 @@ function WorkspaceSettingsPage() {
             </DialogContent>
           </Dialog>
         </div>
+
+        {isOwner && (
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="font-medium">Delete Workspace</p>
+              <p className="text-muted-foreground text-sm">
+                This will permanently delete the workspace and all its data. This action cannot be
+                undone.
+              </p>
+            </div>
+            <Dialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+              <DialogTrigger render={<Button variant="destructive" />}>Delete</DialogTrigger>
+              <DialogContent>
+                <DialogHeader>
+                  <DialogTitle>Delete workspace?</DialogTitle>
+                  <DialogDescription>
+                    This will permanently delete <strong>{workspace.name}</strong> and all its data,
+                    including members, invites, and all associated resources. This action cannot be
+                    undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <DialogFooter>
+                  <DialogClose render={<Button variant="outline" disabled={isDeleting} />}>
+                    Cancel
+                  </DialogClose>
+                  <Button
+                    variant="destructive"
+                    onClick={handleDeleteWorkspace}
+                    disabled={isDeleting}
+                  >
+                    {isDeleting ? 'Deleting...' : 'Delete Workspace'}
+                  </Button>
+                </DialogFooter>
+              </DialogContent>
+            </Dialog>
+          </div>
+        )}
       </section>
     </div>
   );
