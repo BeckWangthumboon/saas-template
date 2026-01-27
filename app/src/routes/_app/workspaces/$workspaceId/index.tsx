@@ -2,6 +2,7 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowRightIcon, FileTextIcon } from 'lucide-react';
 
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { useWorkspace } from '@/features/workspaces';
 
 export const Route = createFileRoute('/_app/workspaces/$workspaceId/')({
   component: OverviewPage,
@@ -17,7 +18,7 @@ const pages = [
 ] as const;
 
 function OverviewPage() {
-  const { workspaceId } = Route.useParams();
+  const { getWorkspacePath } = useWorkspace();
 
   return (
     <div className="max-w-2xl">
@@ -30,7 +31,7 @@ function OverviewPage() {
 
       <div className="grid gap-4">
         {pages.map((page) => {
-          const href = `/workspaces/${workspaceId}/${page.slug}`;
+          const href = getWorkspacePath(`/${page.slug}`);
 
           return (
             <Link key={page.slug} to={href}>

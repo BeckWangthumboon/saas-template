@@ -1,6 +1,6 @@
 import { useForm } from '@tanstack/react-form';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -17,7 +17,8 @@ import {
 } from '@/components/ui/dialog';
 import { Field, FieldDescription, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { useConvexMutation, useConvexQuery } from '@/hooks';
+import { isWorkspaceReady, useWorkspace } from '@/features/workspaces';
+import { useConvexMutation } from '@/hooks';
 import { defaultWorkspaceStorage } from '@/lib/storage';
 
 import { api } from '../../../../../../convex/_generated/api';
@@ -29,12 +30,8 @@ export const Route = createFileRoute('/_app/workspaces/$workspaceId/settings/wor
 });
 
 function WorkspaceSettingsPage() {
-  const { workspaceId } = Route.useParams();
+  const workspaceContext = useWorkspace();
   const navigate = useNavigate();
-  const { status, data } = useConvexQuery(api.workspace.getUserWorkspaces);
-  const workspaces = useMemo(() => data ?? [], [data]);
-  const workspace = workspaces.find((item) => item.id === workspaceId);
-  const canEditName = workspace?.role === 'owner' || workspace?.role === 'admin';
 
   const { mutate: updateWorkspaceName, state: updateState } = useConvexMutation(
     api.workspace.updateWorkspaceName,
@@ -44,15 +41,22 @@ function WorkspaceSettingsPage() {
   );
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [lastOwnerError, setLastOwnerError] = useState(false);
+  const isReady = isWorkspaceReady(workspaceContext);
+  const workspace = isReady ? workspaceContext.workspace : null;
+  const workspaceId = isReady ? workspaceContext.workspaceId : null;
+  const role = workspace?.role ?? null;
+  const workspaces = workspaceContext.workspaces;
   const isUpdating = updateState.status === 'loading';
   const isLeaving = leaveState.status === 'loading';
+  const canEdit = role === 'owner' || role === 'admin';
 
   const form = useForm({
     defaultValues: {
       name: workspace?.name ?? '',
     },
     onSubmit: async ({ value }) => {
-      if (!workspace || !canEditName) {
+      if (!workspaceId) return;
+      if (!canEdit) {
         toast.error('Insufficient permissions', {
           description: 'Only owners and admins can update the workspace name.',
         });
@@ -83,6 +87,7 @@ function WorkspaceSettingsPage() {
   }, [form, workspaceName]);
 
   const handleLeaveWorkspace = async () => {
+    if (!workspaceId || !workspace) return;
     const result = await leaveWorkspace({ workspaceId: workspaceId as Id<'workspaces'> });
 
     if (result.isErr()) {
@@ -96,7 +101,7 @@ function WorkspaceSettingsPage() {
 
     setLeaveDialogOpen(false);
     toast.success('Left workspace', {
-      description: `You have left ${workspace?.name ?? 'this workspace'}.`,
+      description: `You have left ${workspace.name}.`,
     });
 
     const nextWorkspace = workspaces.find((item) => item.id !== workspaceId);
@@ -109,12 +114,12 @@ function WorkspaceSettingsPage() {
     }
   };
 
-  if (status === 'loading') {
-    return <p className="text-muted-foreground">Loading workspace...</p>;
-  }
+  if (!workspaceId || !workspace) {
+    if (workspaceContext.status === 'empty') {
+      return <p className="text-muted-foreground">Workspace not found.</p>;
+    }
 
-  if (!workspace) {
-    return <p className="text-muted-foreground">Workspace not found.</p>;
+    return <p className="text-muted-foreground">Loading workspace...</p>;
   }
 
   return (
@@ -168,7 +173,7 @@ function WorkspaceSettingsPage() {
                       aria-invalid={isInvalid}
                       placeholder="My Workspace"
                       autoComplete="off"
-                      disabled={!canEditName || isUpdating}
+                      disabled={!canEdit || isUpdating}
                     />
                     <FieldDescription>
                       Only owners and admins can change the workspace name.
@@ -184,7 +189,7 @@ function WorkspaceSettingsPage() {
                 type="submit"
                 form="workspace-settings-form"
                 disabled={
-                  !form.state.canSubmit || form.state.isSubmitting || isUpdating || !canEditName
+                  !form.state.canSubmit || form.state.isSubmitting || isUpdating || !canEdit
                 }
               >
                 {isUpdating ? 'Saving...' : 'Save Changes'}
@@ -220,14 +225,12 @@ function WorkspaceSettingsPage() {
                   rejoin if an owner or admin invites you again.
                 </DialogDescription>
               </DialogHeader>
-              {lastOwnerError &&
-                (console.log('lastOwnerError'),
-                (
-                  <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
-                    You are the only owner of this workspace. You must either transfer ownership to
-                    another member or delete the workspace.
-                  </div>
-                ))}
+              {lastOwnerError && (
+                <div className="rounded-md border border-destructive bg-destructive/10 p-3 text-sm text-destructive">
+                  You are the only owner of this workspace. You must either transfer ownership to
+                  another member or delete the workspace.
+                </div>
+              )}
               <DialogFooter>
                 <DialogClose render={<Button variant="outline" disabled={isLeaving} />}>
                   Cancel

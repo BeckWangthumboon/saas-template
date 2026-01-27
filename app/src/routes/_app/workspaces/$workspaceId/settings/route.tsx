@@ -1,6 +1,7 @@
 import { createFileRoute, Outlet, useLocation } from '@tanstack/react-router';
 
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { useWorkspace } from '@/features/workspaces';
 
 export const Route = createFileRoute('/_app/workspaces/$workspaceId/settings')({
   component: SettingsLayout,
@@ -8,17 +9,17 @@ export const Route = createFileRoute('/_app/workspaces/$workspaceId/settings')({
 
 function SettingsLayout() {
   const navigate = Route.useNavigate();
-  const { workspaceId } = Route.useParams();
+  const { getWorkspacePath } = useWorkspace();
   const location = useLocation();
 
   const sections = [
     {
       label: 'Account',
-      href: `/workspaces/${workspaceId}/settings/account`,
+      href: getWorkspacePath('/settings/account'),
     },
     {
       label: 'Workspace',
-      href: `/workspaces/${workspaceId}/settings/workspace`,
+      href: getWorkspacePath('/settings/workspace'),
     },
   ];
 

@@ -1,14 +1,14 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from '@tanstack/react-router';
 import { FileTextIcon, LayoutDashboardIcon, SettingsIcon } from 'lucide-react';
-import { useEffect } from 'react';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
-import { WorkspaceSwitcher } from '@/features/workspaces';
-import { useConvexQuery } from '@/hooks';
-import { defaultWorkspaceStorage } from '@/lib/storage';
+import {
+  isWorkspaceReady,
+  useWorkspace,
+  WorkspaceProvider,
+  WorkspaceSwitcher,
+} from '@/features/workspaces';
 import { cn } from '@/lib/utils';
-
-import { api } from '../../../../../convex/_generated/api';
 
 interface AppPage {
   label: string;
@@ -50,47 +50,44 @@ function NavItem({
 
 function WorkspaceLayout() {
   const { workspaceId } = Route.useParams();
+  const { pathname } = useLocation();
+  return (
+    <WorkspaceProvider key={pathname} workspaceId={workspaceId}>
+      <WorkspaceLayoutContent />
+    </WorkspaceProvider>
+  );
+}
+
+function WorkspaceLayoutContent() {
+  const workspaceContext = useWorkspace();
   const location = useLocation();
   const navigate = useNavigate();
-  const { status, data } = useConvexQuery(api.workspace.getUserWorkspaces);
-  const workspaces = data ?? [];
-  const workspace = workspaces.find((item) => item.id === workspaceId);
-
-  const appPages: AppPage[] = [
-    {
-      label: 'Overview',
-      href: `/workspaces/${workspaceId}`,
-      icon: LayoutDashboardIcon,
-    },
-    { label: 'Form', href: `/workspaces/${workspaceId}/form`, icon: FileTextIcon },
-    {
-      label: 'Settings',
-      href: `/workspaces/${workspaceId}/settings/account`,
-      icon: SettingsIcon,
-      match: (path: string) => path.startsWith(`/workspaces/${workspaceId}/settings`),
-    },
-  ];
-
-  useEffect(() => {
-    if (status !== 'success') return;
-    if (!workspace) {
-      void navigate({ to: '/' });
-      return;
-    }
-    defaultWorkspaceStorage.set(workspaceId);
-  }, [navigate, status, workspace, workspaceId]);
-
-  if (status !== 'success') {
+  if (!isWorkspaceReady(workspaceContext)) {
+    const message =
+      workspaceContext.status === 'empty' ? 'No workspaces found.' : 'Loading workspace...';
     return (
-      <div className="max-w-2xl">
-        <p className="text-muted-foreground">Loading workspace...</p>
+      <div className="flex h-full items-center justify-center">
+        <p className="text-muted-foreground">{message}</p>
       </div>
     );
   }
 
-  if (!workspace) {
-    return null;
-  }
+  const { workspaces, getWorkspacePath, workspace } = workspaceContext;
+
+  const appPages: AppPage[] = [
+    {
+      label: 'Overview',
+      href: getWorkspacePath(),
+      icon: LayoutDashboardIcon,
+    },
+    { label: 'Form', href: getWorkspacePath('/form'), icon: FileTextIcon },
+    {
+      label: 'Settings',
+      href: getWorkspacePath('/settings/account'),
+      icon: SettingsIcon,
+      match: (path: string) => path.startsWith(getWorkspacePath('/settings')),
+    },
+  ];
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
