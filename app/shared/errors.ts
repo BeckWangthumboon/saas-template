@@ -23,6 +23,8 @@ export const ErrorCodeSchema = z.enum([
   'WORKSPACE_NAME_EMPTY',
   'WORKSPACE_LAST_OWNER',
   'WORKSPACE_INSUFFICIENT_ROLE',
+  'WORKSPACE_MEMBER_NOT_FOUND',
+  'WORKSPACE_REMOVE_SELF',
   'INVITE_NOT_FOUND',
   'INVITE_EXPIRED',
   'INVITE_ALREADY_ACCEPTED',
@@ -48,6 +50,8 @@ export const ErrorCode = {
   WORKSPACE_NAME_EMPTY: 'WORKSPACE_NAME_EMPTY',
   WORKSPACE_LAST_OWNER: 'WORKSPACE_LAST_OWNER',
   WORKSPACE_INSUFFICIENT_ROLE: 'WORKSPACE_INSUFFICIENT_ROLE',
+  WORKSPACE_MEMBER_NOT_FOUND: 'WORKSPACE_MEMBER_NOT_FOUND',
+  WORKSPACE_REMOVE_SELF: 'WORKSPACE_REMOVE_SELF',
   INVITE_NOT_FOUND: 'INVITE_NOT_FOUND',
   INVITE_EXPIRED: 'INVITE_EXPIRED',
   INVITE_ALREADY_ACCEPTED: 'INVITE_ALREADY_ACCEPTED',
@@ -71,6 +75,8 @@ const errorCategoryMap: Record<ErrorCode, ErrorCategory> = {
   [ErrorCode.WORKSPACE_NAME_EMPTY]: ErrorCategory.WORKSPACE,
   [ErrorCode.WORKSPACE_LAST_OWNER]: ErrorCategory.WORKSPACE,
   [ErrorCode.WORKSPACE_INSUFFICIENT_ROLE]: ErrorCategory.WORKSPACE,
+  [ErrorCode.WORKSPACE_MEMBER_NOT_FOUND]: ErrorCategory.WORKSPACE,
+  [ErrorCode.WORKSPACE_REMOVE_SELF]: ErrorCategory.WORKSPACE,
   [ErrorCode.INVITE_NOT_FOUND]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_EXPIRED]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: ErrorCategory.INVITE,
@@ -99,6 +105,8 @@ export interface ErrorContextMap {
     requiredRole: string;
     action: string;
   };
+  [ErrorCode.WORKSPACE_MEMBER_NOT_FOUND]: { userId: string; workspaceId: string };
+  [ErrorCode.WORKSPACE_REMOVE_SELF]: Record<string, never>;
   [ErrorCode.INVITE_NOT_FOUND]: { token?: string; inviteId?: string };
   [ErrorCode.INVITE_EXPIRED]: { token?: string; hasNewerInvite?: boolean };
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: { token?: string; hasNewerInvite?: boolean };
@@ -124,6 +132,8 @@ const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.WORKSPACE_LAST_OWNER]: 'You are the only owner. Please delete the workspace instead',
   [ErrorCode.WORKSPACE_INSUFFICIENT_ROLE]:
     'You do not have the required role to perform this action',
+  [ErrorCode.WORKSPACE_MEMBER_NOT_FOUND]: 'Member not found in workspace',
+  [ErrorCode.WORKSPACE_REMOVE_SELF]: 'Use leave workspace instead',
   [ErrorCode.INVITE_NOT_FOUND]: 'Invite not found',
   [ErrorCode.INVITE_EXPIRED]: 'This invite has expired',
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: 'This invite has already been accepted',
@@ -280,6 +290,9 @@ export const ConvexErrors = {
       createAppErrorForConvex(ErrorCode.WORKSPACE_LAST_OWNER, { workspaceId }),
     insufficientRole: (context: ErrorContextMap['WORKSPACE_INSUFFICIENT_ROLE']) =>
       createAppErrorForConvex(ErrorCode.WORKSPACE_INSUFFICIENT_ROLE, context),
+    memberNotFound: (userId: string, workspaceId: string) =>
+      createAppErrorForConvex(ErrorCode.WORKSPACE_MEMBER_NOT_FOUND, { userId, workspaceId }),
+    removeSelf: () => createAppErrorForConvex(ErrorCode.WORKSPACE_REMOVE_SELF),
   },
   invite: {
     notFound: (context?: ErrorContextMap['INVITE_NOT_FOUND']) =>
