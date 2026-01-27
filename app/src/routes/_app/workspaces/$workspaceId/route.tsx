@@ -1,5 +1,5 @@
 import { createFileRoute, Link, Outlet, useLocation, useNavigate } from '@tanstack/react-router';
-import { FileTextIcon, LayoutDashboardIcon, SettingsIcon } from 'lucide-react';
+import { FileTextIcon, LayoutDashboardIcon, SettingsIcon, UsersIcon } from 'lucide-react';
 
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -81,6 +81,7 @@ function WorkspaceLayoutContent() {
       icon: LayoutDashboardIcon,
     },
     { label: 'Form', href: getWorkspacePath('/form'), icon: FileTextIcon },
+    { label: 'Members', href: getWorkspacePath('/members'), icon: UsersIcon },
     {
       label: 'Settings',
       href: getWorkspacePath('/settings/account'),
