@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { ArrowRightIcon, FileTextIcon } from 'lucide-react';
+import { ArrowRightIcon, SettingsIcon, UsersIcon } from 'lucide-react';
 
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { useWorkspace } from '@/features/workspaces';
@@ -10,10 +10,16 @@ export const Route = createFileRoute('/_app/workspaces/$workspaceId/')({
 
 const pages = [
   {
-    title: 'Form',
-    description: 'Form patterns with TanStack Form, validation, and all field styles.',
-    slug: 'form',
-    icon: FileTextIcon,
+    title: 'Members',
+    description: 'Manage workspace members and their permissions.',
+    slug: 'members',
+    icon: UsersIcon,
+  },
+  {
+    title: 'Settings',
+    description: 'Manage workspace details, profile, and access.',
+    slug: 'settings',
+    icon: SettingsIcon,
   },
 ] as const;
 
