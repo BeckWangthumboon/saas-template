@@ -83,7 +83,7 @@ function WorkspaceLayoutContent() {
     { label: 'Members', href: getWorkspacePath('/members'), icon: UsersIcon },
     {
       label: 'Settings',
-      href: getWorkspacePath('/settings/account'),
+      href: getWorkspacePath('/settings/workspace'),
       icon: SettingsIcon,
       match: (path: string) => path.startsWith(getWorkspacePath('/settings')),
     },
