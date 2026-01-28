@@ -14,10 +14,6 @@ function SettingsLayout() {
 
   const sections = [
     {
-      label: 'Account',
-      href: getWorkspacePath('/settings/account'),
-    },
-    {
       label: 'Workspace',
       href: getWorkspacePath('/settings/workspace'),
     },

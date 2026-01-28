@@ -14,13 +14,13 @@ import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthCallbackRouteImport } from './routes/_auth/callback'
+import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as AppWorkspacesWorkspaceIdRouteRouteImport } from './routes/_app/workspaces/$workspaceId/route'
 import { Route as AppWorkspacesWorkspaceIdIndexRouteImport } from './routes/_app/workspaces/$workspaceId/index'
 import { Route as AppWorkspacesWorkspaceIdMembersRouteImport } from './routes/_app/workspaces/$workspaceId/members'
 import { Route as AppWorkspacesWorkspaceIdSettingsRouteRouteImport } from './routes/_app/workspaces/$workspaceId/settings/route'
 import { Route as AppWorkspacesWorkspaceIdSettingsIndexRouteImport } from './routes/_app/workspaces/$workspaceId/settings/index'
 import { Route as AppWorkspacesWorkspaceIdSettingsWorkspaceRouteImport } from './routes/_app/workspaces/$workspaceId/settings/workspace'
-import { Route as AppWorkspacesWorkspaceIdSettingsAccountRouteImport } from './routes/_app/workspaces/$workspaceId/settings/account'
 
 const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/_auth',
@@ -44,6 +44,11 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/callback',
   path: '/callback',
   getParentRoute: () => AuthRouteRoute,
+} as any)
+const AppSettingsRoute = AppSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
+  getParentRoute: () => AppRouteRoute,
 } as any)
 const AppWorkspacesWorkspaceIdRouteRoute =
   AppWorkspacesWorkspaceIdRouteRouteImport.update({
@@ -81,32 +86,26 @@ const AppWorkspacesWorkspaceIdSettingsWorkspaceRoute =
     path: '/workspace',
     getParentRoute: () => AppWorkspacesWorkspaceIdSettingsRouteRoute,
   } as any)
-const AppWorkspacesWorkspaceIdSettingsAccountRoute =
-  AppWorkspacesWorkspaceIdSettingsAccountRouteImport.update({
-    id: '/account',
-    path: '/account',
-    getParentRoute: () => AppWorkspacesWorkspaceIdSettingsRouteRoute,
-  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
+  '/settings': typeof AppSettingsRoute
   '/callback': typeof AuthCallbackRoute
   '/sign-in': typeof AuthSignInRoute
   '/workspaces/$workspaceId': typeof AppWorkspacesWorkspaceIdRouteRouteWithChildren
   '/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRouteRouteWithChildren
   '/workspaces/$workspaceId/members': typeof AppWorkspacesWorkspaceIdMembersRoute
   '/workspaces/$workspaceId/': typeof AppWorkspacesWorkspaceIdIndexRoute
-  '/workspaces/$workspaceId/settings/account': typeof AppWorkspacesWorkspaceIdSettingsAccountRoute
   '/workspaces/$workspaceId/settings/workspace': typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRoute
   '/workspaces/$workspaceId/settings/': typeof AppWorkspacesWorkspaceIdSettingsIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
+  '/settings': typeof AppSettingsRoute
   '/callback': typeof AuthCallbackRoute
   '/sign-in': typeof AuthSignInRoute
   '/workspaces/$workspaceId/members': typeof AppWorkspacesWorkspaceIdMembersRoute
   '/workspaces/$workspaceId': typeof AppWorkspacesWorkspaceIdIndexRoute
-  '/workspaces/$workspaceId/settings/account': typeof AppWorkspacesWorkspaceIdSettingsAccountRoute
   '/workspaces/$workspaceId/settings/workspace': typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRoute
   '/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsIndexRoute
 }
@@ -114,6 +113,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/_app': typeof AppRouteRouteWithChildren
   '/_auth': typeof AuthRouteRouteWithChildren
+  '/_app/settings': typeof AppSettingsRoute
   '/_auth/callback': typeof AuthCallbackRoute
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_app/': typeof AppIndexRoute
@@ -121,7 +121,6 @@ export interface FileRoutesById {
   '/_app/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRouteRouteWithChildren
   '/_app/workspaces/$workspaceId/members': typeof AppWorkspacesWorkspaceIdMembersRoute
   '/_app/workspaces/$workspaceId/': typeof AppWorkspacesWorkspaceIdIndexRoute
-  '/_app/workspaces/$workspaceId/settings/account': typeof AppWorkspacesWorkspaceIdSettingsAccountRoute
   '/_app/workspaces/$workspaceId/settings/workspace': typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRoute
   '/_app/workspaces/$workspaceId/settings/': typeof AppWorkspacesWorkspaceIdSettingsIndexRoute
 }
@@ -129,29 +128,30 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/settings'
     | '/callback'
     | '/sign-in'
     | '/workspaces/$workspaceId'
     | '/workspaces/$workspaceId/settings'
     | '/workspaces/$workspaceId/members'
     | '/workspaces/$workspaceId/'
-    | '/workspaces/$workspaceId/settings/account'
     | '/workspaces/$workspaceId/settings/workspace'
     | '/workspaces/$workspaceId/settings/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/settings'
     | '/callback'
     | '/sign-in'
     | '/workspaces/$workspaceId/members'
     | '/workspaces/$workspaceId'
-    | '/workspaces/$workspaceId/settings/account'
     | '/workspaces/$workspaceId/settings/workspace'
     | '/workspaces/$workspaceId/settings'
   id:
     | '__root__'
     | '/_app'
     | '/_auth'
+    | '/_app/settings'
     | '/_auth/callback'
     | '/_auth/sign-in'
     | '/_app/'
@@ -159,7 +159,6 @@ export interface FileRouteTypes {
     | '/_app/workspaces/$workspaceId/settings'
     | '/_app/workspaces/$workspaceId/members'
     | '/_app/workspaces/$workspaceId/'
-    | '/_app/workspaces/$workspaceId/settings/account'
     | '/_app/workspaces/$workspaceId/settings/workspace'
     | '/_app/workspaces/$workspaceId/settings/'
   fileRoutesById: FileRoutesById
@@ -206,6 +205,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof AuthRouteRoute
     }
+    '/_app/settings': {
+      id: '/_app/settings'
+      path: '/settings'
+      fullPath: '/settings'
+      preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRouteRoute
+    }
     '/_app/workspaces/$workspaceId': {
       id: '/_app/workspaces/$workspaceId'
       path: '/workspaces/$workspaceId'
@@ -248,26 +254,16 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRouteImport
       parentRoute: typeof AppWorkspacesWorkspaceIdSettingsRouteRoute
     }
-    '/_app/workspaces/$workspaceId/settings/account': {
-      id: '/_app/workspaces/$workspaceId/settings/account'
-      path: '/account'
-      fullPath: '/workspaces/$workspaceId/settings/account'
-      preLoaderRoute: typeof AppWorkspacesWorkspaceIdSettingsAccountRouteImport
-      parentRoute: typeof AppWorkspacesWorkspaceIdSettingsRouteRoute
-    }
   }
 }
 
 interface AppWorkspacesWorkspaceIdSettingsRouteRouteChildren {
-  AppWorkspacesWorkspaceIdSettingsAccountRoute: typeof AppWorkspacesWorkspaceIdSettingsAccountRoute
   AppWorkspacesWorkspaceIdSettingsWorkspaceRoute: typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRoute
   AppWorkspacesWorkspaceIdSettingsIndexRoute: typeof AppWorkspacesWorkspaceIdSettingsIndexRoute
 }
 
 const AppWorkspacesWorkspaceIdSettingsRouteRouteChildren: AppWorkspacesWorkspaceIdSettingsRouteRouteChildren =
   {
-    AppWorkspacesWorkspaceIdSettingsAccountRoute:
-      AppWorkspacesWorkspaceIdSettingsAccountRoute,
     AppWorkspacesWorkspaceIdSettingsWorkspaceRoute:
       AppWorkspacesWorkspaceIdSettingsWorkspaceRoute,
     AppWorkspacesWorkspaceIdSettingsIndexRoute:
@@ -299,11 +295,13 @@ const AppWorkspacesWorkspaceIdRouteRouteWithChildren =
   )
 
 interface AppRouteRouteChildren {
+  AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppWorkspacesWorkspaceIdRouteRoute: typeof AppWorkspacesWorkspaceIdRouteRouteWithChildren
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
+  AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
   AppWorkspacesWorkspaceIdRouteRoute:
     AppWorkspacesWorkspaceIdRouteRouteWithChildren,

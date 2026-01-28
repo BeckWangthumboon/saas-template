@@ -1,5 +1,5 @@
 import type { useNavigate } from '@tanstack/react-router';
-import { ChevronDownIcon, PlusIcon } from 'lucide-react';
+import { ChevronDownIcon, PlusIcon, SettingsIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import {
@@ -80,6 +80,10 @@ export function WorkspaceSwitcher({
           >
             <PlusIcon className="mr-2 h-4 w-4" />
             Create Workspace
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => onNavigate({ to: '/settings' })}>
+            <SettingsIcon className="mr-2 h-4 w-4" />
+            Settings
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
