@@ -236,27 +236,7 @@ export const deleteUserByAuthId = internalMutation({
       return;
     }
 
-    const ownerMemberships = await ctx.db
-      .query('workspaceMembers')
-      .withIndex('by_userId', (q) => q.eq('userId', user._id))
-      .filter((q) => q.eq(q.field('role'), 'owner'))
-      .collect();
-
-    const soleOwnerWorkspaceNames: string[] = [];
-    for (const membership of ownerMemberships) {
-      const workspaceOwners = await ctx.db
-        .query('workspaceMembers')
-        .withIndex('by_workspaceId', (q) => q.eq('workspaceId', membership.workspaceId))
-        .filter((q) => q.eq(q.field('role'), 'owner'))
-        .collect();
-
-      if (workspaceOwners.length === 1) {
-        const workspace = await ctx.db.get('workspaces', membership.workspaceId);
-        if (workspace) {
-          soleOwnerWorkspaceNames.push(workspace.name);
-        }
-      }
-    }
+    const soleOwnerWorkspaceNames = await getSoleOwnerWorkspaceNamesForUser(ctx, user._id);
 
     if (soleOwnerWorkspaceNames.length > 0) {
       return throwAppErrorForConvex(ErrorCode.USER_LAST_OWNER_OF_WORKSPACE, {
