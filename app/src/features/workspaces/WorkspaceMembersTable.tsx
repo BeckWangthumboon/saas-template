@@ -100,7 +100,7 @@ export function WorkspaceMembersTable({
             className="pl-8"
           />
         </div>
-        <ScrollArea className="h-[320px] max-h-[50vh] **:data-[slot=table-container]:overflow-visible">
+        <ScrollArea className="h-fit max-h-[50vh] **:data-[slot=table-container]:overflow-visible">
           <Table>
             <TableHeader>
               <TableRow>

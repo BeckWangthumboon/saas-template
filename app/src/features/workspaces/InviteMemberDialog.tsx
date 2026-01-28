@@ -72,7 +72,7 @@ export function InviteMemberDialog({
       const result = await createInvite({
         workspaceId,
         email: value.email.trim().toLowerCase(),
-        inviteeRole: value.role,
+        inviteeRole: value.role.toLowerCase() as 'admin' | 'member',
       });
 
       if (result.isOk()) {
@@ -101,6 +101,10 @@ export function InviteMemberDialog({
   });
 
   const canInviteAdmin = callerRole === 'owner';
+  const roleLabelByValue = {
+    admin: 'Admin',
+    member: 'Member',
+  } as const;
 
   const dialogContent = (
     <DialogContent>
@@ -160,16 +164,24 @@ export function InviteMemberDialog({
                 <Select
                   value={field.state.value}
                   onValueChange={(value) => {
-                    if (value) field.handleChange(value);
+                    if (value === 'admin' || value === 'member') {
+                      field.handleChange(value);
+                    }
                   }}
                   disabled={isCreating}
                 >
                   <SelectTrigger className="w-full">
-                    <SelectValue placeholder="Select a role" />
+                    <SelectValue>
+                      {(value) =>
+                        value
+                          ? roleLabelByValue[value as keyof typeof roleLabelByValue]
+                          : 'Select a role'
+                      }
+                    </SelectValue>
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Member">Member</SelectItem>
-                    {canInviteAdmin && <SelectItem value="Admin">Admin</SelectItem>}
+                    <SelectItem value="member">Member</SelectItem>
+                    {canInviteAdmin && <SelectItem value="admin">Admin</SelectItem>}
                   </SelectContent>
                 </Select>
               </Field>
