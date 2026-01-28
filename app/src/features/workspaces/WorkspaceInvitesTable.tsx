@@ -1,4 +1,4 @@
-import { SearchIcon } from 'lucide-react';
+import { MoreHorizontalIcon, SearchIcon } from 'lucide-react';
 import { useState } from 'react';
 import { toast } from 'sonner';
 
@@ -13,6 +13,15 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuGroup,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
@@ -28,7 +37,7 @@ import { useConvexMutation, useConvexQuery, useDebounce } from '@/hooks';
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import type { Invite } from './types';
-import { formatDate, formatName } from './utils';
+import { formatDate, formatInviteLink, formatName } from './utils';
 
 interface WorkspaceInvitesTableProps {
   workspaceId: Id<'workspaces'>;
@@ -49,6 +58,17 @@ export function WorkspaceInvitesTable({ workspaceId }: WorkspaceInvitesTableProp
 
   const { mutate: revokeInvite, state: revokeState } = useConvexMutation(api.invite.revokeInvite);
   const isRevoking = revokeState.status === 'loading';
+
+  const handleCopyInviteLink = async (invite: Invite) => {
+    const link = formatInviteLink(invite.token);
+
+    try {
+      await navigator.clipboard.writeText(link);
+      toast.success('Invite link copied');
+    } catch {
+      toast.error('Failed to copy invite link');
+    }
+  };
 
   const handleRevokeInvite = async () => {
     if (!inviteToRevoke) return;
@@ -124,27 +144,41 @@ export function WorkspaceInvitesTable({ workspaceId }: WorkspaceInvitesTableProp
                       {formatName(invite.inviter.firstName, invite.inviter.lastName) ||
                         invite.inviter.email}
                     </TableCell>
-                    <TableCell>
-                      {invite.isExpired ? (
-                        <Badge variant="destructive">Expired</Badge>
-                      ) : (
-                        <span className="text-muted-foreground">
-                          {formatDate(invite.expiresAt)}
-                        </span>
-                      )}
+                    <TableCell className="text-muted-foreground">
+                      {formatDate(invite.expiresAt)}
                     </TableCell>
                     <TableCell>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="text-destructive hover:text-destructive"
-                        onClick={() => {
-                          setInviteToRevoke(invite);
-                          setRevokeDialogOpen(true);
-                        }}
-                      >
-                        Revoke
-                      </Button>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button variant="ghost" size="icon" className="size-8">
+                              <MoreHorizontalIcon className="size-4" />
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent align="end">
+                          <DropdownMenuGroup>
+                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                            <DropdownMenuSeparator />
+                            <DropdownMenuItem
+                              onClick={() => {
+                                void handleCopyInviteLink(invite);
+                              }}
+                            >
+                              Copy link
+                            </DropdownMenuItem>
+                            <DropdownMenuItem
+                              variant="destructive"
+                              onClick={() => {
+                                setInviteToRevoke(invite);
+                                setRevokeDialogOpen(true);
+                              }}
+                            >
+                              Revoke
+                            </DropdownMenuItem>
+                          </DropdownMenuGroup>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </TableCell>
                   </TableRow>
                 ))

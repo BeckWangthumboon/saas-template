@@ -11,11 +11,6 @@ const INVITE_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000;
 
 type InviteRole = 'admin' | 'member';
 
-interface InviterInfo {
-  name: string | null;
-  email: string;
-}
-
 function formatName(firstName: string | null, lastName: string | null): string | null {
   if (firstName || lastName) {
     return [firstName, lastName].filter(Boolean).join(' ');
@@ -27,10 +22,7 @@ function formatName(firstName: string | null, lastName: string | null): string |
  * Gets inviter information from an invite.
  * Uses current inviter data if the inviter exists, otherwise uses the snapshot.
  */
-async function getInviterInfo(
-  ctx: QueryCtx | MutationCtx,
-  invite: Doc<'workspaceInvites'>,
-): Promise<InviterInfo> {
+async function getInviterInfo(ctx: QueryCtx | MutationCtx, invite: Doc<'workspaceInvites'>) {
   const inviter = await ctx.db.get('users', invite.invitedByUserId);
   if (inviter) {
     return {
@@ -328,16 +320,7 @@ export const createInvite = mutation({
  */
 export const getInviteForAcceptance = query({
   args: { token: v.string() },
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{
-    workspaceName: string;
-    role: InviteRole;
-    inviterName: string | null;
-    inviterEmail: string | null;
-    expiresAt: number;
-  }> => {
+  handler: async (ctx, args) => {
     const { invite, workspace } = await validateInviteForAcceptance(ctx, args.token);
     const inviterInfo = await getInviterInfo(ctx, invite);
 
@@ -449,16 +432,16 @@ export const getWorkspaceInvites = query({
 
     const pendingInvites = await Promise.all(
       invites
-        .filter((invite) => invite.status === 'pending')
+        .filter((invite) => invite.status === 'pending' && invite.expiresAt >= now)
         .map(async (invite) => {
           const inviterInfo = await getInviterInfo(ctx, invite);
           return {
             _id: invite._id,
+            token: invite.token,
             email: invite.email,
             role: invite.role,
             invitedAt: invite._creationTime,
             expiresAt: invite.expiresAt,
-            isExpired: invite.expiresAt < now,
             inviter: {
               firstName: inviterInfo.name ? inviterInfo.name.split(' ')[0] : null,
               lastName: inviterInfo.name ? inviterInfo.name.split(' ').slice(1).join(' ') : null,

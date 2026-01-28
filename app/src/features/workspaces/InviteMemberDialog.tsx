@@ -1,7 +1,8 @@
 import { useForm } from '@tanstack/react-form';
-import { SendIcon, UserPlusIcon } from 'lucide-react';
-import * as React from 'react';
+import { CheckIcon, CopyIcon, SendIcon, UserPlusIcon } from 'lucide-react';
+import { useCallback, useState } from 'react';
 import { toast } from 'sonner';
+import { z } from 'zod';
 
 import { Button } from '@/components/ui/button';
 import {
@@ -29,6 +30,7 @@ import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import { ErrorCode } from '../../../shared/errors';
 import type { Role } from './types';
+import { formatInviteLink } from './utils';
 
 interface InviteMemberDialogProps {
   workspaceId: Id<'workspaces'>;
@@ -45,12 +47,20 @@ export function InviteMemberDialog({
   onOpenChange: controlledOnOpenChange,
   trigger,
 }: InviteMemberDialogProps) {
-  const [uncontrolledOpen, setUncontrolledOpen] = React.useState(false);
+  const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
+  const [successData, setSuccessData] = useState<{ link: string; email: string } | null>(null);
+  const [copied, setCopied] = useState(false);
+  const [copyError, setCopyError] = useState(false);
 
   const isControlled = controlledOpen !== undefined && controlledOnOpenChange !== undefined;
   const open = isControlled ? controlledOpen : uncontrolledOpen;
-  const setOpen = React.useCallback(
+  const setOpen = useCallback(
     (value: boolean) => {
+      if (!value) {
+        setSuccessData(null);
+        setCopied(false);
+        setCopyError(false);
+      }
       if (isControlled) {
         controlledOnOpenChange(value);
       } else {
@@ -76,13 +86,8 @@ export function InviteMemberDialog({
       });
 
       if (result.isOk()) {
-        const { wasResent } = result.value;
-        toast.success(wasResent ? 'Invitation resent' : 'Invitation sent', {
-          description: wasResent
-            ? `The invitation to ${value.email} has been refreshed.`
-            : `An invitation has been sent to ${value.email}.`,
-        });
-        setOpen(false);
+        const link = formatInviteLink(result.value.token);
+        setSuccessData({ link, email: value.email.trim() });
         form.reset();
       } else {
         if (result.error.code === ErrorCode.INVITE_ALREADY_MEMBER) {
@@ -106,7 +111,64 @@ export function InviteMemberDialog({
     member: 'Member',
   } as const;
 
-  const dialogContent = (
+  const handleCopyLink = async () => {
+    if (!successData) return;
+    try {
+      await navigator.clipboard.writeText(successData.link);
+      setCopied(true);
+      setCopyError(false);
+      setTimeout(() => {
+        setCopied(false);
+      }, 2000);
+    } catch {
+      setCopyError(true);
+    }
+  };
+
+  const successContent = successData && (
+    <DialogContent>
+      <DialogHeader>
+        <DialogTitle>Invitation sent</DialogTitle>
+        <DialogDescription>
+          An invitation has been sent to {successData.email}. Share the link below to let them join.
+        </DialogDescription>
+      </DialogHeader>
+
+      <div className="space-y-2">
+        <FieldLabel>Invite link</FieldLabel>
+        <div className="flex gap-2">
+          <Input
+            value={successData.link}
+            readOnly
+            onFocus={(e) => {
+              e.currentTarget.select();
+            }}
+            aria-label="Invite link"
+          />
+          <Button
+            type="button"
+            variant="outline"
+            className="shrink-0"
+            onClick={() => void handleCopyLink()}
+          >
+            {copied ? <CheckIcon className="size-4" /> : <CopyIcon className="size-4" />}
+            {copied ? 'Copied' : 'Copy'}
+          </Button>
+        </div>
+        {copyError && (
+          <p className="text-destructive text-sm">
+            Failed to copy. Please select and copy the link manually.
+          </p>
+        )}
+      </div>
+
+      <DialogFooter className="mt-6">
+        <DialogClose render={<Button variant="outline" />}>Done</DialogClose>
+      </DialogFooter>
+    </DialogContent>
+  );
+
+  const formContent = (
     <DialogContent>
       <DialogHeader>
         <DialogTitle>Invite a new member</DialogTitle>
@@ -127,7 +189,8 @@ export function InviteMemberDialog({
               onBlur: ({ value }) => {
                 const trimmed = value.trim();
                 if (!trimmed) return 'Email is required';
-                if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(trimmed)) return 'Invalid email address';
+                const emailResult = z.email().safeParse(trimmed);
+                if (!emailResult.success) return 'Invalid email address';
                 return undefined;
               },
             }}
@@ -215,7 +278,7 @@ export function InviteMemberDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger render={trigger ?? defaultTrigger} />
-      {dialogContent}
+      {successData ? successContent : formContent}
     </Dialog>
   );
 }

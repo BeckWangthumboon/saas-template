@@ -44,6 +44,19 @@ export function formatDate(timestamp: number): string {
 }
 
 /**
+ * Builds a full invite URL for a token.
+ * Falls back to a relative path when window is unavailable.
+ */
+export function formatInviteLink(token: string, origin?: string): string {
+  const base = origin ?? (typeof window === 'undefined' ? '' : window.location.origin);
+  const path = `/invite/${token}`;
+
+  if (!base) return path;
+
+  return new URL(path, base).toString();
+}
+
+/**
  * Returns the appropriate badge variant for a workspace role.
  * - owner: default (primary)
  * - admin: secondary
