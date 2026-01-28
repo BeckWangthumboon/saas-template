@@ -15,6 +15,7 @@ export const ErrorCategory = {
 export const ErrorCodeSchema = z.enum([
   'AUTH_UNAUTHORIZED',
   'AUTH_USER_NOT_FOUND',
+  'AUTH_USER_DELETING',
   'AUTH_WORKOS_USER_NOT_FOUND',
   'AUTH_WORKOS_API_ERROR',
   'AUTH_WORKOS_RATE_LIMIT',
@@ -42,6 +43,7 @@ export type ErrorCode = z.infer<typeof ErrorCodeSchema>;
 export const ErrorCode = {
   AUTH_UNAUTHORIZED: 'AUTH_UNAUTHORIZED',
   AUTH_USER_NOT_FOUND: 'AUTH_USER_NOT_FOUND',
+  AUTH_USER_DELETING: 'AUTH_USER_DELETING',
   AUTH_WORKOS_USER_NOT_FOUND: 'AUTH_WORKOS_USER_NOT_FOUND',
   AUTH_WORKOS_API_ERROR: 'AUTH_WORKOS_API_ERROR',
   AUTH_WORKOS_RATE_LIMIT: 'AUTH_WORKOS_RATE_LIMIT',
@@ -67,6 +69,7 @@ export const ErrorCode = {
 const errorCategoryMap: Record<ErrorCode, ErrorCategory> = {
   [ErrorCode.AUTH_UNAUTHORIZED]: ErrorCategory.AUTH,
   [ErrorCode.AUTH_USER_NOT_FOUND]: ErrorCategory.AUTH,
+  [ErrorCode.AUTH_USER_DELETING]: ErrorCategory.AUTH,
   [ErrorCode.AUTH_WORKOS_USER_NOT_FOUND]: ErrorCategory.AUTH,
   [ErrorCode.AUTH_WORKOS_API_ERROR]: ErrorCategory.AUTH,
   [ErrorCode.AUTH_WORKOS_RATE_LIMIT]: ErrorCategory.AUTH,
@@ -93,6 +96,7 @@ const errorCategoryMap: Record<ErrorCode, ErrorCategory> = {
 export interface ErrorContextMap {
   [ErrorCode.AUTH_UNAUTHORIZED]: { reason?: string };
   [ErrorCode.AUTH_USER_NOT_FOUND]: { authId?: string; userId?: string };
+  [ErrorCode.AUTH_USER_DELETING]: { authId?: string; userId?: string };
   [ErrorCode.AUTH_WORKOS_USER_NOT_FOUND]: { authId: string };
   [ErrorCode.AUTH_WORKOS_API_ERROR]: { operation?: string; status?: number; message?: string };
   [ErrorCode.AUTH_WORKOS_RATE_LIMIT]: { retryAfter?: number };
@@ -122,6 +126,7 @@ export interface ErrorContextMap {
 const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.AUTH_UNAUTHORIZED]: 'Authentication required',
   [ErrorCode.AUTH_USER_NOT_FOUND]: 'User not found',
+  [ErrorCode.AUTH_USER_DELETING]: 'This account has been deleted or is no longer available',
   [ErrorCode.AUTH_WORKOS_USER_NOT_FOUND]: 'User not found in authentication service',
   [ErrorCode.AUTH_WORKOS_API_ERROR]: 'Authentication service error',
   [ErrorCode.AUTH_WORKOS_RATE_LIMIT]: 'Too many requests',

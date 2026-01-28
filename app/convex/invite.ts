@@ -4,7 +4,7 @@ import { ErrorCode, throwAppErrorForConvex } from '../shared/errors';
 import type { Doc, Id } from './_generated/dataModel';
 import { mutation, type MutationCtx, query, type QueryCtx } from './functions';
 import { getAuthenticatedUser } from './user';
-import { requireWorkspaceAdminOrOwner } from './workspaceAccess';
+import { requireWorkspaceAdminOrOwner, type WorkspaceMembership } from './workspaceAccess';
 
 // 7 days
 const INVITE_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000;
@@ -24,7 +24,7 @@ function formatName(firstName: string | null, lastName: string | null): string |
  */
 async function getInviterInfo(ctx: QueryCtx | MutationCtx, invite: Doc<'workspaceInvites'>) {
   const inviter = await ctx.db.get('users', invite.invitedByUserId);
-  if (inviter) {
+  if (inviter?.status === 'active' && inviter.email) {
     return {
       name: formatName(inviter.firstName ?? null, inviter.lastName ?? null),
       email: inviter.email,
@@ -47,7 +47,7 @@ async function getInviterInfo(ctx: QueryCtx | MutationCtx, invite: Doc<'workspac
 async function validateInvitePermission(
   ctx: QueryCtx | MutationCtx,
   workspaceId: Id<'workspaces'>,
-): Promise<{ membership: Doc<'workspaceMembers'>; user: Doc<'users'> }> {
+): Promise<WorkspaceMembership> {
   const { membership, user } = await requireWorkspaceAdminOrOwner(ctx, workspaceId, 'invite');
 
   return { membership, user };
@@ -68,7 +68,7 @@ async function lookupUserByEmail(
     .withIndex('by_email', (q) => q.eq('email', email))
     .unique();
 
-  if (!user) {
+  if (user?.status !== 'active' || !user.email) {
     return { user: null, isAlreadyMember: false };
   }
 

@@ -5,7 +5,7 @@ import { getAuthenticatedUser } from './user';
 
 export interface WorkspaceMembership {
   membership: Doc<'workspaceMembers'>;
-  user: Doc<'users'>;
+  user: Awaited<ReturnType<typeof getAuthenticatedUser>>;
 }
 
 /**
@@ -20,7 +20,7 @@ export interface WorkspaceMembership {
 export async function getWorkspaceMembership(
   ctx: QueryCtx | MutationCtx,
   workspaceId: Id<'workspaces'>,
-): Promise<WorkspaceMembership> {
+) {
   const user = await getAuthenticatedUser(ctx);
 
   const membership = await ctx.db

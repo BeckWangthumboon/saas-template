@@ -2,7 +2,7 @@ import { v } from 'convex/values';
 
 import { ErrorCode, throwAppErrorForConvex } from '../shared/errors';
 import { internal } from './_generated/api';
-import type { Doc } from './_generated/dataModel';
+import type { Doc, Id } from './_generated/dataModel';
 import {
   action,
   type ActionCtx,
@@ -14,17 +14,44 @@ import {
   type QueryCtx,
   triggers,
 } from './functions';
-import { getWorkOS } from './workos';
+import { getWorkOS, workosWorkpool } from './workos';
+import { getSoleOwnerWorkspaceNamesForUser } from './workspaceOwnership';
 
 type AuthIdentity = NonNullable<Awaited<ReturnType<QueryCtx['auth']['getUserIdentity']>>>;
+type ActiveUser = Extract<Doc<'users'>, { status: 'active' }>;
 
-function assertCreatedUser(user: Doc<'users'> | null): asserts user is Doc<'users'> {
-  if (!user) {
+/**
+ * Narrow a user document to an active user (status + required fields).
+ */
+const isActiveUser = (user: Doc<'users'>): user is ActiveUser =>
+  user.status === 'active' &&
+  Boolean(user.authId) &&
+  Boolean(user.email) &&
+  user.authId.trim().length > 0 &&
+  user.email.trim().length > 0;
+
+/**
+ * Asserts a user is active, otherwise throws a structured error.
+ */
+const assertActiveUser = (
+  user: Doc<'users'>,
+  error: { code: ErrorCode; details?: Record<string, unknown> },
+): ActiveUser => {
+  if (user.status !== 'active') {
+    return throwAppErrorForConvex(error.code, error.details ?? {});
+  }
+  if (
+    !user.authId ||
+    !user.email ||
+    user.authId.trim().length === 0 ||
+    user.email.trim().length === 0
+  ) {
     return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
-      details: 'Failed to fetch created user',
+      details: 'User authId or email is missing',
     });
   }
-}
+  return user;
+};
 
 /**
  * Gets the authenticated user's identity from the JWT token.
@@ -42,7 +69,7 @@ async function getAuthIdentity(ctx: QueryCtx | MutationCtx | ActionCtx): Promise
  * Gets the authenticated user from the database.
  * Use this when you need the full user document with all fields.
  */
-export async function getAuthenticatedUser(ctx: QueryCtx | MutationCtx): Promise<Doc<'users'>> {
+export async function getAuthenticatedUser(ctx: QueryCtx | MutationCtx) {
   const identity = await getAuthIdentity(ctx);
 
   const user = await ctx.db
@@ -53,8 +80,53 @@ export async function getAuthenticatedUser(ctx: QueryCtx | MutationCtx): Promise
   if (!user) {
     return throwAppErrorForConvex(ErrorCode.AUTH_USER_NOT_FOUND, { authId: identity.subject });
   }
-  return user;
+
+  return assertActiveUser(user, {
+    code: ErrorCode.AUTH_USER_DELETING,
+    details: { authId: identity.subject, userId: user._id },
+  });
 }
+
+/**
+ * Gets a user by authId if they exist and are active.
+ *
+ * @param ctx - Query context
+ * @param authId - The WorkOS auth ID to look up
+ * @returns The user document if found and active, null otherwise
+ */
+export const getUserByAuthId = async (
+  ctx: QueryCtx,
+  authId: string,
+): Promise<ActiveUser | null> => {
+  const user = await ctx.db
+    .query('users')
+    .withIndex('by_authId', (q) => q.eq('authId', authId))
+    .unique();
+  if (!user) {
+    return null;
+  }
+  if (!isActiveUser(user)) {
+    return null;
+  }
+  return user;
+};
+
+export const getUserById = async (
+  ctx: QueryCtx,
+  userId: Id<'users'>,
+): Promise<ActiveUser | null> => {
+  const user = await ctx.db
+    .query('users')
+    .withIndex('by_id', (q) => q.eq('_id', userId))
+    .unique();
+  if (!user) {
+    return null;
+  }
+  if (!isActiveUser(user)) {
+    return null;
+  }
+  return user;
+};
 
 /**
  * Gets the current user if authenticated, otherwise returns null.
@@ -64,7 +136,7 @@ export async function getAuthenticatedUser(ctx: QueryCtx | MutationCtx): Promise
  */
 export const getUserOrNull = query({
   args: {},
-  handler: async (ctx) => {
+  handler: async (ctx): Promise<ActiveUser | null> => {
     const identity = await ctx.auth.getUserIdentity();
     if (!identity) {
       return null;
@@ -75,7 +147,10 @@ export const getUserOrNull = query({
       .withIndex('by_authId', (q) => q.eq('authId', identity.subject))
       .unique();
 
-    return user ?? null;
+    if (!user || !isActiveUser(user)) {
+      return null;
+    }
+    return user;
   },
 });
 
@@ -123,13 +198,16 @@ export const updateName = mutation({
  */
 export const ensureUser = action({
   args: {},
-  handler: async (ctx): Promise<Doc<'users'>> => {
+  handler: async (ctx): Promise<ActiveUser> => {
     const identity = await getAuthIdentity(ctx);
     const authId = identity.subject;
     const existingUser = await ctx.runQuery(internal.user.getUserByAuthIdInternal, { authId });
 
     if (existingUser) {
-      return existingUser;
+      return assertActiveUser(existingUser, {
+        code: ErrorCode.AUTH_USER_NOT_FOUND,
+        details: { authId, userId: existingUser._id },
+      });
     }
 
     const workos = getWorkOS();
@@ -155,7 +233,7 @@ export const ensureUser = action({
         });
       }
     })();
-    return await ctx.runMutation(internal.user.getUserOrUpsertInternal, {
+    const newUser = await ctx.runMutation(internal.user.getUserOrUpsertInternal, {
       authId,
       userData: {
         email: workosUser.email,
@@ -163,6 +241,10 @@ export const ensureUser = action({
         lastName: workosUser.lastName ?? undefined,
         profilePictureUrl: workosUser.profilePictureUrl ?? undefined,
       },
+    });
+    return assertActiveUser(newUser, {
+      code: ErrorCode.AUTH_USER_NOT_FOUND,
+      details: { authId, userId: newUser._id },
     });
   },
 });
@@ -193,6 +275,69 @@ export const deleteAccount = action({
         return;
       }
       console.error('Failed to delete user from WorkOS:', workosError);
+    }
+  },
+});
+
+export const newDeleteAccount = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const identiy = await getAuthIdentity(ctx);
+    const user = await ctx.db
+      .query('users')
+      .withIndex('by_authId', (q) => q.eq('authId', identiy.subject))
+      .unique();
+
+    if (!user) {
+      return throwAppErrorForConvex(ErrorCode.AUTH_USER_NOT_FOUND, { authId: identiy.subject });
+    }
+    if (user.status === 'deleting' || user.status === 'deleted') {
+      return;
+    }
+
+    const soleOwnerWorkspaceNames = await getSoleOwnerWorkspaceNamesForUser(ctx, user._id);
+    if (soleOwnerWorkspaceNames.length > 0) {
+      return throwAppErrorForConvex(ErrorCode.USER_LAST_OWNER_OF_WORKSPACE, {
+        workspaceNames: soleOwnerWorkspaceNames,
+      });
+    }
+
+    await ctx.db.patch('users', user._id, {
+      status: 'deleting',
+      deletingAt: Date.now(),
+    });
+
+    await workosWorkpool.enqueueAction(
+      ctx,
+      internal.workos.deleteWorkosUser,
+      {
+        authId: identiy.subject,
+      },
+      {
+        onComplete: internal.user.newDeleteAccountOnComplete,
+        context: { userId: user._id },
+        retry: true,
+      },
+    );
+  },
+});
+
+export const newDeleteAccountOnComplete = workosWorkpool.defineOnComplete({
+  context: v.object({ userId: v.id('users') }),
+  handler: async (ctx, args) => {
+    const { result, context } = args;
+    const { userId } = context;
+    if (result.kind === 'success') {
+      await ctx.db.patch('users', userId, {
+        status: 'deleted',
+        deletedAt: Date.now(),
+        authId: undefined,
+        email: undefined,
+        firstName: undefined,
+        lastName: undefined,
+        profilePictureUrl: undefined,
+        deletingAt: undefined,
+      });
     }
   },
 });
@@ -277,15 +422,24 @@ export const getUserOrUpsertInternal = internalMutation({
       return existingUser;
     }
 
-    const id = await ctx.db.insert('users', {
+    const userId = await ctx.db.insert('users', {
       authId: args.authId,
-      ...args.userData,
+      email: args.userData.email,
+      firstName: args.userData.firstName ?? undefined,
+      lastName: args.userData.lastName ?? undefined,
+      profilePictureUrl: args.userData.profilePictureUrl ?? undefined,
       onboardingStatus: 'not_started',
       updatedAt: Date.now(),
+      status: 'active',
     });
-    const newUser = await ctx.db.get('users', id);
-    assertCreatedUser(newUser);
-    return newUser;
+
+    const user = await getUserById(ctx, userId);
+    if (!user) {
+      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+        details: 'Failed to fetch created user',
+      });
+    }
+    return user;
   },
 });
 
@@ -306,16 +460,42 @@ export const completeOnboarding = mutation({
 });
 
 triggers.register('users', async (ctx, change) => {
-  if (change.operation !== 'delete') {
+  if (change.operation === 'delete') {
+    const memberships = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', change.id))
+      .collect();
+
+    for (const membership of memberships) {
+      await ctx.db.delete('workspaceMembers', membership._id);
+    }
     return;
   }
 
-  const memberships = await ctx.db
-    .query('workspaceMembers')
-    .withIndex('by_userId', (q) => q.eq('userId', change.id))
-    .collect();
+  const user = change.newDoc;
 
-  for (const membership of memberships) {
-    await ctx.db.delete('workspaceMembers', membership._id);
+  if (
+    user.status === 'active' &&
+    (!user.authId ||
+      !user.email ||
+      user.authId.trim().length === 0 ||
+      user.email.trim().length === 0)
+  ) {
+    return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+      details: 'Active users must have authId and email',
+    });
+  }
+
+  if (
+    user.status === 'deleted' &&
+    (user.authId !== undefined ||
+      user.email !== undefined ||
+      user.firstName !== undefined ||
+      user.lastName !== undefined ||
+      user.profilePictureUrl !== undefined)
+  ) {
+    return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+      details: 'Deleted users cannot retain PII',
+    });
   }
 });

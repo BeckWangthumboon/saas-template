@@ -76,6 +76,34 @@ export default tseslint.config(
       '@typescript-eslint/require-await': 'off',
     },
   },
+  {
+    files: ['app/convex/**/*.{ts,tsx}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: './_generated/server',
+              message: 'Use ./functions so triggers and custom ctx are enforced.',
+            },
+          ],
+          patterns: [
+            {
+              group: ['**/_generated/server'],
+              message: 'Use ./functions so triggers and custom ctx are enforced.',
+            },
+          ],
+        },
+      ],
+    },
+  },
+  {
+    files: ['app/convex/functions.ts'],
+    rules: {
+      'no-restricted-imports': 'off',
+    },
+  },
   ...convexPlugin.configs.recommended,
   eslintConfigPrettier,
 );

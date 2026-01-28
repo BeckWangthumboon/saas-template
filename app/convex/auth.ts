@@ -2,6 +2,7 @@ import { type AuthFunctions, AuthKit } from '@convex-dev/workos-authkit';
 
 import { components, internal } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
+import { getUserByAuthId } from './user';
 
 const authFunctions: AuthFunctions = internal.auth;
 
@@ -18,10 +19,7 @@ export const { authKitEvent } = authKit.events({
    * @param event - WorkOS user event
    */
   'user.created': async (ctx, event) => {
-    const existingUser = await ctx.db
-      .query('users')
-      .withIndex('by_authId', (q) => q.eq('authId', event.data.id))
-      .unique();
+    const existingUser = await getUserByAuthId(ctx, event.data.id);
 
     if (existingUser) {
       const updates: Record<string, string> = {};
@@ -51,6 +49,7 @@ export const { authKitEvent } = authKit.events({
       profilePictureUrl: event.data.profilePictureUrl ?? undefined,
       onboardingStatus: 'not_started',
       updatedAt: Date.now(),
+      status: 'active',
     });
   },
   /**
@@ -61,10 +60,7 @@ export const { authKitEvent } = authKit.events({
    * @param event - WorkOS user event
    */
   'user.updated': async (ctx, event) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_authId', (q) => q.eq('authId', event.data.id))
-      .unique();
+    const user = await getUserByAuthId(ctx, event.data.id);
     if (!user) {
       return;
     }

@@ -1,18 +1,57 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 
+const userDeleteInfo = v.optional(
+  v.object({
+    lastAttemptAt: v.optional(v.number()),
+    lastError: v.optional(v.string()),
+    workId: v.optional(v.string()),
+  }),
+);
+
+const userBaseFields = {
+  onboardingStatus: v.union(v.literal('not_started'), v.literal('completed')),
+  updatedAt: v.number(),
+  delete: userDeleteInfo,
+};
+
+const activeUser = v.object({
+  ...userBaseFields,
+  status: v.literal('active'),
+  authId: v.string(),
+  email: v.string(),
+  firstName: v.optional(v.string()),
+  lastName: v.optional(v.string()),
+  profilePictureUrl: v.optional(v.string()),
+});
+
+const deletingUser = v.object({
+  ...userBaseFields,
+  status: v.literal('deleting'),
+  authId: v.string(),
+  deletingAt: v.number(),
+  email: v.optional(v.string()),
+  firstName: v.optional(v.string()),
+  lastName: v.optional(v.string()),
+  profilePictureUrl: v.optional(v.string()),
+});
+
+const deletedUser = v.object({
+  ...userBaseFields,
+  status: v.literal('deleted'),
+  deletedAt: v.number(),
+  authId: v.optional(v.string()),
+  email: v.optional(v.string()),
+  firstName: v.optional(v.string()),
+  lastName: v.optional(v.string()),
+  profilePictureUrl: v.optional(v.string()),
+});
+
 export default defineSchema({
-  users: defineTable({
-    authId: v.string(),
-    email: v.string(),
-    firstName: v.optional(v.string()),
-    lastName: v.optional(v.string()),
-    profilePictureUrl: v.optional(v.string()),
-    onboardingStatus: v.union(v.literal('not_started'), v.literal('completed')),
-    updatedAt: v.number(),
-  })
+  users: defineTable(v.union(activeUser, deletingUser, deletedUser))
     .index('by_authId', ['authId'])
-    .index('by_email', ['email']),
+    .index('by_email', ['email'])
+    .index('by_status', ['status']),
 
   workspaces: defineTable({
     name: v.string(),
