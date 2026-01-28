@@ -1,3 +1,4 @@
+export { type AppErrorData, type ErrorCode } from '../../shared/errors';
 export { type ActionState, useConvexAction, type UseConvexActionReturn } from './useConvexAction';
 export {
   type MutationState,
@@ -5,6 +6,4 @@ export {
   type UseConvexMutationReturn,
 } from './useConvexMutation';
 export { type QueryState, useConvexQuery } from './useConvexQuery';
-
-// Re-export error types for convenience
-export { type AppErrorData, type ErrorCode } from '../../shared/errors';
+export { useDebounce } from './useDebounce';
