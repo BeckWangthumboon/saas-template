@@ -15,7 +15,7 @@ import {
   triggers,
 } from './functions';
 import { getWorkOS, workosWorkpool } from './workos';
-import { getSoleOwnerWorkspaceNamesForUser } from './workspaceOwnership';
+import { getSoleOwnerWorkspaceForUser } from './workspaceOwnership';
 
 const PURGE_DELAY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -25,7 +25,7 @@ type ActiveUser = Extract<Doc<'users'>, { status: 'active' }>;
 /**
  * Narrow a user document to an active user (status + required fields).
  */
-const isActiveUser = (user: Doc<'users'>): user is ActiveUser =>
+export const isActiveUser = (user: Doc<'users'>): user is ActiveUser =>
   user.status === 'active' &&
   Boolean(user.authId) &&
   Boolean(user.email) &&
@@ -54,6 +54,47 @@ const assertActiveUser = (
   }
   return user;
 };
+
+/**
+ * Revokes all pending invites where the user is the invitee (recipient).
+ *
+ * @param ctx - The Convex mutation context
+ * @param userId - The ID of the user to revoke invites for
+ * @param email - The email of the user to revoke invites for
+ */
+async function revokePendingInvitesForUser(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  email: string | undefined,
+) {
+  const invitesForUser = await ctx.db
+    .query('workspaceInvites')
+    .withIndex('by_invitedUserId', (q) => q.eq('invitedUserId', userId))
+    .collect();
+
+  const normalizedEmail = email?.toLowerCase().trim();
+  const invitesForEmail = normalizedEmail
+    ? await ctx.db
+        .query('workspaceInvites')
+        .withIndex('by_email', (q) => q.eq('email', normalizedEmail))
+        .collect()
+    : [];
+
+  const inviteMap = new Map(
+    [...invitesForUser, ...invitesForEmail].map((invite) => [invite._id, invite]),
+  );
+  const now = Date.now();
+
+  for (const invite of inviteMap.values()) {
+    if (invite.status !== 'pending') {
+      continue;
+    }
+    await ctx.db.patch('workspaceInvites', invite._id, {
+      status: 'revoked',
+      updatedAt: now,
+    });
+  }
+}
 
 /**
  * Gets the authenticated user's identity from the JWT token.
@@ -113,18 +154,37 @@ export const getUserByAuthId = async (
   return user;
 };
 
-export const getUserById = async (
-  ctx: QueryCtx,
-  userId: Id<'users'>,
-): Promise<ActiveUser | null> => {
+/**
+ * Returns the user document for the given user ID if the user exists and is active.
+ *
+ * @param ctx - The query context.
+ * @param userId - The ID of the user to look up.
+ * @returns The active user document if found, otherwise null.
+ */
+export const getActiveUserById = async (ctx: QueryCtx, userId: Id<'users'>) => {
   const user = await ctx.db
     .query('users')
     .withIndex('by_id', (q) => q.eq('_id', userId))
     .unique();
-  if (!user) {
+  if (!user || !isActiveUser(user)) {
     return null;
   }
-  if (!isActiveUser(user)) {
+  return user;
+};
+
+/**
+ * Returns the user document for the given email if the user exists and is active.
+ *
+ * @param ctx - The query or mutation context.
+ * @param email - The email to look up.
+ * @returns The active user document if found, otherwise null.
+ */
+export const getActiveUserByEmail = async (ctx: QueryCtx | MutationCtx, email: string) => {
+  const user = await ctx.db
+    .query('users')
+    .withIndex('by_email', (q) => q.eq('email', email))
+    .unique();
+  if (!user || !isActiveUser(user)) {
     return null;
   }
   return user;
@@ -297,10 +357,10 @@ export const newDeleteAccount = mutation({
       return;
     }
 
-    const soleOwnerWorkspaceNames = await getSoleOwnerWorkspaceNamesForUser(ctx, user._id);
-    if (soleOwnerWorkspaceNames.length > 0) {
+    const soleOwnerWorkspace = await getSoleOwnerWorkspaceForUser(ctx, user._id);
+    if (soleOwnerWorkspace.length > 0) {
       return throwAppErrorForConvex(ErrorCode.USER_LAST_OWNER_OF_WORKSPACE, {
-        workspaceNames: soleOwnerWorkspaceNames,
+        workspaceNames: soleOwnerWorkspace.map((workspace) => workspace.name),
       });
     }
 
@@ -410,11 +470,11 @@ export const deleteUserByAuthId = internalMutation({
       return;
     }
 
-    const soleOwnerWorkspaceNames = await getSoleOwnerWorkspaceNamesForUser(ctx, user._id);
+    const soleOwnerWorkspace = await getSoleOwnerWorkspaceForUser(ctx, user._id);
 
-    if (soleOwnerWorkspaceNames.length > 0) {
+    if (soleOwnerWorkspace.length > 0) {
       return throwAppErrorForConvex(ErrorCode.USER_LAST_OWNER_OF_WORKSPACE, {
-        workspaceNames: soleOwnerWorkspaceNames,
+        workspaceNames: soleOwnerWorkspace.map((workspace) => workspace.name),
       });
     }
 
@@ -462,7 +522,7 @@ export const getUserOrUpsertInternal = internalMutation({
       status: 'active',
     });
 
-    const user = await getUserById(ctx, userId);
+    const user = await getActiveUserById(ctx, userId);
     if (!user) {
       return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
         details: 'Failed to fetch created user',
@@ -498,10 +558,14 @@ triggers.register('users', async (ctx, change) => {
     for (const membership of memberships) {
       await ctx.db.delete('workspaceMembers', membership._id);
     }
+    await revokePendingInvitesForUser(ctx, change.id, change.oldDoc.email);
     return;
   }
 
   const user = change.newDoc;
+  if (user.status === 'deleted' && change.oldDoc?.status !== 'deleted') {
+    await revokePendingInvitesForUser(ctx, user._id, change.oldDoc?.email);
+  }
 
   if (
     user.status === 'active' &&

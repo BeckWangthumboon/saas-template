@@ -58,13 +58,14 @@ export default defineSchema({
     name: v.string(),
     createdByUserId: v.id('users'),
     updatedAt: v.number(),
+    creatorDisplayNameSnapshot: v.optional(v.string()),
+    creatorDisplayEmailSnapshot: v.string(),
   }).index('by_name', ['name']),
 
   workspaceMembers: defineTable({
     userId: v.id('users'),
     workspaceId: v.id('workspaces'),
     role: v.union(v.literal('owner'), v.literal('admin'), v.literal('member')),
-    status: v.union(v.literal('active'), v.literal('invited')),
     updatedAt: v.number(),
   })
     .index('by_userId', ['userId'])
@@ -89,5 +90,6 @@ export default defineSchema({
     .index('by_token', ['token'])
     .index('by_workspaceId', ['workspaceId'])
     .index('by_workspaceId_email', ['workspaceId', 'email'])
-    .index('by_email', ['email']),
+    .index('by_email', ['email'])
+    .index('by_invitedUserId', ['invitedUserId']),
 });

@@ -50,6 +50,9 @@ export const createWorkspace = mutation({
     const workspaceId = await ctx.db.insert('workspaces', {
       name: args.name.trim(),
       createdByUserId: user._id,
+      creatorDisplayNameSnapshot:
+        [user.firstName, user.lastName].filter(Boolean).join(' ') || undefined,
+      creatorDisplayEmailSnapshot: user.email,
       updatedAt: Date.now(),
     });
 
@@ -57,7 +60,6 @@ export const createWorkspace = mutation({
       userId: user._id,
       workspaceId,
       role: 'owner',
-      status: 'active',
       updatedAt: Date.now(),
     });
 

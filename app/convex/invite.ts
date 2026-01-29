@@ -3,7 +3,7 @@ import { v } from 'convex/values';
 import { ErrorCode, throwAppErrorForConvex } from '../shared/errors';
 import type { Doc, Id } from './_generated/dataModel';
 import { mutation, type MutationCtx, query, type QueryCtx } from './functions';
-import { getAuthenticatedUser } from './user';
+import { getActiveUserByEmail, getActiveUserById, getAuthenticatedUser } from './user';
 import { requireWorkspaceAdminOrOwner, type WorkspaceMembership } from './workspaceAccess';
 
 // 7 days
@@ -63,12 +63,9 @@ async function lookupUserByEmail(
   workspaceId: Id<'workspaces'>,
   email: string,
 ): Promise<{ user: Doc<'users'> | null; isAlreadyMember: boolean }> {
-  const user = await ctx.db
-    .query('users')
-    .withIndex('by_email', (q) => q.eq('email', email))
-    .unique();
+  const user = await getActiveUserByEmail(ctx, email);
 
-  if (user?.status !== 'active' || !user.email) {
+  if (!user) {
     return { user: null, isAlreadyMember: false };
   }
 
@@ -81,7 +78,7 @@ async function lookupUserByEmail(
 
   return {
     user,
-    isAlreadyMember: membership !== null && membership.status === 'active',
+    isAlreadyMember: membership !== null,
   };
 }
 
@@ -100,7 +97,12 @@ async function isUserAlreadyMember(
     )
     .unique();
 
-  return membership !== null && membership.status === 'active';
+  if (!membership) {
+    return false;
+  }
+
+  const user = await getActiveUserById(ctx, membership.userId);
+  return user !== null;
 }
 
 /**
@@ -364,7 +366,6 @@ export const acceptInvite = mutation({
       userId: user._id,
       workspaceId: invite.workspaceId,
       role: invite.role,
-      status: 'active',
       updatedAt: now,
     });
 
