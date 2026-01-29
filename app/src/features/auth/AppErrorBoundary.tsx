@@ -14,6 +14,7 @@ export function AppErrorBoundary({ error }: { error: Error }) {
     if (appError) {
       return (
         appError.code === ErrorCode.AUTH_USER_NOT_FOUND ||
+        appError.code === ErrorCode.AUTH_USER_DELETING ||
         appError.code === ErrorCode.AUTH_UNAUTHORIZED ||
         appError.code === ErrorCode.AUTH_WORKOS_USER_NOT_FOUND
       );
@@ -25,6 +26,7 @@ export function AppErrorBoundary({ error }: { error: Error }) {
 
     return (
       error.message.includes('AUTH_USER_NOT_FOUND') ||
+      error.message.includes('AUTH_USER_DELETING') ||
       error.message.includes('AUTH_UNAUTHORIZED') ||
       error.message.includes('Authentication required') ||
       error.message.includes('User not found')

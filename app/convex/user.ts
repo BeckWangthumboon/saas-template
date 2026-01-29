@@ -267,7 +267,7 @@ export const ensureUser = action({
 
     if (existingUser) {
       return assertActiveUser(existingUser, {
-        code: ErrorCode.AUTH_USER_NOT_FOUND,
+        code: ErrorCode.AUTH_USER_DELETING,
         details: { authId, userId: existingUser._id },
       });
     }
@@ -305,7 +305,7 @@ export const ensureUser = action({
       },
     });
     return assertActiveUser(newUser, {
-      code: ErrorCode.AUTH_USER_NOT_FOUND,
+      code: ErrorCode.AUTH_USER_DELETING,
       details: { authId, userId: newUser._id },
     });
   },
