@@ -17,6 +17,8 @@ import {
 import { getWorkOS, workosWorkpool } from './workos';
 import { getSoleOwnerWorkspaceNamesForUser } from './workspaceOwnership';
 
+const PURGE_DELAY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+
 type AuthIdentity = NonNullable<Awaited<ReturnType<QueryCtx['auth']['getUserIdentity']>>>;
 type ActiveUser = Extract<Doc<'users'>, { status: 'active' }>;
 
@@ -328,9 +330,11 @@ export const newDeleteAccountOnComplete = workosWorkpool.defineOnComplete({
     const { result, context } = args;
     const { userId } = context;
     if (result.kind === 'success') {
+      const now = Date.now();
       await ctx.db.patch('users', userId, {
         status: 'deleted',
-        deletedAt: Date.now(),
+        deletedAt: now,
+        purgeAt: now + PURGE_DELAY_MS,
         authId: undefined,
         email: undefined,
         firstName: undefined,
@@ -339,6 +343,31 @@ export const newDeleteAccountOnComplete = workosWorkpool.defineOnComplete({
         deletingAt: undefined,
       });
     }
+  },
+});
+
+/**
+ * Purges user tombstones whose purgeAt has passed.
+ * Called daily by cron job.
+ *
+ * @internal
+ */
+export const purgeDeletedUsers = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+
+    const expiredUsers = await ctx.db
+      .query('users')
+      .withIndex('by_status', (q) => q.eq('status', 'deleted'))
+      .filter((q) => q.lt(q.field('purgeAt'), now))
+      .collect();
+
+    for (const user of expiredUsers) {
+      await ctx.db.delete('users', user._id);
+    }
+
+    return { purgedCount: expiredUsers.length };
   },
 });
 

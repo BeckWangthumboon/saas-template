@@ -40,6 +40,7 @@ const deletedUser = v.object({
   ...userBaseFields,
   status: v.literal('deleted'),
   deletedAt: v.number(),
+  purgeAt: v.number(),
   authId: v.optional(v.string()),
   email: v.optional(v.string()),
   firstName: v.optional(v.string()),
