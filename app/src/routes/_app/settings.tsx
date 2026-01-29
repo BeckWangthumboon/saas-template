@@ -23,7 +23,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useUser } from '@/features/auth';
-import { useConvexAction, useConvexMutation } from '@/hooks';
+import { useConvexMutation } from '@/hooks';
 
 import { api } from '../../../convex/_generated/api';
 
@@ -36,7 +36,7 @@ function SettingsPage() {
   const userContext = useUser();
   const user = userContext.status === 'ready' ? userContext.user : undefined;
   const { mutate: updateName } = useConvexMutation(api.user.updateName);
-  const { execute: deleteAccount, state: deleteState } = useConvexAction(api.user.deleteAccount);
+  const { mutate: deleteAccount, state: deleteState } = useConvexMutation(api.user.deleteAccount);
   const { signOut } = useAuth();
   const convex = useConvex();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
@@ -232,8 +232,8 @@ function SettingsPage() {
                   <DialogHeader>
                     <DialogTitle>Delete your account?</DialogTitle>
                     <DialogDescription>
-                      This action cannot be undone. This will permanently delete your account and
-                      remove all your data from our servers.
+                      This action cannot be undone. This will delete your account and all your data
+                      will be removed from our servers.
                     </DialogDescription>
                   </DialogHeader>
                   <DialogFooter>

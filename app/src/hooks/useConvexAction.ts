@@ -24,14 +24,13 @@ export interface UseConvexActionReturn<Action extends FunctionReference<'action'
  *
  * @example
  * ```ts
- * const { execute, state, reset } = useConvexAction(api.user.deleteAccount);
+ * const { execute, state, reset } = useConvexAction(api.someAction);
  *
- * const handleDelete = async () => {
+ * const handleAction = async () => {
  *   const result = await execute();
  *
  *   if (result.isOk()) {
- *     toast.success('Account deleted');
- *     redirect('/');
+ *     toast.success('Action completed');
  *   } else {
  *     // result.error is typed AppErrorData
  *     toast.error(result.error.message);

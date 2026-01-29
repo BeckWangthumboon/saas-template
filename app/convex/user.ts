@@ -311,37 +311,7 @@ export const ensureUser = action({
   },
 });
 
-/**
- * Permanently deletes the authenticated user's account.
- * Removes the user from the Convex database and then from WorkOS.
- * If WorkOS deletion fails (e.g., user already deleted), the operation
- * still succeeds since the Convex user has been removed.
- *
- * @throws Error if the user is not authenticated.
- */
-export const deleteAccount = action({
-  args: {},
-  handler: async (ctx) => {
-    const identity = await getAuthIdentity(ctx);
-
-    await ctx.runMutation(internal.user.deleteUserByAuthId, {
-      authId: identity.subject,
-    });
-
-    const workos = getWorkOS();
-    try {
-      await workos.userManagement.deleteUser(identity.subject);
-    } catch (error) {
-      const workosError = error as { status?: number; message?: string };
-      if (workosError.status === 404) {
-        return;
-      }
-      console.error('Failed to delete user from WorkOS:', workosError);
-    }
-  },
-});
-
-export const newDeleteAccount = mutation({
+export const deleteAccount = mutation({
   args: {},
   handler: async (ctx) => {
     const identiy = await getAuthIdentity(ctx);
@@ -376,7 +346,7 @@ export const newDeleteAccount = mutation({
         authId: identiy.subject,
       },
       {
-        onComplete: internal.user.newDeleteAccountOnComplete,
+        onComplete: internal.user.deleteAccountOnComplete,
         context: { userId: user._id },
         retry: true,
       },
@@ -384,7 +354,7 @@ export const newDeleteAccount = mutation({
   },
 });
 
-export const newDeleteAccountOnComplete = workosWorkpool.defineOnComplete({
+export const deleteAccountOnComplete = workosWorkpool.defineOnComplete({
   context: v.object({ userId: v.id('users') }),
   handler: async (ctx, args) => {
     const { result, context } = args;
