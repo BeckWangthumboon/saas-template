@@ -1,8 +1,12 @@
+import { useForm } from '@tanstack/react-form';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { MailIcon, PlusIcon, SettingsIcon } from 'lucide-react';
 import { useEffect, useMemo, useState } from 'react';
+import { z } from 'zod';
 
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import { Field, FieldError } from '@/components/ui/field';
+import { Input } from '@/components/ui/input';
 import { useUser } from '@/features/auth';
 import { WorkspaceCreator } from '@/features/workspaces';
 import { useConvexQuery } from '@/hooks';
@@ -66,6 +70,89 @@ function CreateWorkspaceCard({ onClick }: { onClick: () => void }) {
   );
 }
 
+const inviteLinkSchema = z.string().regex(/\/invite\/([a-zA-Z0-9_-]+)/, 'Please enter a valid invite link');
+
+function extractInviteToken(link: string): string | null {
+  const match = /\/invite\/([a-zA-Z0-9_-]+)/.exec(link);
+  return match?.[1] ?? null;
+}
+
+function InviteLinkCard() {
+  const navigate = useNavigate();
+
+  const form = useForm({
+    defaultValues: {
+      inviteLink: '',
+    },
+    onSubmit: async ({ value }) => {
+      const token = extractInviteToken(value.inviteLink);
+      if (token) {
+        void navigate({ to: '/invite/$token', params: { token } });
+      }
+    },
+  });
+
+  return (
+    <Card>
+      <CardHeader>
+        <div className="flex items-center gap-3">
+          <div className="bg-muted flex h-10 w-10 items-center justify-center rounded-lg">
+            <MailIcon className="text-muted-foreground h-5 w-5" />
+          </div>
+          <div>
+            <CardTitle>Join via invite</CardTitle>
+            <CardDescription>Paste an invite link to join a workspace</CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="-mt-2">
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            void form.handleSubmit();
+          }}
+        >
+          <form.Field
+            name="inviteLink"
+            validators={{
+              onBlur: ({ value }) => {
+                if (!value) return undefined;
+                const result = inviteLinkSchema.safeParse(value);
+                if (result.success) return undefined;
+                return result.error.issues[0].message;
+              },
+            }}
+            children={(field) => {
+              const isInvalid = field.state.meta.isTouched && !field.state.meta.isValid;
+              return (
+                <Field data-invalid={isInvalid}>
+                  <Input
+                    id={field.name}
+                    name={field.name}
+                    value={field.state.value}
+                    onBlur={field.handleBlur}
+                    onChange={(e) => {
+                      field.handleChange(e.target.value);
+                      const token = extractInviteToken(e.target.value);
+                      if (token) {
+                        void navigate({ to: '/invite/$token', params: { token } });
+                      }
+                    }}
+                    aria-invalid={isInvalid}
+                    placeholder="Paste invite link here..."
+                    autoComplete="off"
+                  />
+                  {isInvalid && <FieldError>{field.state.meta.errors.join(', ')}</FieldError>}
+                </Field>
+              );
+            }}
+          />
+        </form>
+      </CardContent>
+    </Card>
+  );
+}
+
 function NoWorkspacesView() {
   const navigate = useNavigate();
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -111,26 +198,7 @@ function NoWorkspacesView() {
             }
           />
 
-          <Card>
-            <CardHeader>
-              <div className="flex items-center gap-3">
-                <div className="bg-muted flex h-10 w-10 items-center justify-center rounded-lg">
-                  <MailIcon className="text-muted-foreground h-5 w-5" />
-                </div>
-                <div>
-                  <CardTitle>Join via invite</CardTitle>
-                  <CardDescription>
-                    Ask a workspace admin to send you an invite link
-                  </CardDescription>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent className="-mt-2">
-              <p className="text-muted-foreground text-sm">
-                Once you receive an invite, click the link to join the workspace.
-              </p>
-            </CardContent>
-          </Card>
+          <InviteLinkCard />
 
           <Link to="/settings" className="block">
             <Card className="cursor-pointer transition-colors hover:bg-muted/50">
