@@ -50,6 +50,7 @@ export function MemberRoleChangeDialog({
 
   const handleRoleChange = async (newRole: Role) => {
     if (!member) return;
+    if (!getAvailableRoles(member).includes(newRole)) return;
 
     const result = await updateRole({
       workspaceId,

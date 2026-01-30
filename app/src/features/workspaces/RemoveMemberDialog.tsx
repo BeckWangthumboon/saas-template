@@ -14,11 +14,13 @@ import { useConvexMutation } from '@/hooks';
 
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
-import type { Member } from './types';
+import type { Member, Role } from './types';
 import { formatName } from './utils';
 
 interface RemoveMemberDialogProps {
   workspaceId: Id<'workspaces'>;
+  callerRole: Role;
+  currentUserId: Id<'users'>;
   member: Member | null;
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -26,6 +28,8 @@ interface RemoveMemberDialogProps {
 
 export function RemoveMemberDialog({
   workspaceId,
+  callerRole,
+  currentUserId,
   member,
   open,
   onOpenChange,
@@ -36,8 +40,16 @@ export function RemoveMemberDialog({
 
   const isRemoving = removeState.status === 'loading';
 
+  const canManageMember = (memberToRemove: Member): boolean => {
+    if (memberToRemove._id === currentUserId) return false;
+    if (callerRole === 'owner') return true;
+    if (callerRole === 'admin') return memberToRemove.role === 'member';
+    return false;
+  };
+
   const handleRemoveMember = async () => {
     if (!member) return;
+    if (!canManageMember(member)) return;
 
     const result = await removeMember({
       workspaceId,

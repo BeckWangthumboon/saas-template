@@ -79,6 +79,7 @@ export function InviteMemberDialog({
       role: 'member' as 'admin' | 'member',
     },
     onSubmit: async ({ value }) => {
+      if (callerRole === 'member') return;
       const result = await createInvite({
         workspaceId,
         email: value.email.trim().toLowerCase(),

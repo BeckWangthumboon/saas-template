@@ -122,6 +122,7 @@ function WorkspaceSettingsPage() {
 
   const handleDeleteWorkspace = async () => {
     if (!workspaceId || !workspace) return;
+    if (!isOwner) return;
     const result = await deleteWorkspace({ workspaceId: workspaceId as Id<'workspaces'> });
 
     if (result.isErr()) {

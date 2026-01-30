@@ -205,6 +205,8 @@ export function WorkspaceMembersTable({
 
       <RemoveMemberDialog
         workspaceId={workspaceId}
+        callerRole={currentUserRole}
+        currentUserId={currentUserId}
         member={memberToRemove}
         open={removeDialogOpen}
         onOpenChange={(open) => {
