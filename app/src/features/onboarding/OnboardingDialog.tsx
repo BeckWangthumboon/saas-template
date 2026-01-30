@@ -9,19 +9,17 @@ import {
 
 interface OnboardingDialogProps {
   open: boolean;
-  onOpenChange: (open: boolean) => void;
   onComplete: () => void;
 }
 
-export function OnboardingDialog({ open, onOpenChange, onComplete }: OnboardingDialogProps) {
+export function OnboardingDialog({ open, onComplete }: OnboardingDialogProps) {
   const handleContinue = () => {
     onComplete();
-    onOpenChange(false);
   };
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+    <Dialog open={open}>
+      <DialogContent showCloseButton={false}>
         <DialogHeader>
           <DialogTitle className="text-2xl">Welcome</DialogTitle>
         </DialogHeader>
