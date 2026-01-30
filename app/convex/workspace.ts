@@ -151,13 +151,12 @@ export const getWorkspaceMembers = query({
     const memberships = await ctx.db
       .query('workspaceMembers')
       .withIndex('by_workspaceId', (q) => q.eq('workspaceId', args.workspaceId))
-      .filter((q) => q.eq(q.field('status'), 'active'))
       .collect();
 
     const members = await Promise.all(
       memberships.map(async (membership) => {
         const user = await ctx.db.get('users', membership.userId);
-        if (!user) {
+        if (user?.status !== 'active') {
           return null;
         }
 

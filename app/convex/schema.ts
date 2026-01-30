@@ -1,18 +1,17 @@
 import { defineSchema, defineTable } from 'convex/server';
 import { v } from 'convex/values';
 
-const userDeleteInfo = v.optional(
-  v.object({
-    lastAttemptAt: v.optional(v.number()),
-    lastError: v.optional(v.string()),
-    workId: v.optional(v.string()),
-  }),
-);
+export const userDeleteInfo = v.object({
+  attempts: v.optional(v.number()),
+  lastAttemptAt: v.optional(v.number()),
+  nextAttemptAt: v.optional(v.number()),
+  lastError: v.optional(v.string()),
+  workId: v.optional(v.string()),
+});
 
 const userBaseFields = {
   onboardingStatus: v.union(v.literal('not_started'), v.literal('completed')),
   updatedAt: v.number(),
-  delete: userDeleteInfo,
 };
 
 const activeUser = v.object({
@@ -30,6 +29,19 @@ const deletingUser = v.object({
   status: v.literal('deleting'),
   authId: v.string(),
   deletingAt: v.number(),
+  delete: userDeleteInfo,
+  email: v.optional(v.string()),
+  firstName: v.optional(v.string()),
+  lastName: v.optional(v.string()),
+  profilePictureUrl: v.optional(v.string()),
+});
+
+const deletionFailedUser = v.object({
+  ...userBaseFields,
+  status: v.literal('deletion_failed'),
+  authId: v.string(),
+  deletingAt: v.number(),
+  delete: userDeleteInfo,
   email: v.optional(v.string()),
   firstName: v.optional(v.string()),
   lastName: v.optional(v.string()),
@@ -49,7 +61,7 @@ const deletedUser = v.object({
 });
 
 export default defineSchema({
-  users: defineTable(v.union(activeUser, deletingUser, deletedUser))
+  users: defineTable(v.union(activeUser, deletingUser, deletionFailedUser, deletedUser))
     .index('by_authId', ['authId'])
     .index('by_email', ['email'])
     .index('by_status', ['status']),

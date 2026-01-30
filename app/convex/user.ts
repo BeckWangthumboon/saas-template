@@ -1,3 +1,4 @@
+import type { Infer } from 'convex/values';
 import { v } from 'convex/values';
 
 import { ErrorCode, throwAppErrorForConvex } from '../shared/errors';
@@ -14,13 +15,49 @@ import {
   type QueryCtx,
   triggers,
 } from './functions';
+import type { userDeleteInfo } from './schema';
 import { getWorkOS, workosWorkpool } from './workos';
 import { getSoleOwnerWorkspaceForUser } from './workspaceOwnership';
 
 const PURGE_DELAY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
+const DELETE_MAX_ATTEMPTS = 5;
+const DELETE_BACKOFF_SCHEDULE_MS = [
+  24 * 60 * 60 * 1000,
+  3 * 24 * 60 * 60 * 1000,
+  7 * 24 * 60 * 60 * 1000,
+  14 * 24 * 60 * 60 * 1000,
+  30 * 24 * 60 * 60 * 1000,
+];
 
 type AuthIdentity = NonNullable<Awaited<ReturnType<QueryCtx['auth']['getUserIdentity']>>>;
 type ActiveUser = Extract<Doc<'users'>, { status: 'active' }>;
+type UserDeleteInfo = Infer<typeof userDeleteInfo>;
+type DeletingUser = Extract<Doc<'users'>, { status: 'deleting' }> & { delete: UserDeleteInfo };
+type DeletionFailedUser = Extract<Doc<'users'>, { status: 'deletion_failed' }> & {
+  delete: UserDeleteInfo;
+};
+
+const isDeletingUser = (user: Doc<'users'>): user is DeletingUser => user.status === 'deleting';
+const isDeletingOrFailedUser = (user: Doc<'users'>): user is DeletingUser | DeletionFailedUser =>
+  user.status === 'deleting' || user.status === 'deletion_failed';
+
+/**
+ * Computes the next retry timestamp based on attempt count and a base time.
+ */
+const getDeleteNextAttemptAt = (attempts: number, baseTime: number) =>
+  baseTime +
+  DELETE_BACKOFF_SCHEDULE_MS[Math.min(attempts - 1, DELETE_BACKOFF_SCHEDULE_MS.length - 1)];
+
+/**
+ * Derives retry counters and the next attempt time for a deleting user.
+ */
+const getDeleteAttemptInfo = (user: DeletingUser) => {
+  const deleteInfo = user.delete;
+  const attempts = deleteInfo.attempts ?? 1;
+  const lastAttemptAt = deleteInfo.lastAttemptAt ?? user.deletingAt;
+  const nextAttemptAt = deleteInfo.nextAttemptAt ?? getDeleteNextAttemptAt(attempts, lastAttemptAt);
+  return { attempts, lastAttemptAt, nextAttemptAt };
+};
 
 /**
  * Narrow a user document to an active user (status + required fields).
@@ -323,7 +360,11 @@ export const deleteAccount = mutation({
     if (!user) {
       return throwAppErrorForConvex(ErrorCode.AUTH_USER_NOT_FOUND, { authId: identiy.subject });
     }
-    if (user.status === 'deleting' || user.status === 'deleted') {
+    if (
+      user.status === 'deleting' ||
+      user.status === 'deleted' ||
+      user.status === 'deletion_failed'
+    ) {
       return;
     }
 
@@ -334,12 +375,8 @@ export const deleteAccount = mutation({
       });
     }
 
-    await ctx.db.patch('users', user._id, {
-      status: 'deleting',
-      deletingAt: Date.now(),
-    });
-
-    await workosWorkpool.enqueueAction(
+    const now = Date.now();
+    const workId = await workosWorkpool.enqueueAction(
       ctx,
       internal.workos.deleteWorkosUser,
       {
@@ -351,6 +388,18 @@ export const deleteAccount = mutation({
         retry: true,
       },
     );
+
+    await ctx.db.patch('users', user._id, {
+      status: 'deleting',
+      deletingAt: now,
+      delete: {
+        attempts: 1,
+        lastAttemptAt: now,
+        nextAttemptAt: getDeleteNextAttemptAt(1, now),
+        lastError: undefined,
+        workId,
+      },
+    });
   },
 });
 
@@ -359,6 +408,10 @@ export const deleteAccountOnComplete = workosWorkpool.defineOnComplete({
   handler: async (ctx, args) => {
     const { result, context } = args;
     const { userId } = context;
+    const user = (await ctx.db.get('users', userId)) as Doc<'users'> | null;
+    if (!user) {
+      return;
+    }
     if (result.kind === 'success') {
       const now = Date.now();
       await ctx.db.patch('users', userId, {
@@ -371,8 +424,117 @@ export const deleteAccountOnComplete = workosWorkpool.defineOnComplete({
         lastName: undefined,
         profilePictureUrl: undefined,
         deletingAt: undefined,
+        delete: undefined,
       });
+      return;
     }
+
+    if (!isDeletingOrFailedUser(user)) {
+      return;
+    }
+
+    const deleteInfo = user.delete;
+    await ctx.db.patch('users', userId, {
+      delete: {
+        attempts: deleteInfo.attempts,
+        lastAttemptAt: deleteInfo.lastAttemptAt,
+        nextAttemptAt: deleteInfo.nextAttemptAt,
+        workId: deleteInfo.workId,
+        lastError: `WorkOS delete failed (${result.kind})`,
+      },
+    });
+  },
+});
+
+/**
+ * Reconciles stuck user deletions by re-enqueuing WorkOS delete.
+ * Called daily by cron job.
+ *
+ * Finds users with status='deleting' that are due for retry, and re-enqueues
+ * the WorkOS delete action via Workpool.
+ *
+ */
+export const reconcileStuckUserDeletions = internalMutation({
+  args: {},
+  handler: async (ctx) => {
+    const now = Date.now();
+
+    const deletingUsers = await ctx.db
+      .query('users')
+      .withIndex('by_status', (q) => q.eq('status', 'deleting'))
+      .collect();
+
+    let requeuedCount = 0;
+    let terminalCount = 0;
+
+    for (const user of deletingUsers) {
+      if (!isDeletingUser(user)) {
+        continue;
+      }
+
+      const deleteInfo = user.delete;
+      const { attempts, lastAttemptAt, nextAttemptAt } = getDeleteAttemptInfo(user);
+
+      if (!user.authId) {
+        await ctx.db.patch('users', user._id, {
+          status: 'deletion_failed',
+          delete: {
+            attempts,
+            lastAttemptAt,
+            nextAttemptAt,
+            workId: deleteInfo.workId,
+            lastError: deleteInfo.lastError ?? 'Missing authId for WorkOS delete',
+          },
+        });
+        terminalCount += 1;
+        continue;
+      }
+
+      if (attempts >= DELETE_MAX_ATTEMPTS) {
+        await ctx.db.patch('users', user._id, {
+          status: 'deletion_failed',
+          delete: {
+            attempts,
+            lastAttemptAt,
+            nextAttemptAt,
+            workId: deleteInfo.workId,
+            lastError: deleteInfo.lastError ?? 'Max delete attempts reached',
+          },
+        });
+        terminalCount += 1;
+        continue;
+      }
+
+      if (nextAttemptAt > now) {
+        continue;
+      }
+
+      const newAttempts = attempts + 1;
+      const workId = await workosWorkpool.enqueueAction(
+        ctx,
+        internal.workos.deleteWorkosUser,
+        { authId: user.authId },
+        {
+          onComplete: internal.user.deleteAccountOnComplete,
+          context: { userId: user._id },
+          retry: true,
+        },
+      );
+
+      await ctx.db.patch('users', user._id, {
+        delete: {
+          attempts: newAttempts,
+          lastAttemptAt: now,
+          nextAttemptAt: getDeleteNextAttemptAt(newAttempts, now),
+          workId,
+          lastError: deleteInfo.lastError,
+        },
+      });
+
+      requeuedCount += 1;
+    }
+
+    return { reconciledCount: requeuedCount, terminalCount };
   },
 });
 
