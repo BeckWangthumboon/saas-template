@@ -2,7 +2,7 @@ import { type AuthFunctions, AuthKit } from '@convex-dev/workos-authkit';
 
 import { components, internal } from './_generated/api';
 import type { DataModel } from './_generated/dataModel';
-import { getUserByAuthId } from './user';
+import { getUserByAuthId, handleUserDeleted } from './user';
 
 const authFunctions: AuthFunctions = internal.auth;
 
@@ -69,6 +69,18 @@ export const { authKitEvent } = authKit.events({
       profilePictureUrl: event.data.profilePictureUrl ?? undefined,
       updatedAt: Date.now(),
     });
+  },
+
+  /**
+   * Handles 'user.deleted' events from WorkOS.
+   * Cleans up local user data when a user is deleted from WorkOS.
+   * Idempotent - safe to call multiple times.
+   *
+   * @param ctx - Event context
+   * @param event - WorkOS user event
+   */
+  'user.deleted': async (ctx, event) => {
+    await handleUserDeleted(ctx, event.data.id);
   },
 });
 

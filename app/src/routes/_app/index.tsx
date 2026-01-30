@@ -70,7 +70,9 @@ function CreateWorkspaceCard({ onClick }: { onClick: () => void }) {
   );
 }
 
-const inviteLinkSchema = z.string().regex(/\/invite\/([a-zA-Z0-9_-]+)/, 'Please enter a valid invite link');
+const inviteLinkSchema = z
+  .string()
+  .regex(/\/invite\/([a-zA-Z0-9_-]+)/, 'Please enter a valid invite link');
 
 function extractInviteToken(link: string): string | null {
   const match = /\/invite\/([a-zA-Z0-9_-]+)/.exec(link);

@@ -626,6 +626,82 @@ export const deleteUserByAuthId = internalMutation({
 });
 
 /**
+ * Removes all workspace memberships and revokes pending invites for a user.
+ * Used when cleaning up a user during deletion.
+ *
+ * @param ctx - The mutation context
+ * @param userId - The ID of the user to clean up
+ * @param email - The email of the user (for invite lookups)
+ */
+export async function cleanupUserForDeletion(
+  ctx: MutationCtx,
+  userId: Id<'users'>,
+  email: string | undefined,
+) {
+  const memberships = await ctx.db
+    .query('workspaceMembers')
+    .withIndex('by_userId', (q) => q.eq('userId', userId))
+    .collect();
+
+  for (const membership of memberships) {
+    await ctx.db.delete('workspaceMembers', membership._id);
+  }
+
+  await revokePendingInvitesForUser(ctx, userId, email);
+}
+
+/**
+ * Marks a user as deleted, clearing all PII.
+ * Used when a user is deleted from WorkOS.
+ *
+ * @param ctx - The mutation context
+ * @param userId - The ID of the user to mark as deleted
+ */
+export async function markUserAsDeleted(ctx: MutationCtx, userId: Id<'users'>) {
+  const now = Date.now();
+  await ctx.db.patch('users', userId, {
+    status: 'deleted',
+    deletedAt: now,
+    purgeAt: now + PURGE_DELAY_MS,
+    authId: undefined,
+    email: undefined,
+    firstName: undefined,
+    lastName: undefined,
+    profilePictureUrl: undefined,
+  });
+}
+
+/**
+ * Handles user deletion from WorkOS.
+ * Cleans up local user data when a user is deleted externally.
+ * Idempotent - safe to call multiple times.
+ *
+ * @param ctx - The mutation context
+ * @param authId - The WorkOS auth ID of the deleted user
+ */
+export async function handleUserDeleted(ctx: MutationCtx, authId: string) {
+  const user = await ctx.db
+    .query('users')
+    .withIndex('by_authId', (q) => q.eq('authId', authId))
+    .unique();
+
+  if (!user) {
+    return;
+  }
+
+  if (
+    user.status === 'deleted' ||
+    user.status === 'deleting' ||
+    user.status === 'deletion_failed'
+  ) {
+    return;
+  }
+
+  await cleanupUserForDeletion(ctx, user._id, user.email);
+  await markUserAsDeleted(ctx, user._id);
+}
+
+/**
  * Internal mutation to get an existing user or create one from provided data.
  * Used during the user provisioning flow after WorkOS authentication.
  *
@@ -693,15 +769,7 @@ export const completeOnboarding = mutation({
 
 triggers.register('users', async (ctx, change) => {
   if (change.operation === 'delete') {
-    const memberships = await ctx.db
-      .query('workspaceMembers')
-      .withIndex('by_userId', (q) => q.eq('userId', change.id))
-      .collect();
-
-    for (const membership of memberships) {
-      await ctx.db.delete('workspaceMembers', membership._id);
-    }
-    await revokePendingInvitesForUser(ctx, change.id, change.oldDoc.email);
+    await cleanupUserForDeletion(ctx, change.id, change.oldDoc.email);
     return;
   }
 
