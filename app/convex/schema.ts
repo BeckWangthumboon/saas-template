@@ -104,4 +104,23 @@ export default defineSchema({
     .index('by_workspaceId_email', ['workspaceId', 'email'])
     .index('by_email', ['email'])
     .index('by_invitedUserId', ['invitedUserId']),
+
+  workspaceBillingState: defineTable({
+    workspaceId: v.id('workspaces'),
+    planKey: v.union(v.literal('free'), v.literal('pro')),
+    status: v.union(
+      v.literal('none'),
+      v.literal('trialing'),
+      v.literal('active'),
+      v.literal('past_due'),
+      v.literal('canceled'),
+    ),
+    periodEnd: v.optional(v.number()),
+    cancelAtPeriodEnd: v.optional(v.boolean()),
+    providerCustomerId: v.optional(v.string()),
+    providerSubscriptionId: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index('by_workspaceId', ['workspaceId'])
+    .index('by_providerSubscriptionId', ['providerSubscriptionId']),
 });
