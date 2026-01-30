@@ -35,6 +35,7 @@ export const ErrorCodeSchema = z.enum([
   'INVITE_SELF_INVITE',
   'INVITE_CANNOT_ASSIGN_OWNER',
   'INVITE_ADMIN_CANNOT_INVITE_ADMIN',
+  'REQUEST_IN_FLIGHT',
   'INTERNAL_ERROR',
 ]);
 
@@ -63,6 +64,7 @@ export const ErrorCode = {
   INVITE_SELF_INVITE: 'INVITE_SELF_INVITE',
   INVITE_CANNOT_ASSIGN_OWNER: 'INVITE_CANNOT_ASSIGN_OWNER',
   INVITE_ADMIN_CANNOT_INVITE_ADMIN: 'INVITE_ADMIN_CANNOT_INVITE_ADMIN',
+  REQUEST_IN_FLIGHT: 'REQUEST_IN_FLIGHT',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
 } as const;
 
@@ -89,6 +91,7 @@ const errorCategoryMap: Record<ErrorCode, ErrorCategory> = {
   [ErrorCode.INVITE_SELF_INVITE]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_CANNOT_ASSIGN_OWNER]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN]: ErrorCategory.INVITE,
+  [ErrorCode.REQUEST_IN_FLIGHT]: ErrorCategory.INTERNAL,
   [ErrorCode.INTERNAL_ERROR]: ErrorCategory.INTERNAL,
 };
 
@@ -120,6 +123,7 @@ export interface ErrorContextMap {
   [ErrorCode.INVITE_SELF_INVITE]: Record<string, never>;
   [ErrorCode.INVITE_CANNOT_ASSIGN_OWNER]: Record<string, never>;
   [ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN]: Record<string, never>;
+  [ErrorCode.REQUEST_IN_FLIGHT]: Record<string, never>;
   [ErrorCode.INTERNAL_ERROR]: { details?: string };
 }
 
@@ -148,6 +152,7 @@ const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.INVITE_SELF_INVITE]: 'You cannot invite yourself',
   [ErrorCode.INVITE_CANNOT_ASSIGN_OWNER]: 'Cannot invite with owner role',
   [ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN]: 'Admins can only invite members',
+  [ErrorCode.REQUEST_IN_FLIGHT]: 'Request already in flight',
   [ErrorCode.INTERNAL_ERROR]: 'Internal error',
 };
 
