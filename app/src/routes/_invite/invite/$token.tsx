@@ -22,7 +22,7 @@ export const Route = createFileRoute('/_invite/invite/$token')({
 function InvitePage() {
   const navigate = useNavigate();
   const { token } = Route.useParams();
-  const { status, data } = useConvexQuery(api.invite.getInviteForAcceptance, { token });
+  const inviteQuery = useConvexQuery(api.invite.getInviteForAcceptance, { token });
   const { mutate: acceptInvite, state: acceptState } = useConvexMutation(api.invite.acceptInvite);
   const isAccepting = acceptState.status === 'loading';
 
@@ -45,7 +45,7 @@ function InvitePage() {
     }
   };
 
-  if (status === 'loading') {
+  if (inviteQuery.status !== 'success') {
     return (
       <main className="flex min-h-screen items-center justify-center p-6">
         <p className="text-muted-foreground">Loading invite...</p>
@@ -53,8 +53,8 @@ function InvitePage() {
     );
   }
 
-  const inviterLabel = data.inviterName ?? data.inviterEmail;
-  const inviterEmail = data.inviterEmail;
+  const inviterLabel = inviteQuery.data.inviterName ?? inviteQuery.data.inviterEmail;
+  const inviterEmail = inviteQuery.data.inviterEmail;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/20 p-6">
@@ -62,8 +62,8 @@ function InvitePage() {
         <CardHeader>
           <CardTitle>Join workspace</CardTitle>
           <CardDescription>
-            {inviterLabel} has invited you to join <strong>{data.workspaceName}</strong> as a{' '}
-            {data.role}.
+            {inviterLabel} has invited you to join <strong>{inviteQuery.data.workspaceName}</strong>{' '}
+            as a {inviteQuery.data.role}.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -71,13 +71,13 @@ function InvitePage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-muted-foreground text-xs uppercase tracking-wide">Workspace</p>
-                <p className="font-medium">{data.workspaceName}</p>
+                <p className="font-medium">{inviteQuery.data.workspaceName}</p>
               </div>
               <Badge
-                variant={data.role === 'admin' ? 'secondary' : 'outline'}
+                variant={inviteQuery.data.role === 'admin' ? 'secondary' : 'outline'}
                 className="capitalize"
               >
-                {data.role}
+                {inviteQuery.data.role}
               </Badge>
             </div>
             <div>
@@ -85,7 +85,9 @@ function InvitePage() {
               <p className="font-medium">{inviterLabel}</p>
               {inviterEmail && <p className="text-muted-foreground text-xs">{inviterEmail}</p>}
             </div>
-            <p className="text-muted-foreground text-sm">Expires {formatDate(data.expiresAt)}</p>
+            <p className="text-muted-foreground text-sm">
+              Expires {formatDate(inviteQuery.data.expiresAt)}
+            </p>
           </div>
 
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center">

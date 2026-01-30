@@ -38,13 +38,16 @@ import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
 import type { Invite } from './types';
 import { formatDate, formatInviteLink, formatName } from './utils';
+import { isWorkspaceReady, useWorkspace } from './WorkspaceContext';
 
-interface WorkspaceInvitesTableProps {
-  workspaceId: Id<'workspaces'>;
-}
-
-export function WorkspaceInvitesTable({ workspaceId }: WorkspaceInvitesTableProps) {
-  const { data: invites } = useConvexQuery(api.invite.getWorkspaceInvites, { workspaceId });
+export function WorkspaceInvitesTable() {
+  const workspaceContext = useWorkspace();
+  const isReady = isWorkspaceReady(workspaceContext);
+  const canQueryInvites = isReady && workspaceContext.role !== 'member';
+  const { data: invites } = useConvexQuery(
+    api.invite.getWorkspaceInvites,
+    canQueryInvites ? { workspaceId: workspaceContext.workspaceId as Id<'workspaces'> } : 'skip',
+  );
 
   const [search, setSearch] = useState('');
   const debouncedSearch = useDebounce(search, 300);
@@ -85,6 +88,10 @@ export function WorkspaceInvitesTable({ workspaceId }: WorkspaceInvitesTableProp
       toast.error('Failed to revoke invitation', { description: result.error.message });
     }
   };
+
+  if (!canQueryInvites) {
+    return null;
+  }
 
   if (!invites) {
     return <p className="text-muted-foreground text-sm">Loading invitations...</p>;

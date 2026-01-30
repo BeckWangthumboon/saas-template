@@ -82,7 +82,7 @@ function MembersPageContent({
       {isAdminOrOwner && (
         <section className="space-y-4">
           <h2 className="text-lg font-medium">Pending Invitations</h2>
-          <WorkspaceInvitesTable workspaceId={workspaceId} />
+          <WorkspaceInvitesTable />
         </section>
       )}
     </div>
