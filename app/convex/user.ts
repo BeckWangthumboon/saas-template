@@ -375,6 +375,17 @@ export const deleteAccount = mutation({
       });
     }
 
+    const memberships = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', user._id))
+      .collect();
+
+    for (const membership of memberships) {
+      await ctx.db.delete('workspaceMembers', membership._id);
+    }
+
+    await revokePendingInvitesForUser(ctx, user._id, user.email);
+
     const now = Date.now();
     const workId = await workosWorkpool.enqueueAction(
       ctx,
