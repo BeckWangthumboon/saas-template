@@ -87,7 +87,9 @@ function UserProviderInternal({ children }: { children: ReactNode }) {
   if (ensureUserState.status !== 'success') {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <p className="text-muted-foreground">Loading...</p>
+        <p className="text-muted-foreground">
+          Setting up your account... This can take a few seconds.
+        </p>
       </div>
     );
   }

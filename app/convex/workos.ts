@@ -1,3 +1,4 @@
+import { ActionRetrier } from '@convex-dev/action-retrier';
 import { Workpool } from '@convex-dev/workpool';
 import { WorkOS } from '@workos-inc/node';
 import { v } from 'convex/values';
@@ -38,6 +39,12 @@ export const workosWorkpool = new Workpool(components.workosWorkpool, {
   maxParallelism: 20,
   retryActionsByDefault: true,
   defaultRetryBehavior: { maxAttempts: 5, initialBackoffMs: 1000, base: 2 },
+});
+
+export const workosActionRetrier = new ActionRetrier(components.actionRetrier, {
+  initialBackoffMs: 500,
+  base: 2,
+  maxFailures: 4,
 });
 
 /**

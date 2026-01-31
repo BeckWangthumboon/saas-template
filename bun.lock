@@ -23,6 +23,7 @@
       "version": "0.0.0",
       "dependencies": {
         "@base-ui/react": "^1.1.0",
+        "@convex-dev/action-retrier": "^0.3.0",
         "@convex-dev/workos": "^0.0.1",
         "@convex-dev/workos-authkit": "^0.1.5",
         "@convex-dev/workpool": "^0.3.1",
@@ -107,6 +108,8 @@
     "@base-ui/react": ["@base-ui/react@1.1.0", "", { "dependencies": { "@babel/runtime": "^7.28.4", "@base-ui/utils": "0.2.4", "@floating-ui/react-dom": "^2.1.6", "@floating-ui/utils": "^0.2.10", "reselect": "^5.1.1", "tabbable": "^6.4.0", "use-sync-external-store": "^1.6.0" }, "peerDependencies": { "@types/react": "^17 || ^18 || ^19", "react": "^17 || ^18 || ^19", "react-dom": "^17 || ^18 || ^19" }, "optionalPeers": ["@types/react"] }, "sha512-ikcJRNj1mOiF2HZ5jQHrXoVoHcNHdBU5ejJljcBl+VTLoYXR6FidjTN86GjO6hyshi6TZFuNvv0dEOgaOFv6Lw=="],
 
     "@base-ui/utils": ["@base-ui/utils@0.2.4", "", { "dependencies": { "@babel/runtime": "^7.28.4", "@floating-ui/utils": "^0.2.10", "reselect": "^5.1.1", "use-sync-external-store": "^1.6.0" }, "peerDependencies": { "@types/react": "^17 || ^18 || ^19", "react": "^17 || ^18 || ^19", "react-dom": "^17 || ^18 || ^19" }, "optionalPeers": ["@types/react"] }, "sha512-smZwpMhjO29v+jrZusBSc5T+IJ3vBb9cjIiBjtKcvWmRj9Z4DWGVR3efr1eHR56/bqY5a4qyY9ElkOY5ljo3ng=="],
+
+    "@convex-dev/action-retrier": ["@convex-dev/action-retrier@0.3.0", "", { "peerDependencies": { "convex": "^1.24.8" } }, "sha512-opBNsgOPSuVY3qSARNub98XqPzSpSS7Jga0oGeWFhO+DcWBMt2gD3ssUeEA1Gi7wTNiZBX+T6OBfBnqMfv6Tuw=="],
 
     "@convex-dev/eslint-plugin": ["@convex-dev/eslint-plugin@1.1.1", "", { "dependencies": { "@typescript-eslint/utils": "~8.49.0" }, "peerDependencies": { "convex": "^1.31.0" } }, "sha512-4NsTWNJJLPbti10LZsV1/7UkbaMPFxNz5Ekd3yW5bDkaoU1I0b4TJxk0V+ShbNFTJ2fSqTxm+iGy9XSNCmAoVA=="],
 

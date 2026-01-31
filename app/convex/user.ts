@@ -1,3 +1,4 @@
+import type { RunId } from '@convex-dev/action-retrier';
 import type { Infer } from 'convex/values';
 import { v } from 'convex/values';
 
@@ -16,7 +17,7 @@ import {
   triggers,
 } from './functions';
 import type { userDeleteInfo } from './schema';
-import { getWorkOS, workosWorkpool } from './workos';
+import { workosActionRetrier, type WorkosUserFetchResult, workosWorkpool } from './workos';
 import { getSoleOwnerWorkspaceForUser } from './workspaceOwnership';
 
 const PURGE_DELAY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -28,6 +29,8 @@ const DELETE_BACKOFF_SCHEDULE_MS = [
   14 * 24 * 60 * 60 * 1000,
   30 * 24 * 60 * 60 * 1000,
 ];
+const WORKOS_FETCH_POLL_INTERVAL_MS = 500;
+const WORKOS_FETCH_MAX_WAIT_MS = 10_000;
 
 type AuthIdentity = NonNullable<Awaited<ReturnType<QueryCtx['auth']['getUserIdentity']>>>;
 type ActiveUser = Extract<Doc<'users'>, { status: 'active' }>;
@@ -90,6 +93,98 @@ const assertActiveUser = (
     });
   }
   return user;
+};
+
+/**
+ * Pause execution for polling delays.
+ *
+ * @param ms - Delay duration in milliseconds.
+ */
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Validates the shape of a WorkOS fetch result returned by the Action Retrier.
+ *
+ * @param value - The return value to validate.
+ * @returns True if the value matches WorkosUserFetchResult.
+ */
+const isWorkosUserFetchResult = (value: unknown): value is WorkosUserFetchResult => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+  const kind = (value as { kind?: unknown }).kind;
+  if (kind === 'not_found') {
+    return true;
+  }
+  if (kind !== 'user') {
+    return false;
+  }
+  const userData = (value as { userData?: unknown }).userData;
+  if (!userData || typeof userData !== 'object') {
+    return false;
+  }
+  const email = (userData as { email?: unknown }).email;
+  return typeof email === 'string' && email.trim().length > 0;
+};
+
+/**
+ * Waits for a WorkOS fetch retrier run to complete or times out.
+ *
+ * @param ctx - The action context.
+ * @param runId - The Action Retrier run ID.
+ * @returns The normalized WorkOS fetch result.
+ * @throws Error if the run fails, is canceled, or times out.
+ */
+const waitForWorkosFetchResult = async (
+  ctx: ActionCtx,
+  runId: RunId,
+): Promise<WorkosUserFetchResult> => {
+  const startTime = Date.now();
+
+  while (Date.now() - startTime < WORKOS_FETCH_MAX_WAIT_MS) {
+    const status = await workosActionRetrier.status(ctx, runId);
+    if (status.type === 'completed') {
+      try {
+        if (status.result.type === 'success') {
+          if (!isWorkosUserFetchResult(status.result.returnValue)) {
+            return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+              details: 'Invalid WorkOS fetch result shape',
+            });
+          }
+          return status.result.returnValue;
+        }
+        if (status.result.type === 'failed') {
+          return throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_API_ERROR, {
+            operation: 'getUser',
+            message: status.result.error,
+          });
+        }
+        return throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_API_ERROR, {
+          operation: 'getUser',
+          message: 'WorkOS fetch canceled',
+        });
+      } finally {
+        try {
+          await workosActionRetrier.cleanup(ctx, runId);
+        } catch {
+          // if already completed, ignore.
+        }
+      }
+    }
+
+    await sleep(WORKOS_FETCH_POLL_INTERVAL_MS);
+  }
+
+  try {
+    await workosActionRetrier.cancel(ctx, runId);
+  } catch {
+    // if already completed, ignore.
+  }
+
+  return throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_API_ERROR, {
+    operation: 'getUser',
+    message: 'WorkOS fetch timed out',
+  });
 };
 
 /**
@@ -292,7 +387,7 @@ export const updateName = mutation({
 
 /**
  * Ensures the authenticated user exists in the database.
- * Creates the user from WorkOS API data if they don't exist.
+ * Creates the user from WorkOS API data if they don't exist, with retries.
  * Run when authenticated route is mounted.
  */
 export const ensureUser = action({
@@ -309,36 +404,20 @@ export const ensureUser = action({
       });
     }
 
-    const workos = getWorkOS();
-    const workosUser = await (async () => {
-      try {
-        return await workos.userManagement.getUser(authId);
-      } catch (error) {
-        const workosError = error as { status?: number; message?: string };
+    const runId = await workosActionRetrier.run(ctx, internal.workos.fetchWorkosUser, { authId });
+    const workosResult = await waitForWorkosFetchResult(ctx, runId);
 
-        if (
-          workosError.status === 404 ||
-          workosError.message?.toLowerCase().includes('not found')
-        ) {
-          return throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_USER_NOT_FOUND, { authId });
-        }
-        if (workosError.status === 429) {
-          return throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_RATE_LIMIT);
-        }
-        return throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_API_ERROR, {
-          operation: 'getUser',
-          status: workosError.status,
-          message: workosError.message,
-        });
-      }
-    })();
+    if (workosResult.kind === 'not_found') {
+      return throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_USER_NOT_FOUND, { authId });
+    }
+
     const newUser = await ctx.runMutation(internal.user.getUserOrUpsertInternal, {
       authId,
       userData: {
-        email: workosUser.email,
-        firstName: workosUser.firstName ?? undefined,
-        lastName: workosUser.lastName ?? undefined,
-        profilePictureUrl: workosUser.profilePictureUrl ?? undefined,
+        email: workosResult.userData.email,
+        firstName: workosResult.userData.firstName ?? undefined,
+        lastName: workosResult.userData.lastName ?? undefined,
+        profilePictureUrl: workosResult.userData.profilePictureUrl ?? undefined,
       },
     });
     return assertActiveUser(newUser, {
