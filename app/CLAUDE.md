@@ -131,6 +131,12 @@ Use TanStack Form for form management. Field validation with `validators: { onBl
 - **Template expressions**: Numbers and booleans allowed (no need for explicit casting)
 - **React event handlers**: No void return checks needed
 
+### JSDoc Policy
+
+- Add JSDoc to all exported functions and all non-trivial internal functions.
+- Include `@param` entries for parameters, `@returns` for return type, and `@throws` when applicable.
+- For complex functions, include a one-line summary followed by a more detailed description.
+
 ### Path Aliases
 
 ```typescript

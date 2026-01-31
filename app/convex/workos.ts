@@ -31,12 +31,19 @@ export type WorkosUserFetchResult =
   | { kind: 'user'; userData: WorkosUserData }
   | { kind: 'not_found' };
 
+/**
+ * Workpool instance for WorkOS actions with retry configuration.
+ */
 export const workosWorkpool = new Workpool(components.workosWorkpool, {
   maxParallelism: 20,
   retryActionsByDefault: true,
   defaultRetryBehavior: { maxAttempts: 5, initialBackoffMs: 1000, base: 2 },
 });
 
+/**
+ * Fetches a WorkOS user by authId.
+ * Returns { kind: 'not_found' } for missing users and maps rate limits to app errors.
+ */
 export const fetchWorkosUser = internalAction({
   args: { authId: v.string() },
   handler: async (_ctx, args): Promise<WorkosUserFetchResult> => {
@@ -70,6 +77,10 @@ export const fetchWorkosUser = internalAction({
   },
 });
 
+/**
+ * Deletes a WorkOS user by authId.
+ * Idempotent for users that already do not exist.
+ */
 export const deleteWorkosUser = internalAction({
   args: { authId: v.string() },
   handler: async (_ctx, args) => {

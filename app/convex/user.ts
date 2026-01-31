@@ -348,6 +348,14 @@ export const ensureUser = action({
   },
 });
 
+/**
+ * Requests account deletion for the authenticated user.
+ * Cleans up memberships and pending invites, then enqueues the WorkOS delete action.
+ *
+ * No-ops if the user is already deleting or deleted.
+ *
+ * @throws USER_LAST_OWNER_OF_WORKSPACE when the user is the sole owner of any workspace.
+ */
 export const deleteAccount = mutation({
   args: {},
   handler: async (ctx) => {
@@ -414,6 +422,10 @@ export const deleteAccount = mutation({
   },
 });
 
+/**
+ * Finalizes account deletion after the WorkOS delete action completes.
+ * Marks the user as deleted on success, or records the failure to allow retries.
+ */
 export const deleteAccountOnComplete = workosWorkpool.defineOnComplete({
   context: v.object({ userId: v.id('users') }),
   handler: async (ctx, args) => {
