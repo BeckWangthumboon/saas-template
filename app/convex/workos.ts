@@ -1,10 +1,10 @@
-import { vWorkIdValidator, Workpool } from '@convex-dev/workpool';
+import { Workpool } from '@convex-dev/workpool';
 import { WorkOS } from '@workos-inc/node';
 import { v } from 'convex/values';
 
 import { ErrorCode, throwAppErrorForConvex } from '../shared/errors';
 import { components } from './_generated/api';
-import { internalAction, query } from './functions';
+import { internalAction } from './functions';
 
 /**
  * Creates a WorkOS client instance.
@@ -35,16 +35,6 @@ export const workosWorkpool = new Workpool(components.workosWorkpool, {
   maxParallelism: 20,
   retryActionsByDefault: true,
   defaultRetryBehavior: { maxAttempts: 5, initialBackoffMs: 1000, base: 2 },
-});
-
-export const getWorkosProvisionStatus = query({
-  args: { workId: v.optional(vWorkIdValidator) },
-  handler: async (ctx, args) => {
-    if (!args.workId) {
-      return null;
-    }
-    return await workosWorkpool.status(ctx, args.workId);
-  },
 });
 
 export const fetchWorkosUser = internalAction({
