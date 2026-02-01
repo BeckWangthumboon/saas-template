@@ -70,7 +70,9 @@ export function InviteMemberDialog({
     [isControlled, controlledOnOpenChange],
   );
 
-  const { mutate: createInvite, state: createState } = useConvexMutation(api.invite.createInvite);
+  const { mutate: createInvite, state: createState } = useConvexMutation(
+    api.workspaces.invites.createInvite,
+  );
   const isCreating = createState.status === 'loading';
 
   const form = useForm({

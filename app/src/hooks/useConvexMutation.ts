@@ -34,8 +34,8 @@ const createRequestInFlightError = (): AppErrorData => ({
  *
  * @example
  * ```ts
- * const { mutate, state, reset } = useConvexMutation(api.user.updateName);
- * const { mutateStrict } = useConvexMutation(api.user.updateName);
+ * const { mutate, state, reset } = useConvexMutation(api.users.index.updateName);
+ * const { mutateStrict } = useConvexMutation(api.users.index.updateName);
  *
  * const handleSubmit = async () => {
  *   const result = await mutate({ firstName: 'John', lastName: 'Doe' });

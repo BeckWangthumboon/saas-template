@@ -48,7 +48,9 @@ function MembersPageContent({
   currentUserRole: Role;
   currentUserId: Id<'users'>;
 }) {
-  const { data: members } = useConvexQuery(api.workspace.getWorkspaceMembers, { workspaceId });
+  const { data: members } = useConvexQuery(api.workspaces.members.getWorkspaceMembers, {
+    workspaceId,
+  });
   const isMembersLoading = members === undefined;
 
   const isAdminOrOwner = currentUserRole === 'owner' || currentUserRole === 'admin';

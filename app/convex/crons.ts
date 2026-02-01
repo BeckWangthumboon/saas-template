@@ -7,13 +7,13 @@ const crons = cronJobs();
 crons.daily(
   'reconcile stuck user deletions',
   { hourUTC: 2, minuteUTC: 30 },
-  internal.user.reconcileStuckUserDeletions,
+  internal.users.internal.reconcileStuckUserDeletions,
 );
 
 crons.daily(
   'purge deleted user tombstones',
   { hourUTC: 3, minuteUTC: 0 },
-  internal.user.purgeDeletedUsers,
+  internal.users.internal.purgeDeletedUsers,
 );
 
 export default crons;

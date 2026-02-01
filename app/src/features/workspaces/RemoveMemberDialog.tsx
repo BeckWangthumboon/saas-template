@@ -35,7 +35,7 @@ export function RemoveMemberDialog({
   onOpenChange,
 }: RemoveMemberDialogProps) {
   const { mutate: removeMember, state: removeState } = useConvexMutation(
-    api.workspace.removeMember,
+    api.workspaces.members.removeMember,
   );
 
   const isRemoving = removeState.status === 'loading';

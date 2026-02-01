@@ -16,9 +16,14 @@ type QueryArgsWithSkip<Query extends FunctionReference<'query'>> = OptionalRestA
  *
  * @example
  * ```ts
- * const { status, data } = useConvexQuery(api.user.getUser, { id: '123' });
+ * const { status, data } = useConvexQuery(api.workspaces.members.getWorkspaceMembers, {
+ *   workspaceId: '123',
+ * });
  *
- * const { status, data } = useConvexQuery(api.user.getUser, condition ? { id: '123' } : 'skip');
+ * const { status, data } = useConvexQuery(
+ *   api.workspaces.members.getWorkspaceMembers,
+ *   condition ? { workspaceId: '123' } : 'skip',
+ * );
  *
  * if (status === 'loading') return <Spinner />;
  * return <User data={data} />;

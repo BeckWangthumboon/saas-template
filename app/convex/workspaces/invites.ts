@@ -1,10 +1,10 @@
 import { v } from 'convex/values';
 
-import { ErrorCode, throwAppErrorForConvex } from '../shared/errors';
-import type { Doc, Id } from './_generated/dataModel';
-import { mutation, type MutationCtx, query, type QueryCtx } from './functions';
-import { getActiveUserByEmail, getActiveUserById, getAuthenticatedUser } from './user';
-import { requireWorkspaceAdminOrOwner, type WorkspaceMembership } from './workspaceAccess';
+import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
+import type { Doc, Id } from '../_generated/dataModel';
+import { mutation, type MutationCtx, query, type QueryCtx } from '../functions';
+import { getActiveUserByEmail, getActiveUserById, getAuthenticatedUser } from '../users/helpers';
+import { requireWorkspaceAdminOrOwner, type WorkspaceMembership } from './utils';
 
 // 7 days
 const INVITE_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000;

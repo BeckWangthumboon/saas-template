@@ -34,13 +34,13 @@ function WorkspaceSettingsPage() {
   const navigate = useNavigate();
 
   const { mutate: updateWorkspaceName, state: updateState } = useConvexMutation(
-    api.workspace.updateWorkspaceName,
+    api.workspaces.index.updateWorkspaceName,
   );
   const { mutate: leaveWorkspace, state: leaveState } = useConvexMutation(
-    api.workspace.leaveWorkspace,
+    api.workspaces.index.leaveWorkspace,
   );
   const { mutate: deleteWorkspace, state: deleteState } = useConvexMutation(
-    api.workspace.deleteWorkspace,
+    api.workspaces.index.deleteWorkspace,
   );
   const [leaveDialogOpen, setLeaveDialogOpen] = useState(false);
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);

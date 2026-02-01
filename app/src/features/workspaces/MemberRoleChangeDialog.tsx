@@ -38,7 +38,7 @@ export function MemberRoleChangeDialog({
 }: MemberRoleChangeDialogProps) {
   const [lastOwnerError, setLastOwnerError] = useState(false);
   const { mutate: updateRole, state: updateRoleState } = useConvexMutation(
-    api.workspace.updateMemberRole,
+    api.workspaces.members.updateMemberRole,
   );
 
   const isUpdatingRole = updateRoleState.status === 'loading';

@@ -35,8 +35,10 @@ function SettingsPage() {
   const router = useRouter();
   const userContext = useUser();
   const user = userContext.status === 'ready' ? userContext.user : undefined;
-  const { mutate: updateName } = useConvexMutation(api.user.updateName);
-  const { mutate: deleteAccount, state: deleteState } = useConvexMutation(api.user.deleteAccount);
+  const { mutate: updateName } = useConvexMutation(api.users.index.updateName);
+  const { mutate: deleteAccount, state: deleteState } = useConvexMutation(
+    api.users.index.deleteAccount,
+  );
   const { signOut } = useAuth();
   const convex = useConvex();
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);

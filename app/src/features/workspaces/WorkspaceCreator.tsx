@@ -41,7 +41,9 @@ export function WorkspaceCreator({
   onSuccess,
   trigger,
 }: WorkspaceCreatorProps) {
-  const { mutate: createWorkspace, state } = useConvexMutation(api.workspace.createWorkspace);
+  const { mutate: createWorkspace, state } = useConvexMutation(
+    api.workspaces.index.createWorkspace,
+  );
   const isLoading = state.status === 'loading';
 
   const form = useForm({

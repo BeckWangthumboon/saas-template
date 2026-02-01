@@ -67,7 +67,7 @@ interface WorkspaceProviderProps {
 export function WorkspaceProvider({ children, workspaceId }: WorkspaceProviderProps) {
   const navigate = useNavigate();
 
-  const { status, data } = useConvexQuery(api.workspace.getUserWorkspaces);
+  const { status, data } = useConvexQuery(api.workspaces.index.getUserWorkspaces);
   const workspaces = useMemo(() => data ?? [], [data]);
   const workspace = useMemo(
     () => (workspaceId ? workspaces.find((w) => w.id === workspaceId) : undefined),

@@ -20,7 +20,7 @@ export const Route = createFileRoute('/_app/')({
 
 function OverviewPage() {
   const navigate = useNavigate();
-  const { status, data } = useConvexQuery(api.workspace.getUserWorkspaces);
+  const { status, data } = useConvexQuery(api.workspaces.index.getUserWorkspaces);
   const workspaces = useMemo(() => data ?? [], [data]);
   const defaultWorkspaceId = useMemo(() => defaultWorkspaceStorage.get(), []);
 

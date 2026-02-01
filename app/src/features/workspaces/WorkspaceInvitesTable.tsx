@@ -45,7 +45,7 @@ export function WorkspaceInvitesTable() {
   const isReady = isWorkspaceReady(workspaceContext);
   const canQueryInvites = isReady && workspaceContext.role !== 'member';
   const { data: invites } = useConvexQuery(
-    api.invite.getWorkspaceInvites,
+    api.workspaces.invites.getWorkspaceInvites,
     canQueryInvites ? { workspaceId: workspaceContext.workspaceId as Id<'workspaces'> } : 'skip',
   );
 
@@ -59,7 +59,9 @@ export function WorkspaceInvitesTable() {
     invite.email.toLowerCase().includes(debouncedSearch.toLowerCase()),
   );
 
-  const { mutate: revokeInvite, state: revokeState } = useConvexMutation(api.invite.revokeInvite);
+  const { mutate: revokeInvite, state: revokeState } = useConvexMutation(
+    api.workspaces.invites.revokeInvite,
+  );
   const isRevoking = revokeState.status === 'loading';
 
   const handleCopyInviteLink = async (invite: Invite) => {

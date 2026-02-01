@@ -22,8 +22,10 @@ export const Route = createFileRoute('/_invite/invite/$token')({
 function InvitePage() {
   const navigate = useNavigate();
   const { token } = Route.useParams();
-  const inviteQuery = useConvexQuery(api.invite.getInviteForAcceptance, { token });
-  const { mutate: acceptInvite, state: acceptState } = useConvexMutation(api.invite.acceptInvite);
+  const inviteQuery = useConvexQuery(api.workspaces.invites.getInviteForAcceptance, { token });
+  const { mutate: acceptInvite, state: acceptState } = useConvexMutation(
+    api.workspaces.invites.acceptInvite,
+  );
   const isAccepting = acceptState.status === 'loading';
 
   const handleAcceptInvite = async () => {

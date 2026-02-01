@@ -10,7 +10,7 @@ import { useConvexAction, useConvexMutation, useConvexQuery } from '@/hooks';
 import { api } from '../../../convex/_generated/api';
 import type { AppErrorData } from '../../../shared/errors';
 
-export type User = NonNullable<FunctionReturnType<typeof api.user.getUserOrNull>>;
+export type User = NonNullable<FunctionReturnType<typeof api.users.index.getUserOrNull>>;
 
 export type UserContextValue = { status: 'loading' } | { status: 'ready'; user: User };
 
@@ -59,8 +59,10 @@ export function UserProvider({ children }: { children: ReactNode }) {
 function UserProviderInternal({ children }: { children: ReactNode }) {
   const { signOut } = useAuth();
   const convex = useConvex();
-  const { execute: ensureUser, state: ensureUserState } = useConvexAction(api.user.ensureUser);
-  const { data: userData } = useConvexQuery(api.user.getUserOrNull);
+  const { execute: ensureUser, state: ensureUserState } = useConvexAction(
+    api.users.index.ensureUser,
+  );
+  const { data: userData } = useConvexQuery(api.users.index.getUserOrNull);
 
   const handleAuthFailure = useCallback(
     async (error: AppErrorData) => {
@@ -107,9 +109,9 @@ function UserProviderInternal({ children }: { children: ReactNode }) {
 
 function OnboardingDialogLoader() {
   const { status: onboardingStatusState, data: onboardingStatus } = useConvexQuery(
-    api.user.getOnboardingStatus,
+    api.users.index.getOnboardingStatus,
   );
-  const { mutate: completeOnboarding } = useConvexMutation(api.user.completeOnboarding);
+  const { mutate: completeOnboarding } = useConvexMutation(api.users.index.completeOnboarding);
 
   const handleCompleteOnboarding = async () => {
     const result = await completeOnboarding({});

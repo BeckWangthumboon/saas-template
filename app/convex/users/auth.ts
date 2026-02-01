@@ -1,10 +1,10 @@
 import { type AuthFunctions, AuthKit } from '@convex-dev/workos-authkit';
 
-import { components, internal } from './_generated/api';
-import type { DataModel } from './_generated/dataModel';
-import { getUserByAuthId, handleUserDeleted } from './user';
+import { components, internal } from '../_generated/api';
+import type { DataModel } from '../_generated/dataModel';
+import { getUserByAuthId, handleUserDeleted } from './helpers';
 
-const authFunctions: AuthFunctions = internal.auth;
+const authFunctions: AuthFunctions = internal.users.auth;
 
 const authKit = new AuthKit<DataModel>(components.workOSAuthKit, {
   authFunctions,
