@@ -1,6 +1,6 @@
 import { createAppErrorForConvex, ErrorCode } from '../../shared/errors';
 
-export type PlanKey = 'free' | 'pro';
+export type PlanKey = 'free' | 'pro_monthly' | 'pro_yearly';
 export type FeatureKey = 'team_members';
 export type LimitKey = 'members' | 'workspaces';
 
@@ -12,6 +12,18 @@ export interface PlanDefinition {
   limits: PlanLimits;
 }
 
+// Shared entitlements for all pro plans.
+const PRO_PLAN = {
+  features: {
+    team_members: true,
+  },
+  limits: {
+    members: 50,
+    workspaces: null,
+  },
+} as const satisfies PlanDefinition;
+
+// Plan definitions keyed by billing plan.
 export const PLAN_CATALOG = {
   free: {
     features: {
@@ -22,17 +34,11 @@ export const PLAN_CATALOG = {
       workspaces: 1,
     },
   },
-  pro: {
-    features: {
-      team_members: true,
-    },
-    limits: {
-      members: 50,
-      workspaces: null,
-    },
-  },
+  pro_monthly: PRO_PLAN,
+  pro_yearly: PRO_PLAN,
 } as const satisfies Record<PlanKey, PlanDefinition>;
 
+// Default plan for new workspaces.
 export const DEFAULT_PLAN_KEY: PlanKey = 'free';
 
 /**
@@ -47,7 +53,16 @@ const requireEnv = (value: string | undefined, name: string): string => {
   return value;
 };
 
-const PRO_PRODUCT_ID = requireEnv(process.env.POLAR_PRO_PRODUCT_ID, 'POLAR_PRO_PRODUCT_ID');
+// Polar product ID for the pro monthly plan.
+const PRO_MONTHLY_PRODUCT_ID = requireEnv(
+  process.env.POLAR_PRO_MONTHLY_PRODUCT_ID,
+  'POLAR_PRO_MONTHLY_PRODUCT_ID',
+);
+// Polar product ID for the pro yearly plan.
+const PRO_YEARLY_PRODUCT_ID = requireEnv(
+  process.env.POLAR_PRO_YEARLY_PRODUCT_ID,
+  'POLAR_PRO_YEARLY_PRODUCT_ID',
+);
 
 /**
  * Maps internal plan keys to their corresponding Polar product IDs (null for free plans).
@@ -57,7 +72,8 @@ const PRO_PRODUCT_ID = requireEnv(process.env.POLAR_PRO_PRODUCT_ID, 'POLAR_PRO_P
  */
 export const PLAN_KEY_TO_PRODUCT_ID = {
   free: null,
-  pro: PRO_PRODUCT_ID,
+  pro_monthly: PRO_MONTHLY_PRODUCT_ID,
+  pro_yearly: PRO_YEARLY_PRODUCT_ID,
 } as const satisfies Record<PlanKey, string | null>;
 
 /**
@@ -65,9 +81,9 @@ export const PLAN_KEY_TO_PRODUCT_ID = {
  */
 export const PRODUCT_ID_TO_PLAN_KEY = Object.entries(PLAN_KEY_TO_PRODUCT_ID).reduce<
   Record<string, PlanKey>
->((acc, [planKey, priceId]) => {
-  if (priceId) {
-    acc[priceId] = planKey as PlanKey;
+>((acc, [planKey, productId]) => {
+  if (productId) {
+    acc[productId] = planKey as PlanKey;
   }
   return acc;
 }, {});

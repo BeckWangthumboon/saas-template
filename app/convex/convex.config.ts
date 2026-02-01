@@ -9,4 +9,5 @@ app.use(actionRetrier);
 app.use(polar, { name: 'polar' });
 app.use(workpool, { name: 'workosWorkpool' });
 app.use(workOSAuthKit);
+
 export default app;

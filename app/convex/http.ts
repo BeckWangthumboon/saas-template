@@ -28,6 +28,8 @@ const toMillis = (value: unknown): number | null => {
 };
 
 polar.registerRoutes(http, {
+  path: '/polar/events',
+
   onSubscriptionCreated: async (ctx, event) => {
     await ctx.runMutation(internal.billing.sync.applySubscriptionUpdate, {
       providerCustomerId: event.data.customerId,
