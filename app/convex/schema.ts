@@ -122,5 +122,6 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index('by_workspaceId', ['workspaceId'])
+    .index('by_providerCustomerId', ['providerCustomerId'])
     .index('by_providerSubscriptionId', ['providerSubscriptionId']),
 });
