@@ -55,3 +55,7 @@ coverage
 *.local
 .eslintcache
 .tanstack
+
+.codex
+.opencode
+.agents
