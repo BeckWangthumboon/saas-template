@@ -123,4 +123,22 @@ export default defineSchema({
   })
     .index('by_workspaceId', ['workspaceId'])
     .index('by_providerSubscriptionId', ['providerSubscriptionId']),
+
+  billingEvents: defineTable({
+    providerEventId: v.string(),
+    type: v.string(),
+    receivedAt: v.number(),
+    handledAt: v.optional(v.number()),
+    workspaceId: v.optional(v.id('workspaces')),
+    status: v.union(
+      v.literal('received'),
+      v.literal('handled'),
+      v.literal('error'),
+      v.literal('unresolved'),
+    ),
+    error: v.optional(v.string()),
+  })
+    .index('by_providerEventId', ['providerEventId'])
+    .index('by_workspaceId', ['workspaceId'])
+    .index('by_status', ['status']),
 });
