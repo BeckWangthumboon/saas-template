@@ -107,7 +107,7 @@ export default defineSchema({
 
   workspaceBillingState: defineTable({
     workspaceId: v.id('workspaces'),
-    planKey: v.union(v.literal('free'), v.literal('pro')),
+    planKey: v.union(v.literal('free'), v.literal('pro_monthly'), v.literal('pro_yearly')),
     status: v.union(
       v.literal('none'),
       v.literal('trialing'),
