@@ -119,6 +119,7 @@ export default defineSchema({
     cancelAtPeriodEnd: v.optional(v.boolean()),
     providerCustomerId: v.optional(v.string()),
     providerSubscriptionId: v.optional(v.string()),
+    providerSubscriptionUpdatedAt: v.optional(v.number()),
     updatedAt: v.number(),
   })
     .index('by_workspaceId', ['workspaceId'])

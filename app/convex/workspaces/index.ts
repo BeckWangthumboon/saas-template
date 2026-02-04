@@ -3,6 +3,7 @@ import './triggers';
 import { v } from 'convex/values';
 
 import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
+import { upsertWorkspaceBillingState } from '../billing/helpers';
 import { mutation, query } from '../functions';
 import { getAuthenticatedUser } from '../users/helpers';
 import {
@@ -67,6 +68,8 @@ export const createWorkspace = mutation({
       role: 'owner',
       updatedAt: Date.now(),
     });
+
+    await upsertWorkspaceBillingState(ctx, workspaceId);
 
     return workspaceId;
   },

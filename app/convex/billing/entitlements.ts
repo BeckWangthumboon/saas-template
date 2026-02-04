@@ -50,6 +50,15 @@ export const PLAN_CATALOG = {
 
 export const DEFAULT_PLAN_KEY: PlanKey = 'free';
 
+export const getPlanDefinition = (planKey: PlanKey): PlanDefinition => {
+  return PLAN_CATALOG[planKey];
+};
+
+export const getPlanEntitlements = (planKey: PlanKey) => {
+  const { features, limits, billingInterval } = getPlanDefinition(planKey);
+  return { features, limits, billingInterval };
+};
+
 const requireEnv = (value: string | undefined, name: string): string => {
   if (value === undefined || value.trim().length === 0) {
     throw new ConvexError(`${name} environment variable is not set`);
@@ -81,9 +90,7 @@ export const PRODUCT_ID_TO_PLAN_KEY: Record<string, PlanKey | undefined> = {
   [PRO_YEARLY_PRODUCT_ID]: 'pro_yearly',
 };
 
-export const resolvePlanKeyFromProductId = (
-  productId?: string | null,
-): PlanKey => {
+export const resolvePlanKeyFromProductId = (productId?: string | null): PlanKey => {
   if (!productId) {
     throw new ConvexError('Polar product ID is required');
   }
