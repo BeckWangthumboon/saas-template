@@ -1,6 +1,9 @@
 import { ConvexError } from 'convex/values';
 
-export type PlanKey = 'free' | 'pro_monthly' | 'pro_yearly';
+import type { PlanKeyFromValidator, PlanTierFromValidator } from './types';
+
+export type PlanKey = PlanKeyFromValidator;
+export type PlanTier = PlanTierFromValidator;
 export type FeatureKey = 'team_members';
 export type LimitKey = 'members' | 'invites' | 'workspaces';
 export type BillingInterval = 'month' | 'year';
@@ -52,6 +55,10 @@ export const DEFAULT_PLAN_KEY: PlanKey = 'free';
 
 export const getPlanDefinition = (planKey: PlanKey): PlanDefinition => {
   return PLAN_CATALOG[planKey];
+};
+
+export const getPlanTier = (planKey: PlanKey): PlanTier => {
+  return planKey === 'free' ? 'free' : 'pro';
 };
 
 export const getPlanEntitlements = (planKey: PlanKey) => {

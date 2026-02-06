@@ -235,6 +235,10 @@ export const handlePolarSubscriptionEvent = internalMutation({
 
       const planKey = resolvePlanKeyFromProductId(args.productId);
       const mappedStatus = mapSubscriptionStatus(args.status, args.cancelAtPeriodEnd);
+      const pastDueAt =
+        mappedStatus === 'past_due'
+          ? (existingState?.pastDueAt ?? incomingUpdatedAt ?? Date.now())
+          : undefined;
 
       const baseUpdates = {
         workspaceId: normalizedWorkspaceId,
@@ -244,6 +248,7 @@ export const handlePolarSubscriptionEvent = internalMutation({
         cancelAtPeriodEnd: args.cancelAtPeriodEnd,
         providerCustomerId: args.customerId,
         providerSubscriptionId: args.subscriptionId,
+        pastDueAt,
         updatedAt: Date.now(),
       };
 

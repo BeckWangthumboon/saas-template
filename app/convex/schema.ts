@@ -120,6 +120,7 @@ export default defineSchema({
     providerCustomerId: v.optional(v.string()),
     providerSubscriptionId: v.optional(v.string()),
     providerSubscriptionUpdatedAt: v.optional(v.number()),
+    pastDueAt: v.optional(v.number()),
     updatedAt: v.number(),
   })
     .index('by_workspaceId', ['workspaceId'])
