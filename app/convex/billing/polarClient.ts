@@ -1,9 +1,12 @@
 import { Polar } from '@polar-sh/sdk';
-import { ConvexError } from 'convex/values';
+
+import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
 
 const requireEnv = (value: string | undefined, name: string): string => {
-  if (value === undefined || value.trim().length === 0) {
-    throw new ConvexError(`${name} environment variable is not set`);
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+      details: `${name} environment variable is not set`,
+    });
   }
   return value;
 };
@@ -18,7 +21,9 @@ const getPolarServer = (): PolarServer => {
   if (value === 'sandbox' || value === 'production') {
     return value;
   }
-  throw new ConvexError("POLAR_SERVER must be either 'sandbox' or 'production'");
+  return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+    details: "POLAR_SERVER must be either 'sandbox' or 'production'",
+  });
 };
 
 const organizationToken = requireEnv(

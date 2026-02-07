@@ -1,6 +1,7 @@
 import { validateEvent, WebhookVerificationError } from '@polar-sh/sdk/webhooks';
-import { ConvexError, v } from 'convex/values';
+import { v } from 'convex/values';
 
+import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
 import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import { httpAction, internalMutation } from '../functions';
@@ -28,7 +29,7 @@ const mapSubscriptionStatus = (
     case 'incomplete_expired':
       return 'canceled';
     default:
-      throw new ConvexError(`Unknown subscription status: ${status}`);
+      return throwAppErrorForConvex(ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN, { status });
   }
 };
 
@@ -119,9 +120,7 @@ export const polarWebhook = httpAction(async (ctx, request) => {
   const cancelAtPeriodEnd =
     typeof subscription.cancelAtPeriodEnd === 'boolean' ? subscription.cancelAtPeriodEnd : false;
 
-  const workspaceId = getWorkspaceIdFromMetadata(
-    subscription.metadata as Record<string, unknown> | undefined,
-  );
+  const workspaceId = getWorkspaceIdFromMetadata(subscription.metadata);
 
   await ctx.runMutation(internal.billing.webhooks.handlePolarSubscriptionEvent, {
     eventId: webhookId,

@@ -1,5 +1,4 @@
-import { ConvexError } from 'convex/values';
-
+import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
 import type { PlanKeyFromValidator, PlanTierFromValidator } from './types';
 
 export type PlanKey = PlanKeyFromValidator;
@@ -67,8 +66,10 @@ export const getPlanEntitlements = (planKey: PlanKey) => {
 };
 
 const requireEnv = (value: string | undefined, name: string): string => {
-  if (value === undefined || value.trim().length === 0) {
-    throw new ConvexError(`${name} environment variable is not set`);
+  if (typeof value !== 'string' || value.trim().length === 0) {
+    return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+      details: `${name} environment variable is not set`,
+    });
   }
   return value;
 };
@@ -89,7 +90,9 @@ export const PLAN_KEY_TO_PRODUCT_ID = {
 } as const satisfies Record<PlanKey, string | null>;
 
 if (PRO_MONTHLY_PRODUCT_ID === PRO_YEARLY_PRODUCT_ID) {
-  throw new ConvexError('POLAR product IDs must be unique');
+  throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+    details: 'POLAR product IDs must be unique',
+  });
 }
 
 export const PRODUCT_ID_TO_PLAN_KEY: Record<string, PlanKey | undefined> = {
@@ -98,12 +101,14 @@ export const PRODUCT_ID_TO_PLAN_KEY: Record<string, PlanKey | undefined> = {
 };
 
 export const resolvePlanKeyFromProductId = (productId?: string | null): PlanKey => {
-  if (!productId) {
-    throw new ConvexError('Polar product ID is required');
+  if (typeof productId !== 'string' || productId.length === 0) {
+    return throwAppErrorForConvex(ErrorCode.BILLING_PRODUCT_ID_REQUIRED);
   }
-  const planKey = PRODUCT_ID_TO_PLAN_KEY[productId];
-  if (!planKey) {
-    throw new ConvexError(`Unknown Polar product ID: ${productId}`);
+  if (productId === PRO_MONTHLY_PRODUCT_ID) {
+    return 'pro_monthly';
   }
-  return planKey;
+  if (productId === PRO_YEARLY_PRODUCT_ID) {
+    return 'pro_yearly';
+  }
+  return throwAppErrorForConvex(ErrorCode.BILLING_PRODUCT_ID_UNKNOWN, { productId });
 };

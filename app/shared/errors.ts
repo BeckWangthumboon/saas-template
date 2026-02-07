@@ -1,7 +1,7 @@
 import { ConvexError, type Value } from 'convex/values';
 import { z } from 'zod';
 
-export const ErrorCategorySchema = z.enum(['AUTH', 'WORKSPACE', 'INVITE', 'INTERNAL']);
+export const ErrorCategorySchema = z.enum(['AUTH', 'WORKSPACE', 'INVITE', 'BILLING', 'INTERNAL']);
 
 export type ErrorCategory = z.infer<typeof ErrorCategorySchema>;
 
@@ -9,6 +9,7 @@ export const ErrorCategory = {
   AUTH: 'AUTH',
   WORKSPACE: 'WORKSPACE',
   INVITE: 'INVITE',
+  BILLING: 'BILLING',
   INTERNAL: 'INTERNAL',
 } as const satisfies Record<string, ErrorCategory>;
 
@@ -35,6 +36,15 @@ export const ErrorCodeSchema = z.enum([
   'INVITE_SELF_INVITE',
   'INVITE_CANNOT_ASSIGN_OWNER',
   'INVITE_ADMIN_CANNOT_INVITE_ADMIN',
+  'BILLING_PRODUCT_ID_REQUIRED',
+  'BILLING_PRODUCT_ID_UNKNOWN',
+  'BILLING_SUBSCRIPTION_STATUS_UNKNOWN',
+  'BILLING_WORKSPACE_STATE_MISSING',
+  'BILLING_PLAN_PRODUCT_MAPPING_MISSING',
+  'BILLING_CHECKOUT_CREATE_FAILED',
+  'BILLING_SUBSCRIPTION_FETCH_FAILED',
+  'BILLING_CUSTOMER_ID_MISSING',
+  'BILLING_PORTAL_SESSION_CREATE_FAILED',
   'REQUEST_IN_FLIGHT',
   'INTERNAL_ERROR',
 ]);
@@ -64,6 +74,15 @@ export const ErrorCode = {
   INVITE_SELF_INVITE: 'INVITE_SELF_INVITE',
   INVITE_CANNOT_ASSIGN_OWNER: 'INVITE_CANNOT_ASSIGN_OWNER',
   INVITE_ADMIN_CANNOT_INVITE_ADMIN: 'INVITE_ADMIN_CANNOT_INVITE_ADMIN',
+  BILLING_PRODUCT_ID_REQUIRED: 'BILLING_PRODUCT_ID_REQUIRED',
+  BILLING_PRODUCT_ID_UNKNOWN: 'BILLING_PRODUCT_ID_UNKNOWN',
+  BILLING_SUBSCRIPTION_STATUS_UNKNOWN: 'BILLING_SUBSCRIPTION_STATUS_UNKNOWN',
+  BILLING_WORKSPACE_STATE_MISSING: 'BILLING_WORKSPACE_STATE_MISSING',
+  BILLING_PLAN_PRODUCT_MAPPING_MISSING: 'BILLING_PLAN_PRODUCT_MAPPING_MISSING',
+  BILLING_CHECKOUT_CREATE_FAILED: 'BILLING_CHECKOUT_CREATE_FAILED',
+  BILLING_SUBSCRIPTION_FETCH_FAILED: 'BILLING_SUBSCRIPTION_FETCH_FAILED',
+  BILLING_CUSTOMER_ID_MISSING: 'BILLING_CUSTOMER_ID_MISSING',
+  BILLING_PORTAL_SESSION_CREATE_FAILED: 'BILLING_PORTAL_SESSION_CREATE_FAILED',
   REQUEST_IN_FLIGHT: 'REQUEST_IN_FLIGHT',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
 } as const;
@@ -91,6 +110,15 @@ const errorCategoryMap: Record<ErrorCode, ErrorCategory> = {
   [ErrorCode.INVITE_SELF_INVITE]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_CANNOT_ASSIGN_OWNER]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN]: ErrorCategory.INVITE,
+  [ErrorCode.BILLING_PRODUCT_ID_REQUIRED]: ErrorCategory.BILLING,
+  [ErrorCode.BILLING_PRODUCT_ID_UNKNOWN]: ErrorCategory.BILLING,
+  [ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN]: ErrorCategory.BILLING,
+  [ErrorCode.BILLING_WORKSPACE_STATE_MISSING]: ErrorCategory.BILLING,
+  [ErrorCode.BILLING_PLAN_PRODUCT_MAPPING_MISSING]: ErrorCategory.BILLING,
+  [ErrorCode.BILLING_CHECKOUT_CREATE_FAILED]: ErrorCategory.BILLING,
+  [ErrorCode.BILLING_SUBSCRIPTION_FETCH_FAILED]: ErrorCategory.BILLING,
+  [ErrorCode.BILLING_CUSTOMER_ID_MISSING]: ErrorCategory.BILLING,
+  [ErrorCode.BILLING_PORTAL_SESSION_CREATE_FAILED]: ErrorCategory.BILLING,
   [ErrorCode.REQUEST_IN_FLIGHT]: ErrorCategory.INTERNAL,
   [ErrorCode.INTERNAL_ERROR]: ErrorCategory.INTERNAL,
 };
@@ -123,6 +151,15 @@ export interface ErrorContextMap {
   [ErrorCode.INVITE_SELF_INVITE]: Record<string, never>;
   [ErrorCode.INVITE_CANNOT_ASSIGN_OWNER]: Record<string, never>;
   [ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN]: Record<string, never>;
+  [ErrorCode.BILLING_PRODUCT_ID_REQUIRED]: Record<string, never>;
+  [ErrorCode.BILLING_PRODUCT_ID_UNKNOWN]: { productId: string };
+  [ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN]: { status: string };
+  [ErrorCode.BILLING_WORKSPACE_STATE_MISSING]: { workspaceId: string };
+  [ErrorCode.BILLING_PLAN_PRODUCT_MAPPING_MISSING]: { planKey: string };
+  [ErrorCode.BILLING_CHECKOUT_CREATE_FAILED]: { message?: string };
+  [ErrorCode.BILLING_SUBSCRIPTION_FETCH_FAILED]: { subscriptionId: string; message?: string };
+  [ErrorCode.BILLING_CUSTOMER_ID_MISSING]: { workspaceId: string };
+  [ErrorCode.BILLING_PORTAL_SESSION_CREATE_FAILED]: { customerId: string; message?: string };
   [ErrorCode.REQUEST_IN_FLIGHT]: Record<string, never>;
   [ErrorCode.INTERNAL_ERROR]: { details?: string };
 }
@@ -152,6 +189,15 @@ const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.INVITE_SELF_INVITE]: 'You cannot invite yourself',
   [ErrorCode.INVITE_CANNOT_ASSIGN_OWNER]: 'Cannot invite with owner role',
   [ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN]: 'Admins can only invite members',
+  [ErrorCode.BILLING_PRODUCT_ID_REQUIRED]: 'Polar product ID is required',
+  [ErrorCode.BILLING_PRODUCT_ID_UNKNOWN]: 'Unknown Polar product ID',
+  [ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN]: 'Unknown Polar subscription status',
+  [ErrorCode.BILLING_WORKSPACE_STATE_MISSING]: 'Workspace billing state is missing',
+  [ErrorCode.BILLING_PLAN_PRODUCT_MAPPING_MISSING]: 'Missing Polar product mapping for plan',
+  [ErrorCode.BILLING_CHECKOUT_CREATE_FAILED]: 'Failed to create checkout session',
+  [ErrorCode.BILLING_SUBSCRIPTION_FETCH_FAILED]: 'Failed to fetch subscription',
+  [ErrorCode.BILLING_CUSTOMER_ID_MISSING]: 'Missing customer ID for billing portal session',
+  [ErrorCode.BILLING_PORTAL_SESSION_CREATE_FAILED]: 'Failed to create customer portal session',
   [ErrorCode.REQUEST_IN_FLIGHT]: 'Request already in flight',
   [ErrorCode.INTERNAL_ERROR]: 'Internal error',
 };
@@ -321,6 +367,34 @@ export const ConvexErrors = {
     cannotAssignOwner: () => createAppErrorForConvex(ErrorCode.INVITE_CANNOT_ASSIGN_OWNER),
     adminCannotInviteAdmin: () =>
       createAppErrorForConvex(ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN),
+  },
+  billing: {
+    productIdRequired: () => createAppErrorForConvex(ErrorCode.BILLING_PRODUCT_ID_REQUIRED),
+    productIdUnknown: (productId: string) =>
+      createAppErrorForConvex(ErrorCode.BILLING_PRODUCT_ID_UNKNOWN, { productId }),
+    subscriptionStatusUnknown: (status: string) =>
+      createAppErrorForConvex(ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN, { status }),
+    workspaceStateMissing: (workspaceId: string) =>
+      createAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_STATE_MISSING, { workspaceId }),
+    planProductMappingMissing: (planKey: string) =>
+      createAppErrorForConvex(ErrorCode.BILLING_PLAN_PRODUCT_MAPPING_MISSING, { planKey }),
+    checkoutCreateFailed: (message?: string) =>
+      createAppErrorForConvex(
+        ErrorCode.BILLING_CHECKOUT_CREATE_FAILED,
+        message ? { message } : undefined,
+      ),
+    subscriptionFetchFailed: (subscriptionId: string, message?: string) =>
+      createAppErrorForConvex(
+        ErrorCode.BILLING_SUBSCRIPTION_FETCH_FAILED,
+        message ? { subscriptionId, message } : { subscriptionId },
+      ),
+    customerIdMissing: (workspaceId: string) =>
+      createAppErrorForConvex(ErrorCode.BILLING_CUSTOMER_ID_MISSING, { workspaceId }),
+    portalSessionCreateFailed: (customerId: string, message?: string) =>
+      createAppErrorForConvex(
+        ErrorCode.BILLING_PORTAL_SESSION_CREATE_FAILED,
+        message ? { customerId, message } : { customerId },
+      ),
   },
   internal: {
     error: (details?: string) =>

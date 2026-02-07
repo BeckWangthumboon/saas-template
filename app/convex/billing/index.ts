@@ -1,4 +1,4 @@
-import { ConvexError, v } from 'convex/values';
+import { v } from 'convex/values';
 
 import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
 import { internal } from '../_generated/api';
@@ -24,6 +24,23 @@ const getCheckoutReturnUrl = (workspaceId: string) =>
 const getPortalReturnUrl = (workspaceId: string) =>
   `${ORIGIN}${getWorkspaceBillingSettingsPath(workspaceId)}`;
 
+const assertBillingState = (
+  value: unknown,
+): value is { providerCustomerId?: string; providerSubscriptionId?: string } => {
+  if (!value || typeof value !== 'object') {
+    return false;
+  }
+
+  const maybeState = value as { providerCustomerId?: unknown; providerSubscriptionId?: unknown };
+
+  return (
+    (maybeState.providerCustomerId === undefined ||
+      typeof maybeState.providerCustomerId === 'string') &&
+    (maybeState.providerSubscriptionId === undefined ||
+      typeof maybeState.providerSubscriptionId === 'string')
+  );
+};
+
 /**
  * Returns billing projection and derived entitlements for a workspace.
  *
@@ -43,8 +60,8 @@ export const getWorkspaceBillingSummary = query({
       .unique();
 
     if (!state) {
-      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
-        details: `Missing billing state for workspace ${args.workspaceId}`,
+      return throwAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_STATE_MISSING, {
+        workspaceId: args.workspaceId,
       });
     }
 
@@ -80,7 +97,7 @@ export const getWorkspaceBillingSummary = query({
  * @returns The checkout URL to redirect the user to.
  * @throws WORKSPACE_ACCESS_DENIED if the caller is not a workspace member.
  * @throws WORKSPACE_INSUFFICIENT_ROLE if the caller is not an admin or owner.
- * @throws INTERNAL_ERROR if the plan is missing a Polar product mapping.
+ * @throws BILLING_PLAN_PRODUCT_MAPPING_MISSING if the plan has no Polar product mapping.
  */
 export const startCheckout = action({
   args: {
@@ -89,14 +106,25 @@ export const startCheckout = action({
   },
   returns: v.object({ url: v.string() }),
   handler: async (ctx, args) => {
-    const billingState = await ctx.runQuery(internal.billing.internal.getWorkspaceBillingState, {
-      workspaceId: args.workspaceId,
-    });
+    const billingStateResult: unknown = await ctx.runQuery(
+      internal.billing.internal.getWorkspaceBillingState,
+      {
+        workspaceId: args.workspaceId,
+      },
+    );
+
+    if (billingStateResult !== null && !assertBillingState(billingStateResult)) {
+      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+        details: 'Invalid billing state payload from internal billing query',
+      });
+    }
+
+    const billingState = billingStateResult;
 
     const productId = PLAN_KEY_TO_PRODUCT_ID[args.planKey];
     if (!productId) {
-      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
-        details: `Missing Polar product mapping for ${args.planKey}`,
+      return throwAppErrorForConvex(ErrorCode.BILLING_PLAN_PRODUCT_MAPPING_MISSING, {
+        planKey: args.planKey,
       });
     }
 
@@ -115,9 +143,9 @@ export const startCheckout = action({
       const checkout = await polar.checkouts.create(checkoutRequest);
       return { url: checkout.url };
     } catch (error) {
-      throw new ConvexError(
-        `Failed to create Polar checkout: ${error instanceof Error ? error.message : String(error)}`,
-      );
+      return throwAppErrorForConvex(ErrorCode.BILLING_CHECKOUT_CREATE_FAILED, {
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   },
 });
@@ -129,15 +157,26 @@ export const startCheckout = action({
  * @returns The customer portal URL to redirect the user to.
  * @throws WORKSPACE_ACCESS_DENIED if the caller is not a workspace member.
  * @throws WORKSPACE_INSUFFICIENT_ROLE if the caller is not an admin or owner.
- * @throws INTERNAL_ERROR if no Polar customer ID can be resolved.
+ * @throws BILLING_CUSTOMER_ID_MISSING if no Polar customer ID can be resolved.
  */
 export const createBillingPortalSession = action({
   args: { workspaceId: v.id('workspaces') },
   returns: v.object({ url: v.string() }),
   handler: async (ctx, args) => {
-    const billingState = await ctx.runQuery(internal.billing.internal.getWorkspaceBillingState, {
-      workspaceId: args.workspaceId,
-    });
+    const billingStateResult: unknown = await ctx.runQuery(
+      internal.billing.internal.getWorkspaceBillingState,
+      {
+        workspaceId: args.workspaceId,
+      },
+    );
+
+    if (billingStateResult !== null && !assertBillingState(billingStateResult)) {
+      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+        details: 'Invalid billing state payload from internal billing query',
+      });
+    }
+
+    const billingState = billingStateResult;
 
     let customerId = billingState?.providerCustomerId ?? undefined;
     if (!customerId && billingState?.providerSubscriptionId) {
@@ -147,15 +186,16 @@ export const createBillingPortalSession = action({
         });
         customerId = subscription.customerId;
       } catch (error) {
-        throw new ConvexError(
-          `Failed to fetch Polar subscription: ${error instanceof Error ? error.message : String(error)}`,
-        );
+        return throwAppErrorForConvex(ErrorCode.BILLING_SUBSCRIPTION_FETCH_FAILED, {
+          subscriptionId: billingState.providerSubscriptionId,
+          message: error instanceof Error ? error.message : String(error),
+        });
       }
     }
 
     if (!customerId) {
-      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
-        details: 'Missing Polar customer ID for billing portal session',
+      return throwAppErrorForConvex(ErrorCode.BILLING_CUSTOMER_ID_MISSING, {
+        workspaceId: args.workspaceId,
       });
     }
 
@@ -167,11 +207,10 @@ export const createBillingPortalSession = action({
 
       return { url: session.customerPortalUrl };
     } catch (error) {
-      throw new ConvexError(
-        `Failed to create Polar customer session: ${
-          error instanceof Error ? error.message : String(error)
-        }`,
-      );
+      return throwAppErrorForConvex(ErrorCode.BILLING_PORTAL_SESSION_CREATE_FAILED, {
+        customerId,
+        message: error instanceof Error ? error.message : String(error),
+      });
     }
   },
 });
