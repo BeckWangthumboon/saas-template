@@ -1,0 +1,117 @@
+'use node';
+
+import { validateEvent, WebhookVerificationError } from '@polar-sh/sdk/webhooks';
+import { v } from 'convex/values';
+
+import { createAppErrorForConvex, ErrorCode } from '../../shared/errors';
+import { internalAction } from '../functions';
+
+type PolarWebhookEvent = ReturnType<typeof validateEvent>;
+type PolarSubscriptionEvent = Extract<
+  PolarWebhookEvent,
+  { type: 'subscription.created' | 'subscription.updated' }
+>;
+
+const isPolarSubscriptionEvent = (value: PolarWebhookEvent): value is PolarSubscriptionEvent => {
+  return value.type === 'subscription.created' || value.type === 'subscription.updated';
+};
+
+const getWorkspaceIdFromMetadata = (metadata: Record<string, unknown> | undefined) => {
+  const workspaceId = metadata?.workspaceId;
+  return typeof workspaceId === 'string' ? workspaceId : undefined;
+};
+
+const parseTimestampMs = (value: unknown) => {
+  if (value instanceof Date) {
+    return value.getTime();
+  }
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    return Number.isNaN(parsed) ? undefined : parsed;
+  }
+  if (typeof value === 'number') {
+    return value;
+  }
+  return undefined;
+};
+
+const getWebhookSecret = (): string => {
+  const value = process.env.POLAR_WEBHOOK_SECRET;
+  if (value !== undefined && value.trim().length > 0) {
+    return value;
+  }
+
+  throw createAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+    details: 'POLAR_WEBHOOK_SECRET environment variable is not set',
+  });
+};
+
+/**
+ * Verifies the Polar webhook signature in Node runtime and normalizes
+ * subscription event payloads for the HTTP webhook handler.
+ *
+ * @param _ctx - The Convex internal action context.
+ * @param args - Raw webhook body and headers.
+ * @returns Verification result with normalized fields or validation error metadata.
+ */
+export const verifyAndNormalizePolarWebhook = internalAction({
+  args: {
+    body: v.string(),
+    headers: v.record(v.string(), v.string()),
+  },
+  handler: async (_ctx, args) => {
+    const webhookSecret = getWebhookSecret();
+
+    let event: PolarWebhookEvent;
+    try {
+      event = validateEvent(args.body, args.headers, webhookSecret);
+    } catch (error) {
+      const errorMessage = error instanceof Error ? error.message : String(error);
+      const errorName = error instanceof Error ? error.name : 'UnknownError';
+
+      if (error instanceof WebhookVerificationError) {
+        return {
+          status: 'invalid_signature' as const,
+          errorMessage,
+          errorName,
+        };
+      }
+
+      return {
+        status: 'invalid_payload' as const,
+        errorMessage,
+        errorName,
+      };
+    }
+
+    if (!isPolarSubscriptionEvent(event)) {
+      return {
+        status: 'ignored' as const,
+        eventType: event.type,
+      };
+    }
+
+    const subscription = event.data;
+    const subscriptionId = subscription.id;
+    const customerId = subscription.customerId;
+    const productId = subscription.productId;
+    const subscriptionStatus = subscription.status;
+
+    return {
+      status: 'subscription' as const,
+      eventType: event.type,
+      eventTimestamp: parseTimestampMs(event.timestamp),
+      subscriptionId,
+      customerId,
+      productId,
+      subscriptionStatus,
+      currentPeriodEnd: parseTimestampMs(subscription.currentPeriodEnd),
+      subscriptionUpdatedAt: parseTimestampMs(subscription.modifiedAt),
+      cancelAtPeriodEnd:
+        typeof subscription.cancelAtPeriodEnd === 'boolean'
+          ? subscription.cancelAtPeriodEnd
+          : false,
+      workspaceId: getWorkspaceIdFromMetadata(subscription.metadata),
+    };
+  },
+});

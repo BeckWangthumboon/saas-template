@@ -13,7 +13,7 @@ const PAST_DUE_GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 const ORIGIN = (process.env.APP_ORIGIN ?? 'http://localhost:5173').replace(/\/$/, '');
 
 const getWorkspaceBillingSettingsPath = (workspaceId: string) =>
-  `/workspaces/${workspaceId}/settings/workspace`;
+  `/workspaces/${workspaceId}/settings/billing`;
 
 const getCheckoutSuccessUrl = (workspaceId: string) =>
   `${ORIGIN}${getWorkspaceBillingSettingsPath(workspaceId)}?checkout=success`;

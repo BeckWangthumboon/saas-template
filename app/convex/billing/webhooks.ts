@@ -1,4 +1,4 @@
-import { validateEvent, WebhookVerificationError } from '@polar-sh/sdk/webhooks';
+import type { FunctionReturnType } from 'convex/server';
 import { v } from 'convex/values';
 
 import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
@@ -6,7 +6,6 @@ import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import { httpAction, internalMutation } from '../functions';
 import { resolvePlanKeyFromProductId } from './entitlements';
-import { polarWebhookSecret } from './polarClient';
 
 const mapSubscriptionStatus = (
   status: string,
@@ -33,34 +32,9 @@ const mapSubscriptionStatus = (
   }
 };
 
-type PolarWebhookEvent = ReturnType<typeof validateEvent>;
-type PolarSubscriptionEvent = Extract<
-  PolarWebhookEvent,
-  { type: 'subscription.created' | 'subscription.updated' }
+type WebhookVerificationResult = FunctionReturnType<
+  typeof internal.billing.webhooksNode.verifyAndNormalizePolarWebhook
 >;
-
-const isPolarSubscriptionEvent = (value: PolarWebhookEvent): value is PolarSubscriptionEvent => {
-  return value.type === 'subscription.created' || value.type === 'subscription.updated';
-};
-
-const getWorkspaceIdFromMetadata = (metadata: Record<string, unknown> | undefined) => {
-  const workspaceId = metadata?.workspaceId;
-  return typeof workspaceId === 'string' ? workspaceId : undefined;
-};
-
-const parseTimestampMs = (value: unknown) => {
-  if (value instanceof Date) {
-    return value.getTime();
-  }
-  if (typeof value === 'string') {
-    const parsed = Date.parse(value);
-    return Number.isNaN(parsed) ? undefined : parsed;
-  }
-  if (typeof value === 'number') {
-    return value;
-  }
-  return undefined;
-};
 
 /**
  * Polar webhook HTTP endpoint. Verifies the signature, filters for subscription
@@ -84,61 +58,49 @@ export const polarWebhook = httpAction(async (ctx, request) => {
 
   const body = await request.text();
 
-  let event: PolarWebhookEvent;
+  let verificationResult: WebhookVerificationResult;
   try {
-    event = validateEvent(body, headers, polarWebhookSecret);
-  } catch (error) {
-    if (error instanceof WebhookVerificationError) {
-      return new Response('Invalid webhook signature', { status: 400 });
+    verificationResult = await ctx.runAction(
+      internal.billing.webhooksNode.verifyAndNormalizePolarWebhook,
+      {
+        body,
+        headers,
+      },
+    );
+  } catch {
+    return new Response('Webhook verification failed', { status: 500 });
+  }
+
+  switch (verificationResult.status) {
+    case 'invalid_signature':
+    case 'invalid_payload': {
+      if (verificationResult.status === 'invalid_signature') {
+        return new Response('Invalid webhook signature', { status: 400 });
+      }
+
+      return new Response('Invalid webhook payload', { status: 400 });
     }
-    return new Response('Invalid webhook payload', { status: 400 });
+    case 'ignored': {
+      return new Response('ignored', { status: 200 });
+    }
+    case 'subscription': {
+      await ctx.runMutation(internal.billing.webhooks.handlePolarSubscriptionEvent, {
+        eventId: webhookId,
+        eventType: verificationResult.eventType,
+        eventTimestamp: verificationResult.eventTimestamp,
+        subscriptionId: verificationResult.subscriptionId,
+        customerId: verificationResult.customerId,
+        productId: verificationResult.productId,
+        status: verificationResult.subscriptionStatus,
+        currentPeriodEnd: verificationResult.currentPeriodEnd,
+        subscriptionUpdatedAt: verificationResult.subscriptionUpdatedAt,
+        cancelAtPeriodEnd: verificationResult.cancelAtPeriodEnd,
+        workspaceId: verificationResult.workspaceId,
+      });
+
+      return new Response('ok', { status: 200 });
+    }
   }
-
-  if (!isPolarSubscriptionEvent(event)) {
-    return new Response('ignored', { status: 200 });
-  }
-
-  const subscription = event.data;
-  const subscriptionId = subscription.id;
-  const customerId = subscription.customerId;
-  const productId = subscription.productId;
-  const status = subscription.status;
-
-  if (
-    typeof subscriptionId !== 'string' ||
-    typeof customerId !== 'string' ||
-    typeof productId !== 'string' ||
-    typeof status !== 'string'
-  ) {
-    return new Response('Invalid subscription payload', { status: 400 });
-  }
-
-  const currentPeriodEndMs = parseTimestampMs(subscription.currentPeriodEnd);
-  const subscriptionUpdatedAt = parseTimestampMs(subscription.modifiedAt);
-  const eventTimestamp = parseTimestampMs(event.timestamp);
-
-  const cancelAtPeriodEnd =
-    typeof subscription.cancelAtPeriodEnd === 'boolean' ? subscription.cancelAtPeriodEnd : false;
-
-  const workspaceId = getWorkspaceIdFromMetadata(subscription.metadata);
-
-  await ctx.runMutation(internal.billing.webhooks.handlePolarSubscriptionEvent, {
-    eventId: webhookId,
-    eventType: event.type,
-    eventTimestamp,
-    subscriptionId,
-    customerId,
-    productId,
-    status,
-    currentPeriodEnd: Number.isFinite(currentPeriodEndMs) ? currentPeriodEndMs : undefined,
-    subscriptionUpdatedAt: Number.isFinite(subscriptionUpdatedAt)
-      ? subscriptionUpdatedAt
-      : undefined,
-    cancelAtPeriodEnd,
-    workspaceId,
-  });
-
-  return new Response('ok', { status: 200 });
 });
 
 /**

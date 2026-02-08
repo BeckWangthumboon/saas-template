@@ -13,6 +13,12 @@ const requireEnv = (value: string | undefined, name: string): string => {
 
 type PolarServer = 'sandbox' | 'production';
 
+interface PolarConfig {
+  organizationToken: string;
+  webhookSecret: string;
+  server: PolarServer;
+}
+
 const getPolarServer = (): PolarServer => {
   const value = process.env.POLAR_SERVER?.trim().toLowerCase();
   if (value === undefined || value.length === 0) {
@@ -26,16 +32,24 @@ const getPolarServer = (): PolarServer => {
   });
 };
 
-const organizationToken = requireEnv(
-  process.env.POLAR_ORGANIZATION_TOKEN,
-  'POLAR_ORGANIZATION_TOKEN',
-);
-const webhookSecret = requireEnv(process.env.POLAR_WEBHOOK_SECRET, 'POLAR_WEBHOOK_SECRET');
-const server = getPolarServer();
+const getPolarConfig = (): PolarConfig => {
+  const organizationToken = requireEnv(
+    process.env.POLAR_ORGANIZATION_TOKEN,
+    'POLAR_ORGANIZATION_TOKEN',
+  );
+  const webhookSecret = requireEnv(process.env.POLAR_WEBHOOK_SECRET, 'POLAR_WEBHOOK_SECRET');
+  const server = getPolarServer();
+
+  return {
+    organizationToken,
+    webhookSecret,
+    server,
+  };
+};
+
+const polarConfig = getPolarConfig();
 
 export const polar = new Polar({
-  accessToken: organizationToken,
-  server,
+  accessToken: polarConfig.organizationToken,
+  server: polarConfig.server,
 });
-
-export const polarWebhookSecret = webhookSecret;
