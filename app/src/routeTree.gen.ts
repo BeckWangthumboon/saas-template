@@ -23,6 +23,7 @@ import { Route as AppWorkspacesWorkspaceIdMembersRouteImport } from './routes/_a
 import { Route as AppWorkspacesWorkspaceIdSettingsRouteRouteImport } from './routes/_app/workspaces/$workspaceId/settings/route'
 import { Route as AppWorkspacesWorkspaceIdSettingsIndexRouteImport } from './routes/_app/workspaces/$workspaceId/settings/index'
 import { Route as AppWorkspacesWorkspaceIdSettingsWorkspaceRouteImport } from './routes/_app/workspaces/$workspaceId/settings/workspace'
+import { Route as AppWorkspacesWorkspaceIdSettingsBillingRouteImport } from './routes/_app/workspaces/$workspaceId/settings/billing'
 
 const InviteRouteRoute = InviteRouteRouteImport.update({
   id: '/_invite',
@@ -97,6 +98,12 @@ const AppWorkspacesWorkspaceIdSettingsWorkspaceRoute =
     path: '/workspace',
     getParentRoute: () => AppWorkspacesWorkspaceIdSettingsRouteRoute,
   } as any)
+const AppWorkspacesWorkspaceIdSettingsBillingRoute =
+  AppWorkspacesWorkspaceIdSettingsBillingRouteImport.update({
+    id: '/billing',
+    path: '/billing',
+    getParentRoute: () => AppWorkspacesWorkspaceIdSettingsRouteRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
@@ -108,6 +115,7 @@ export interface FileRoutesByFullPath {
   '/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRouteRouteWithChildren
   '/workspaces/$workspaceId/members': typeof AppWorkspacesWorkspaceIdMembersRoute
   '/workspaces/$workspaceId/': typeof AppWorkspacesWorkspaceIdIndexRoute
+  '/workspaces/$workspaceId/settings/billing': typeof AppWorkspacesWorkspaceIdSettingsBillingRoute
   '/workspaces/$workspaceId/settings/workspace': typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRoute
   '/workspaces/$workspaceId/settings/': typeof AppWorkspacesWorkspaceIdSettingsIndexRoute
 }
@@ -119,6 +127,7 @@ export interface FileRoutesByTo {
   '/invite/$token': typeof InviteInviteTokenRoute
   '/workspaces/$workspaceId/members': typeof AppWorkspacesWorkspaceIdMembersRoute
   '/workspaces/$workspaceId': typeof AppWorkspacesWorkspaceIdIndexRoute
+  '/workspaces/$workspaceId/settings/billing': typeof AppWorkspacesWorkspaceIdSettingsBillingRoute
   '/workspaces/$workspaceId/settings/workspace': typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRoute
   '/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsIndexRoute
 }
@@ -136,6 +145,7 @@ export interface FileRoutesById {
   '/_app/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRouteRouteWithChildren
   '/_app/workspaces/$workspaceId/members': typeof AppWorkspacesWorkspaceIdMembersRoute
   '/_app/workspaces/$workspaceId/': typeof AppWorkspacesWorkspaceIdIndexRoute
+  '/_app/workspaces/$workspaceId/settings/billing': typeof AppWorkspacesWorkspaceIdSettingsBillingRoute
   '/_app/workspaces/$workspaceId/settings/workspace': typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRoute
   '/_app/workspaces/$workspaceId/settings/': typeof AppWorkspacesWorkspaceIdSettingsIndexRoute
 }
@@ -151,6 +161,7 @@ export interface FileRouteTypes {
     | '/workspaces/$workspaceId/settings'
     | '/workspaces/$workspaceId/members'
     | '/workspaces/$workspaceId/'
+    | '/workspaces/$workspaceId/settings/billing'
     | '/workspaces/$workspaceId/settings/workspace'
     | '/workspaces/$workspaceId/settings/'
   fileRoutesByTo: FileRoutesByTo
@@ -162,6 +173,7 @@ export interface FileRouteTypes {
     | '/invite/$token'
     | '/workspaces/$workspaceId/members'
     | '/workspaces/$workspaceId'
+    | '/workspaces/$workspaceId/settings/billing'
     | '/workspaces/$workspaceId/settings/workspace'
     | '/workspaces/$workspaceId/settings'
   id:
@@ -178,6 +190,7 @@ export interface FileRouteTypes {
     | '/_app/workspaces/$workspaceId/settings'
     | '/_app/workspaces/$workspaceId/members'
     | '/_app/workspaces/$workspaceId/'
+    | '/_app/workspaces/$workspaceId/settings/billing'
     | '/_app/workspaces/$workspaceId/settings/workspace'
     | '/_app/workspaces/$workspaceId/settings/'
   fileRoutesById: FileRoutesById
@@ -288,16 +301,26 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRouteImport
       parentRoute: typeof AppWorkspacesWorkspaceIdSettingsRouteRoute
     }
+    '/_app/workspaces/$workspaceId/settings/billing': {
+      id: '/_app/workspaces/$workspaceId/settings/billing'
+      path: '/billing'
+      fullPath: '/workspaces/$workspaceId/settings/billing'
+      preLoaderRoute: typeof AppWorkspacesWorkspaceIdSettingsBillingRouteImport
+      parentRoute: typeof AppWorkspacesWorkspaceIdSettingsRouteRoute
+    }
   }
 }
 
 interface AppWorkspacesWorkspaceIdSettingsRouteRouteChildren {
+  AppWorkspacesWorkspaceIdSettingsBillingRoute: typeof AppWorkspacesWorkspaceIdSettingsBillingRoute
   AppWorkspacesWorkspaceIdSettingsWorkspaceRoute: typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRoute
   AppWorkspacesWorkspaceIdSettingsIndexRoute: typeof AppWorkspacesWorkspaceIdSettingsIndexRoute
 }
 
 const AppWorkspacesWorkspaceIdSettingsRouteRouteChildren: AppWorkspacesWorkspaceIdSettingsRouteRouteChildren =
   {
+    AppWorkspacesWorkspaceIdSettingsBillingRoute:
+      AppWorkspacesWorkspaceIdSettingsBillingRoute,
     AppWorkspacesWorkspaceIdSettingsWorkspaceRoute:
       AppWorkspacesWorkspaceIdSettingsWorkspaceRoute,
     AppWorkspacesWorkspaceIdSettingsIndexRoute:

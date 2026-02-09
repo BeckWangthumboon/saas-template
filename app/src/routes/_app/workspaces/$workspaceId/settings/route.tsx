@@ -17,6 +17,10 @@ function SettingsLayout() {
       label: 'Workspace',
       href: getWorkspacePath('/settings/workspace'),
     },
+    {
+      label: 'Billing',
+      href: getWorkspacePath('/settings/billing'),
+    },
   ];
 
   return (
