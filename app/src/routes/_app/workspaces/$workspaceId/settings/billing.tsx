@@ -7,6 +7,7 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { BillingProvider, useBilling } from '@/features/billing';
 import { isWorkspaceReady, useWorkspace } from '@/features/workspaces';
+import { cn } from '@/lib/utils';
 
 import type { Id } from '../../../../../../convex/_generated/dataModel';
 
@@ -35,6 +36,18 @@ const formatStatus = (value: 'none' | 'trialing' | 'active' | 'past_due' | 'canc
   }
 
   return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
+};
+
+const getStatusClassName = (value: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled') => {
+  if (value === 'active' || value === 'trialing') {
+    return 'text-foreground';
+  }
+
+  if (value === 'past_due' || value === 'canceled') {
+    return 'text-destructive';
+  }
+
+  return 'text-muted-foreground';
 };
 
 const formatTimestamp = (timestamp: number | undefined) => {
@@ -105,15 +118,25 @@ function BillingSettingsContent() {
       return;
     }
 
+    const checkoutWindow = window.open('', '_blank');
+    if (!checkoutWindow) {
+      toast.error('Popup blocked', {
+        description: 'Allow popups to open checkout in a new tab.',
+      });
+      return;
+    }
+    checkoutWindow.opener = null;
+
     const result = await startCheckout(planKey);
     if (!result.ok) {
+      checkoutWindow.close();
       toast.error('Failed to start checkout', {
         description: result.error.message,
       });
       return;
     }
 
-    window.location.href = result.data.url;
+    checkoutWindow.location.href = result.data.url;
   };
 
   const handleOpenPortal = async () => {
@@ -124,97 +147,117 @@ function BillingSettingsContent() {
       return;
     }
 
+    const portalWindow = window.open('', '_blank');
+    if (!portalWindow) {
+      toast.error('Popup blocked', {
+        description: 'Allow popups to open billing in a new tab.',
+      });
+      return;
+    }
+    portalWindow.opener = null;
+
     const result = await createPortalSession();
     if (!result.ok) {
+      portalWindow.close();
       toast.error('Failed to open billing portal', {
         description: result.error.message,
       });
       return;
     }
 
-    window.location.href = result.data.url;
+    portalWindow.location.href = result.data.url;
   };
 
   if (status === 'loading' || !billing) {
     return <p className="text-muted-foreground">Loading billing...</p>;
   }
 
+  const showsAsFree = billing.effectiveStatus === 'canceled';
+  const displayPlanKey = showsAsFree ? 'free' : billing.planKey;
+  const displayStatus = showsAsFree ? 'none' : billing.effectiveStatus;
+  const displayTier = showsAsFree ? 'free' : billing.tier;
+  const statusClassName = getStatusClassName(displayStatus);
+  const isFreeTier = displayTier === 'free';
+  const billingCycleText = isFreeTier
+    ? 'No billing cycle'
+    : billing.cancelAtPeriodEnd
+      ? `Ends ${formatTimestamp(billing.periodEnd)}`
+      : `Renews ${formatTimestamp(billing.periodEnd)}`;
+
   return (
-    <div className="max-w-2xl space-y-10">
+    <div className="max-w-2xl space-y-8">
       <div>
         <h1 className="text-xl font-semibold">Billing</h1>
-        <p className="text-muted-foreground text-sm">
-          Review your current plan and manage checkout for this workspace.
-        </p>
+        <p className="text-muted-foreground text-sm">Simple billing for your workspace.</p>
       </div>
 
-      <section className="space-y-4">
-        <div className="flex items-center gap-2">
-          <h2 className="text-lg font-medium">Current Plan</h2>
-          <Badge variant={billing.tier === 'pro' ? 'default' : 'secondary'}>
-            {formatPlanKey(billing.planKey)}
-          </Badge>
+      <section className="space-y-6 rounded-xl border bg-card p-5">
+        <div className="space-y-4">
+          <div className="flex items-center justify-between gap-3">
+            <h2 className="text-lg font-medium">Plan</h2>
+            <Badge variant={displayTier === 'pro' ? 'default' : 'secondary'}>
+              {formatPlanKey(displayPlanKey)}
+            </Badge>
+          </div>
+
+          <div className="grid gap-4 text-sm sm:grid-cols-2">
+            <p>
+              <span className="text-muted-foreground">Status:</span>{' '}
+              <span className={cn('font-medium', statusClassName)}>
+                {formatStatus(displayStatus)}
+              </span>
+            </p>
+            <p>
+              <span className="text-muted-foreground">Billing cycle:</span> {billingCycleText}
+            </p>
+          </div>
+
+          {billing.isInGrace && (
+            <p className="text-muted-foreground text-sm">
+              Payment issue detected: Your access will be revoked at:{' '}
+              {formatTimestamp(billing.graceEndsAt)}.
+            </p>
+          )}
         </div>
 
-        <div className="grid gap-3 rounded-lg border p-4 text-sm sm:grid-cols-2">
-          <p>
-            <span className="text-muted-foreground">Subscription status:</span>{' '}
-            {formatStatus(billing.status)}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Effective status:</span>{' '}
-            {formatStatus(billing.effectiveStatus)}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Current period ends:</span>{' '}
-            {formatTimestamp(billing.periodEnd)}
-          </p>
-          <p>
-            <span className="text-muted-foreground">Cancel at period end:</span>{' '}
-            {billing.cancelAtPeriodEnd ? 'Yes' : 'No'}
-          </p>
-        </div>
-      </section>
+        {canManageBilling && (
+          <div className="space-y-4 border-t pt-6">
+            <div>
+              <h2 className="text-lg font-medium">Manage</h2>
+            </div>
 
-      <section className="space-y-4">
-        <h2 className="text-lg font-medium">Manage Billing</h2>
-        <p className="text-muted-foreground text-sm">
-          Choose a plan checkout or open the billing portal to manage your subscription.
-        </p>
-
-        <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={() => {
-              void handleStartCheckout('pro_monthly');
-            }}
-            disabled={isCheckoutLoading || isPortalLoading || !canManageBilling}
-          >
-            {isCheckoutLoading ? 'Redirecting...' : 'Checkout Pro Monthly'}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              void handleStartCheckout('pro_yearly');
-            }}
-            disabled={isCheckoutLoading || isPortalLoading || !canManageBilling}
-          >
-            {isCheckoutLoading ? 'Redirecting...' : 'Checkout Pro Yearly'}
-          </Button>
-          <Button
-            variant="outline"
-            onClick={() => {
-              void handleOpenPortal();
-            }}
-            disabled={isCheckoutLoading || isPortalLoading || !canManageBilling}
-          >
-            {isPortalLoading ? 'Opening...' : 'Manage in Billing Portal'}
-          </Button>
-        </div>
-
-        {!canManageBilling && (
-          <p className="text-muted-foreground text-sm">
-            You can view billing details, but only workspace owners and admins can manage billing.
-          </p>
+            {isFreeTier ? (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={() => {
+                    void handleStartCheckout('pro_monthly');
+                  }}
+                  disabled={isCheckoutLoading || isPortalLoading}
+                >
+                  {isCheckoutLoading ? 'Opening checkout...' : 'Upgrade to Pro Monthly'}
+                </Button>
+                <Button
+                  onClick={() => {
+                    void handleStartCheckout('pro_yearly');
+                  }}
+                  disabled={isCheckoutLoading || isPortalLoading}
+                >
+                  {isCheckoutLoading ? 'Opening checkout...' : 'Upgrade to Pro Yearly'}
+                </Button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  onClick={() => {
+                    void handleOpenPortal();
+                  }}
+                  disabled={isCheckoutLoading || isPortalLoading}
+                >
+                  {isPortalLoading ? 'Opening...' : 'Manage billing'}
+                </Button>
+              </div>
+            )}
+          </div>
         )}
       </section>
     </div>
