@@ -2,6 +2,7 @@ import { v } from 'convex/values';
 
 import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
 import type { Doc, Id } from '../_generated/dataModel';
+import { getWorkspaceEntitlementsSnapshot } from '../entitlements/service';
 import { mutation, type MutationCtx, query, type QueryCtx } from '../functions';
 import { getActiveUserByEmail, getActiveUserById, getAuthenticatedUser } from '../users/helpers';
 import { requireWorkspaceAdminOrOwner, type WorkspaceMembership } from './utils';
@@ -129,6 +130,116 @@ interface ValidatedInvite {
   workspace: Doc<'workspaces'>;
 }
 
+interface WorkspaceInviteEntitlements {
+  limits: {
+    members: number | null;
+    invites: number | null;
+  };
+  features: {
+    team_members: boolean;
+  };
+  usage: {
+    memberCount: number;
+    pendingInviteCount: number;
+  };
+  isLocked: boolean;
+  graceEndsAt: number | undefined;
+}
+
+/**
+ * Loads current workspace billing state and derived entitlements for invite flows.
+ */
+async function getWorkspaceInviteEntitlements(
+  ctx: MutationCtx,
+  workspaceId: Id<'workspaces'>,
+  now: number,
+): Promise<WorkspaceInviteEntitlements> {
+  const { entitlements } = await getWorkspaceEntitlementsSnapshot(ctx, workspaceId, now);
+
+  return {
+    limits: {
+      members: entitlements.limits.members,
+      invites: entitlements.limits.invites,
+    },
+    features: {
+      team_members: entitlements.features.team_members,
+    },
+    usage: {
+      memberCount: entitlements.usage.memberCount,
+      pendingInviteCount: entitlements.usage.pendingInviteCount,
+    },
+    isLocked: entitlements.isLocked,
+    graceEndsAt: entitlements.graceEndsAt,
+  };
+}
+
+const throwMemberLimitError = (
+  workspaceId: Id<'workspaces'>,
+  currentUsage: number,
+  maxAllowed: number,
+) =>
+  throwAppErrorForConvex(ErrorCode.BILLING_ENTITLEMENT_LIMIT_REACHED, {
+    workspaceId: workspaceId as string,
+    limit: 'members',
+    currentUsage,
+    maxAllowed,
+  });
+
+/**
+ * Ensures invite creation is allowed under current plan and billing lock state.
+ */
+function assertCanCreateInvite(
+  workspaceId: Id<'workspaces'>,
+  entitlements: WorkspaceInviteEntitlements,
+): void {
+  if (entitlements.isLocked) {
+    return throwAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_LOCKED, {
+      workspaceId: workspaceId as string,
+      graceEndsAt: entitlements.graceEndsAt,
+    });
+  }
+
+  if (!entitlements.features.team_members) {
+    return throwAppErrorForConvex(ErrorCode.BILLING_PLAN_REQUIRED, {
+      workspaceId: workspaceId as string,
+      feature: 'team_members',
+    });
+  }
+}
+
+/**
+ * Ensures invite acceptance is allowed under current plan and billing lock state.
+ */
+function assertCanAcceptInvite(
+  workspaceId: Id<'workspaces'>,
+  entitlements: WorkspaceInviteEntitlements,
+): void {
+  if (entitlements.isLocked) {
+    return throwAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_LOCKED, {
+      workspaceId: workspaceId as string,
+      graceEndsAt: entitlements.graceEndsAt,
+    });
+  }
+
+  if (!entitlements.features.team_members) {
+    return throwAppErrorForConvex(ErrorCode.BILLING_PLAN_REQUIRED, {
+      workspaceId: workspaceId as string,
+      feature: 'team_members',
+    });
+  }
+
+  if (
+    entitlements.limits.members !== null &&
+    entitlements.usage.memberCount >= entitlements.limits.members
+  ) {
+    return throwMemberLimitError(
+      workspaceId,
+      entitlements.usage.memberCount,
+      entitlements.limits.members,
+    );
+  }
+}
+
 /**
  * Validates an invite token for acceptance.
  * Performs all checks: existence, status, expiration, email match, membership.
@@ -249,6 +360,10 @@ export const createInvite = mutation({
       return throwAppErrorForConvex(ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN);
     }
 
+    const now = Date.now();
+    const entitlements = await getWorkspaceInviteEntitlements(ctx, args.workspaceId, now);
+    assertCanCreateInvite(args.workspaceId, entitlements);
+
     // Look up invitee by email to get their userId (if they exist)
     const { user: inviteeUser, isAlreadyMember: inviteeIsAlreadyMember } = await lookupUserByEmail(
       ctx,
@@ -263,7 +378,6 @@ export const createInvite = mutation({
       });
     }
 
-    const now = Date.now();
     const expiresAt = now + INVITE_EXPIRATION_MS;
 
     const activeInvite = await ctx.db
@@ -351,8 +465,10 @@ export const acceptInvite = mutation({
     args,
   ): Promise<{ workspaceId: Id<'workspaces'>; workspaceName: string; role: InviteRole }> => {
     const { invite, user, workspace } = await validateInviteForAcceptance(ctx, args.token);
-
     const now = Date.now();
+
+    const entitlements = await getWorkspaceInviteEntitlements(ctx, invite.workspaceId, now);
+    assertCanAcceptInvite(invite.workspaceId, entitlements);
 
     // update invite to accepted and create membership
     await ctx.db.patch('workspaceInvites', invite._id, {

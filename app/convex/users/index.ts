@@ -4,6 +4,11 @@ import { v } from 'convex/values';
 
 import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
 import { internal } from '../_generated/api';
+import {
+  getWorkspaceUsageSnapshot,
+  isBillableLifecycleStatus,
+  resolveWorkspaceAccountDeletionEligibility,
+} from '../entitlements/service';
 import { action, mutation, query } from '../functions';
 import { getSoleOwnerWorkspaceForUser } from '../workspaces/utils';
 import {
@@ -130,10 +135,13 @@ export const ensureUser = action({
 /**
  * Requests account deletion for the authenticated user.
  * Cleans up memberships and pending invites, then enqueues the WorkOS delete action.
+ * Automatically deletes eligible sole-owned workspaces when they are non-billable and
+ * have exactly one active owner/member.
  *
  * No-ops if the user is already deleting or deleted.
  *
- * @throws USER_LAST_OWNER_OF_WORKSPACE when the user is the sole owner of any workspace.
+ * @throws USER_LAST_OWNER_OF_WORKSPACE when the user is the sole owner of a non-solo workspace.
+ * @throws BILLING_ACCOUNT_DELETE_BLOCKED when any sole-owned workspace is still billable.
  */
 export const deleteAccount = mutation({
   args: {},
@@ -155,11 +163,66 @@ export const deleteAccount = mutation({
       return;
     }
 
-    const soleOwnerWorkspace = await getSoleOwnerWorkspaceForUser(ctx, user._id);
-    if (soleOwnerWorkspace.length > 0) {
+    const soleOwnerWorkspaces = await getSoleOwnerWorkspaceForUser(ctx, user._id);
+    const checksByWorkspace = await Promise.all(
+      soleOwnerWorkspaces.map(async (workspace) => {
+        const [usage, billingState] = await Promise.all([
+          getWorkspaceUsageSnapshot(ctx, workspace._id),
+          ctx.db
+            .query('workspaceBillingState')
+            .withIndex('by_workspaceId', (q) => q.eq('workspaceId', workspace._id))
+            .unique(),
+        ]);
+
+        if (!billingState) {
+          return throwAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_STATE_MISSING, {
+            workspaceId: workspace._id,
+          });
+        }
+
+        const deletionEligibility = resolveWorkspaceAccountDeletionEligibility({
+          usage,
+          status: billingState.status,
+        });
+
+        return {
+          workspace,
+          deletionEligibility,
+          billingStatus: billingState.status,
+        };
+      }),
+    );
+    const ownershipBlockedWorkspaces = checksByWorkspace.filter(
+      ({ deletionEligibility }) => !deletionEligibility.isSingleOwnerSingleMember,
+    );
+
+    if (ownershipBlockedWorkspaces.length > 0) {
       return throwAppErrorForConvex(ErrorCode.USER_LAST_OWNER_OF_WORKSPACE, {
-        workspaceNames: soleOwnerWorkspace.map((workspace) => workspace.name),
+        workspaceNames: ownershipBlockedWorkspaces.map(({ workspace }) => workspace.name),
       });
+    }
+
+    const billingBlockedWorkspaces = checksByWorkspace.filter(
+      ({ deletionEligibility }) => deletionEligibility.hasBillableLifecycle,
+    );
+
+    if (billingBlockedWorkspaces.length > 0) {
+      const billableStatuses = billingBlockedWorkspaces
+        .map(({ billingStatus }) => billingStatus)
+        .filter(isBillableLifecycleStatus);
+
+      return throwAppErrorForConvex(ErrorCode.BILLING_ACCOUNT_DELETE_BLOCKED, {
+        workspaceNames: billingBlockedWorkspaces.map(({ workspace }) => workspace.name),
+        statuses: billableStatuses,
+      });
+    }
+
+    for (const { workspace, deletionEligibility } of checksByWorkspace) {
+      if (!deletionEligibility.canAutoDeleteOnAccountDeletion) {
+        continue;
+      }
+
+      await ctx.db.delete('workspaces', workspace._id);
     }
 
     await cleanupUserForDeletion(ctx, user._id, user.email);

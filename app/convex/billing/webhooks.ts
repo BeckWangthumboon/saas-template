@@ -168,6 +168,12 @@ export const handlePolarSubscriptionEvent = internalMutation({
         return null;
       }
 
+      const workspace = await ctx.db.get('workspaces', normalizedWorkspaceId);
+      if (!workspace) {
+        await finalizeEvent('unresolved', { error: 'Workspace not found' });
+        return null;
+      }
+
       const existingState = await ctx.db
         .query('workspaceBillingState')
         .withIndex('by_workspaceId', (q) => q.eq('workspaceId', normalizedWorkspaceId))

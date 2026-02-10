@@ -53,6 +53,12 @@ export interface BillingLifecycle {
   graceEndsAt: number | undefined;
 }
 
+export interface WorkspaceAccountDeletionEligibility {
+  isSingleOwnerSingleMember: boolean;
+  hasBillableLifecycle: boolean;
+  canAutoDeleteOnAccountDeletion: boolean;
+}
+
 const PRO_FEATURES = {
   team_members: true,
 } as const satisfies PlanFeatures;
@@ -89,6 +95,8 @@ export const PLAN_CATALOG = {
 
 export const DEFAULT_PLAN_KEY: PlanKey = 'free';
 export const PAST_DUE_GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
+
+const BILLABLE_LIFECYCLE_STATUSES = new Set<BillingStatus>(['trialing', 'active', 'past_due']);
 
 /**
  * Returns the catalog entry for a given plan key.
@@ -139,6 +147,15 @@ export const resolveBillingLifecycle = (input: ResolveBillingLifecycleInput): Bi
     isInGrace,
     graceEndsAt,
   };
+};
+
+/**
+ * Returns whether a billing status should be treated as billable for destructive actions.
+ */
+export const isBillableLifecycleStatus = (
+  status: BillingStatus,
+): status is 'trialing' | 'active' | 'past_due' => {
+  return BILLABLE_LIFECYCLE_STATUSES.has(status);
 };
 
 /**
@@ -222,6 +239,26 @@ export const resolveWorkspaceEntitlements = (
     isInGrace: lifecycle.isInGrace,
     graceEndsAt: lifecycle.graceEndsAt,
     isSoloWorkspace,
+  };
+};
+
+/**
+ * Resolves whether a workspace can be auto-deleted as part of account deletion.
+ *
+ * Auto-delete is only allowed when exactly one active owner/member remains and
+ * the workspace is not currently in a billable lifecycle state.
+ */
+export const resolveWorkspaceAccountDeletionEligibility = (input: {
+  usage: WorkspaceUsage;
+  status: BillingStatus;
+}): WorkspaceAccountDeletionEligibility => {
+  const isSingleOwnerSingleMember = input.usage.memberCount === 1 && input.usage.ownerCount === 1;
+  const hasBillableLifecycle = isBillableLifecycleStatus(input.status);
+
+  return {
+    isSingleOwnerSingleMember,
+    hasBillableLifecycle,
+    canAutoDeleteOnAccountDeletion: isSingleOwnerSingleMember && !hasBillableLifecycle,
   };
 };
 

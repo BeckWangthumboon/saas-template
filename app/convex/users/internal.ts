@@ -4,7 +4,6 @@ import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
 import { internal } from '../_generated/api';
 import type { Doc } from '../_generated/dataModel';
 import { internalMutation, internalQuery } from '../functions';
-import { getSoleOwnerWorkspaceForUser } from '../workspaces/utils';
 import {
   DELETE_MAX_ATTEMPTS,
   getActiveUserById,
@@ -195,39 +194,6 @@ export const getUserByAuthIdInternal = internalQuery({
       .withIndex('by_authId', (q) => q.eq('authId', args.authId))
       .unique();
     return user;
-  },
-});
-
-/**
- * Internal mutation to delete a user by their auth ID.
- * Does nothing if the user does not exist.
- * Validates that the user is not the sole owner of any workspace.
- *
- * @param authId - The WorkOS auth ID of the user to delete.
- * @throws USER_LAST_OWNER_OF_WORKSPACE if user is the only owner of any workspace.
- * @internal
- */
-export const deleteUserByAuthId = internalMutation({
-  args: { authId: v.string() },
-  handler: async (ctx, args) => {
-    const user = await ctx.db
-      .query('users')
-      .withIndex('by_authId', (q) => q.eq('authId', args.authId))
-      .unique();
-
-    if (!user) {
-      return;
-    }
-
-    const soleOwnerWorkspace = await getSoleOwnerWorkspaceForUser(ctx, user._id);
-
-    if (soleOwnerWorkspace.length > 0) {
-      return throwAppErrorForConvex(ErrorCode.USER_LAST_OWNER_OF_WORKSPACE, {
-        workspaceNames: soleOwnerWorkspace.map((workspace) => workspace.name),
-      });
-    }
-
-    await ctx.db.delete('users', user._id);
   },
 });
 

@@ -39,6 +39,12 @@ export const ErrorCodeSchema = z.enum([
   'BILLING_PRODUCT_ID_REQUIRED',
   'BILLING_PRODUCT_ID_UNKNOWN',
   'BILLING_SUBSCRIPTION_STATUS_UNKNOWN',
+  'BILLING_ENTITLEMENT_LIMIT_REACHED',
+  'BILLING_PLAN_REQUIRED',
+  'BILLING_ACCOUNT_DELETE_BLOCKED',
+  'BILLING_WORKSPACE_DELETE_BLOCKED',
+  'BILLING_WORKSPACE_LIMIT_REACHED',
+  'BILLING_WORKSPACE_LOCKED',
   'BILLING_WORKSPACE_STATE_MISSING',
   'BILLING_PLAN_PRODUCT_MAPPING_MISSING',
   'BILLING_CHECKOUT_CREATE_FAILED',
@@ -77,6 +83,12 @@ export const ErrorCode = {
   BILLING_PRODUCT_ID_REQUIRED: 'BILLING_PRODUCT_ID_REQUIRED',
   BILLING_PRODUCT_ID_UNKNOWN: 'BILLING_PRODUCT_ID_UNKNOWN',
   BILLING_SUBSCRIPTION_STATUS_UNKNOWN: 'BILLING_SUBSCRIPTION_STATUS_UNKNOWN',
+  BILLING_ENTITLEMENT_LIMIT_REACHED: 'BILLING_ENTITLEMENT_LIMIT_REACHED',
+  BILLING_PLAN_REQUIRED: 'BILLING_PLAN_REQUIRED',
+  BILLING_ACCOUNT_DELETE_BLOCKED: 'BILLING_ACCOUNT_DELETE_BLOCKED',
+  BILLING_WORKSPACE_DELETE_BLOCKED: 'BILLING_WORKSPACE_DELETE_BLOCKED',
+  BILLING_WORKSPACE_LIMIT_REACHED: 'BILLING_WORKSPACE_LIMIT_REACHED',
+  BILLING_WORKSPACE_LOCKED: 'BILLING_WORKSPACE_LOCKED',
   BILLING_WORKSPACE_STATE_MISSING: 'BILLING_WORKSPACE_STATE_MISSING',
   BILLING_PLAN_PRODUCT_MAPPING_MISSING: 'BILLING_PLAN_PRODUCT_MAPPING_MISSING',
   BILLING_CHECKOUT_CREATE_FAILED: 'BILLING_CHECKOUT_CREATE_FAILED',
@@ -113,6 +125,12 @@ const errorCategoryMap: Record<ErrorCode, ErrorCategory> = {
   [ErrorCode.BILLING_PRODUCT_ID_REQUIRED]: ErrorCategory.BILLING,
   [ErrorCode.BILLING_PRODUCT_ID_UNKNOWN]: ErrorCategory.BILLING,
   [ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN]: ErrorCategory.BILLING,
+  [ErrorCode.BILLING_ENTITLEMENT_LIMIT_REACHED]: ErrorCategory.BILLING,
+  [ErrorCode.BILLING_PLAN_REQUIRED]: ErrorCategory.BILLING,
+  [ErrorCode.BILLING_ACCOUNT_DELETE_BLOCKED]: ErrorCategory.BILLING,
+  [ErrorCode.BILLING_WORKSPACE_DELETE_BLOCKED]: ErrorCategory.BILLING,
+  [ErrorCode.BILLING_WORKSPACE_LIMIT_REACHED]: ErrorCategory.BILLING,
+  [ErrorCode.BILLING_WORKSPACE_LOCKED]: ErrorCategory.BILLING,
   [ErrorCode.BILLING_WORKSPACE_STATE_MISSING]: ErrorCategory.BILLING,
   [ErrorCode.BILLING_PLAN_PRODUCT_MAPPING_MISSING]: ErrorCategory.BILLING,
   [ErrorCode.BILLING_CHECKOUT_CREATE_FAILED]: ErrorCategory.BILLING,
@@ -154,6 +172,32 @@ export interface ErrorContextMap {
   [ErrorCode.BILLING_PRODUCT_ID_REQUIRED]: Record<string, never>;
   [ErrorCode.BILLING_PRODUCT_ID_UNKNOWN]: { productId: string };
   [ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN]: { status: string };
+  [ErrorCode.BILLING_ENTITLEMENT_LIMIT_REACHED]: {
+    workspaceId: string;
+    limit: 'members' | 'invites' | 'workspaces';
+    currentUsage: number;
+    maxAllowed: number;
+  };
+  [ErrorCode.BILLING_PLAN_REQUIRED]: {
+    workspaceId: string;
+    feature: 'team_members';
+  };
+  [ErrorCode.BILLING_ACCOUNT_DELETE_BLOCKED]: {
+    workspaceNames: string[];
+    statuses: ('trialing' | 'active' | 'past_due')[];
+  };
+  [ErrorCode.BILLING_WORKSPACE_DELETE_BLOCKED]: {
+    workspaceId: string;
+    status: 'trialing' | 'active' | 'past_due';
+  };
+  [ErrorCode.BILLING_WORKSPACE_LIMIT_REACHED]: {
+    currentUsage: number;
+    maxAllowed: number;
+  };
+  [ErrorCode.BILLING_WORKSPACE_LOCKED]: {
+    workspaceId: string;
+    graceEndsAt?: number;
+  };
   [ErrorCode.BILLING_WORKSPACE_STATE_MISSING]: { workspaceId: string };
   [ErrorCode.BILLING_PLAN_PRODUCT_MAPPING_MISSING]: { planKey: string };
   [ErrorCode.BILLING_CHECKOUT_CREATE_FAILED]: { message?: string };
@@ -192,6 +236,16 @@ const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.BILLING_PRODUCT_ID_REQUIRED]: 'Polar product ID is required',
   [ErrorCode.BILLING_PRODUCT_ID_UNKNOWN]: 'Unknown Polar product ID',
   [ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN]: 'Unknown Polar subscription status',
+  [ErrorCode.BILLING_ENTITLEMENT_LIMIT_REACHED]:
+    'Your workspace has reached the current plan limit',
+  [ErrorCode.BILLING_PLAN_REQUIRED]: 'This feature requires a paid plan',
+  [ErrorCode.BILLING_ACCOUNT_DELETE_BLOCKED]:
+    'Cancel billing for your paid workspaces before deleting your account',
+  [ErrorCode.BILLING_WORKSPACE_DELETE_BLOCKED]: 'Cancel billing before deleting this workspace',
+  [ErrorCode.BILLING_WORKSPACE_LIMIT_REACHED]:
+    'You have reached the number of workspaces allowed on your current plan',
+  [ErrorCode.BILLING_WORKSPACE_LOCKED]:
+    'Workspace access is temporarily restricted due to billing issues',
   [ErrorCode.BILLING_WORKSPACE_STATE_MISSING]: 'Workspace billing state is missing',
   [ErrorCode.BILLING_PLAN_PRODUCT_MAPPING_MISSING]: 'Missing Polar product mapping for plan',
   [ErrorCode.BILLING_CHECKOUT_CREATE_FAILED]: 'Failed to create checkout session',
@@ -374,6 +428,10 @@ export const ConvexErrors = {
       createAppErrorForConvex(ErrorCode.BILLING_PRODUCT_ID_UNKNOWN, { productId }),
     subscriptionStatusUnknown: (status: string) =>
       createAppErrorForConvex(ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN, { status }),
+    accountDeleteBlocked: (context: ErrorContextMap['BILLING_ACCOUNT_DELETE_BLOCKED']) =>
+      createAppErrorForConvex(ErrorCode.BILLING_ACCOUNT_DELETE_BLOCKED, context),
+    workspaceDeleteBlocked: (context: ErrorContextMap['BILLING_WORKSPACE_DELETE_BLOCKED']) =>
+      createAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_DELETE_BLOCKED, context),
     workspaceStateMissing: (workspaceId: string) =>
       createAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_STATE_MISSING, { workspaceId }),
     planProductMappingMissing: (planKey: string) =>

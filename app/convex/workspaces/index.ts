@@ -4,13 +4,46 @@ import { v } from 'convex/values';
 
 import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
 import { upsertWorkspaceBillingState } from '../billing/helpers';
-import { mutation, query } from '../functions';
+import { isBillableLifecycleStatus } from '../entitlements/service';
+import { mutation, type MutationCtx, query } from '../functions';
 import { getAuthenticatedUser } from '../users/helpers';
 import {
   assertNotLastOwnerOfWorkspace,
   getWorkspaceMembership,
   requireWorkspaceAdminOrOwner,
 } from './utils';
+
+const DEFAULT_SOLO_WORKSPACE_NAME = 'My Workspace';
+
+/**
+ * Creates a workspace owned by the provided user and initializes billing state.
+ */
+async function createWorkspaceWithOwner(
+  ctx: MutationCtx,
+  user: Awaited<ReturnType<typeof getAuthenticatedUser>>,
+  name: string,
+) {
+  const now = Date.now();
+  const trimmedName = name.trim();
+  const workspaceId = await ctx.db.insert('workspaces', {
+    name: trimmedName,
+    createdByUserId: user._id,
+    creatorDisplayNameSnapshot:
+      [user.firstName, user.lastName].filter(Boolean).join(' ') || undefined,
+    creatorDisplayEmailSnapshot: user.email,
+    updatedAt: now,
+  });
+
+  await ctx.db.insert('workspaceMembers', {
+    userId: user._id,
+    workspaceId,
+    role: 'owner',
+    updatedAt: now,
+  });
+
+  await upsertWorkspaceBillingState(ctx, workspaceId);
+  return workspaceId;
+}
 
 /**
  * Gets all workspaces the authenticated user is a member of.
@@ -53,25 +86,31 @@ export const createWorkspace = mutation({
       throwAppErrorForConvex(ErrorCode.WORKSPACE_NAME_EMPTY);
     }
 
-    const workspaceId = await ctx.db.insert('workspaces', {
-      name: args.name.trim(),
-      createdByUserId: user._id,
-      creatorDisplayNameSnapshot:
-        [user.firstName, user.lastName].filter(Boolean).join(' ') || undefined,
-      creatorDisplayEmailSnapshot: user.email,
-      updatedAt: Date.now(),
-    });
+    return createWorkspaceWithOwner(ctx, user, args.name);
+  },
+});
 
-    await ctx.db.insert('workspaceMembers', {
-      userId: user._id,
-      workspaceId,
-      role: 'owner',
-      updatedAt: Date.now(),
-    });
+/**
+ * Ensures the authenticated user has at least one workspace.
+ * Creates a default free workspace when the user has none.
+ *
+ * @returns The existing or newly created workspace ID.
+ */
+export const ensureDefaultWorkspaceForCurrentUser = mutation({
+  args: {},
+  handler: async (ctx) => {
+    const user = await getAuthenticatedUser(ctx);
 
-    await upsertWorkspaceBillingState(ctx, workspaceId);
+    const existingMembership = await ctx.db
+      .query('workspaceMembers')
+      .withIndex('by_userId', (q) => q.eq('userId', user._id))
+      .first();
 
-    return workspaceId;
+    if (existingMembership) {
+      return existingMembership.workspaceId;
+    }
+
+    return createWorkspaceWithOwner(ctx, user, DEFAULT_SOLO_WORKSPACE_NAME);
   },
 });
 
@@ -122,9 +161,12 @@ export const leaveWorkspace = mutation({
 /**
  * Deletes a workspace and all its members and invites.
  * Only workspace owners can delete a workspace.
+ * Billable workspaces must be canceled first via billing portal.
  *
  * @param workspaceId - The ID of the workspace to delete.
- * @throws Error if not authenticated, not an owner, or workspace not found.
+ * @throws WORKSPACE_INSUFFICIENT_ROLE if caller is not an owner.
+ * @throws BILLING_WORKSPACE_STATE_MISSING if workspace billing state is missing.
+ * @throws BILLING_WORKSPACE_DELETE_BLOCKED if workspace is still billable.
  */
 export const deleteWorkspace = mutation({
   args: { workspaceId: v.id('workspaces') },
@@ -136,6 +178,24 @@ export const deleteWorkspace = mutation({
         workspaceId: args.workspaceId as string,
         requiredRole: 'owner',
         action: 'delete',
+      });
+    }
+
+    const billingState = await ctx.db
+      .query('workspaceBillingState')
+      .withIndex('by_workspaceId', (q) => q.eq('workspaceId', args.workspaceId))
+      .unique();
+
+    if (!billingState) {
+      return throwAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_STATE_MISSING, {
+        workspaceId: args.workspaceId,
+      });
+    }
+
+    if (isBillableLifecycleStatus(billingState.status)) {
+      return throwAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_DELETE_BLOCKED, {
+        workspaceId: args.workspaceId,
+        status: billingState.status,
       });
     }
 
