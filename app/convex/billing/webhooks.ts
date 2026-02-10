@@ -5,7 +5,7 @@ import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
 import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import { httpAction, internalMutation } from '../functions';
-import { resolvePlanKeyFromProductId } from './entitlements';
+import { resolvePlanKeyFromProductId } from './products';
 
 const mapSubscriptionStatus = (
   status: string,

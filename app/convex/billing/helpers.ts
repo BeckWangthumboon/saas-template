@@ -1,6 +1,6 @@
 import type { Id } from '../_generated/dataModel';
+import { DEFAULT_PLAN_KEY } from '../entitlements/service';
 import type { MutationCtx } from '../functions';
-import { DEFAULT_PLAN_KEY } from './entitlements';
 
 /**
  * Ensures a workspace billing state row exists, inserting a free default if missing.

@@ -1,23 +1,16 @@
 import type { Infer } from 'convex/values';
 import { v } from 'convex/values';
 
-export const planKeyValidator = v.union(
-  v.literal('free'),
-  v.literal('pro_monthly'),
-  v.literal('pro_yearly'),
-);
+import {
+  type BillingStatus,
+  billingStatusValidator,
+  type PlanKey,
+  planKeyValidator,
+  type PlanTier,
+  planTierValidator,
+} from '../entitlements/types';
 
 export const paidPlanKeyValidator = v.union(v.literal('pro_monthly'), v.literal('pro_yearly'));
-
-export const billingStatusValidator = v.union(
-  v.literal('none'),
-  v.literal('trialing'),
-  v.literal('active'),
-  v.literal('past_due'),
-  v.literal('canceled'),
-);
-
-export const planTierValidator = v.union(v.literal('free'), v.literal('pro'));
 
 export const billingStateValidator = v.object({
   workspaceId: v.id('workspaces'),
@@ -48,7 +41,7 @@ export const billingSummaryValidator = v.object({
 
 export type BillingState = Infer<typeof billingStateValidator>;
 export type BillingSummary = Infer<typeof billingSummaryValidator>;
-export type PlanKeyFromValidator = Infer<typeof planKeyValidator>;
+export type PlanKeyFromValidator = PlanKey;
 export type PaidPlanKeyFromValidator = Infer<typeof paidPlanKeyValidator>;
-export type BillingStatusFromValidator = Infer<typeof billingStatusValidator>;
-export type PlanTierFromValidator = Infer<typeof planTierValidator>;
+export type BillingStatusFromValidator = BillingStatus;
+export type PlanTierFromValidator = PlanTier;

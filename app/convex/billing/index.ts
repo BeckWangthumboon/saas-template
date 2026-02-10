@@ -2,13 +2,13 @@ import { v } from 'convex/values';
 
 import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
 import { internal } from '../_generated/api';
-import { action, query } from '../functions';
+import type { Id } from '../_generated/dataModel';
+import { getPlanTier, resolveBillingLifecycle } from '../entitlements/service';
+import { action, query, type QueryCtx } from '../functions';
 import { getWorkspaceMembership } from '../workspaces/utils';
-import { getPlanTier, PLAN_KEY_TO_PRODUCT_ID } from './entitlements';
 import { polar } from './polarClient';
+import { PLAN_KEY_TO_PRODUCT_ID } from './products';
 import { billingSummaryValidator, paidPlanKeyValidator } from './types';
-
-const PAST_DUE_GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000; // 7 days
 
 const ORIGIN = (process.env.APP_ORIGIN ?? 'http://localhost:5173').replace(/\/$/, '');
 
@@ -42,48 +42,61 @@ const assertBillingState = (
 };
 
 /**
- * Returns billing projection and derived entitlements for a workspace.
+ * Fetches workspace billing state for a member.
+ *
+ * @param ctx - Convex query context.
+ * @param workspaceId - The workspace to resolve billing state for.
+ * @returns Workspace billing state.
+ * @throws WORKSPACE_ACCESS_DENIED if the caller is not a workspace member.
+ * @throws BILLING_WORKSPACE_STATE_MISSING if billing state does not exist.
+ */
+const getWorkspaceBillingStateForMember = async (ctx: QueryCtx, workspaceId: Id<'workspaces'>) => {
+  await getWorkspaceMembership(ctx, workspaceId);
+
+  const state = await ctx.db
+    .query('workspaceBillingState')
+    .withIndex('by_workspaceId', (q) => q.eq('workspaceId', workspaceId))
+    .unique();
+
+  if (!state) {
+    return throwAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_STATE_MISSING, {
+      workspaceId,
+    });
+  }
+
+  return state;
+};
+
+/**
+ * Returns billing projection for a workspace.
  *
  * @param workspaceId - The workspace to read billing data for.
- * @returns Billing summary including derived tier and grace-period status.
+ * @returns Billing summary including billing lifecycle state.
  * @throws WORKSPACE_ACCESS_DENIED if the caller is not a workspace member.
+ * @throws BILLING_WORKSPACE_STATE_MISSING if billing state does not exist.
  */
 export const getWorkspaceBillingSummary = query({
   args: { workspaceId: v.id('workspaces') },
   returns: billingSummaryValidator,
   handler: async (ctx, args) => {
-    await getWorkspaceMembership(ctx, args.workspaceId);
-
-    const state = await ctx.db
-      .query('workspaceBillingState')
-      .withIndex('by_workspaceId', (q) => q.eq('workspaceId', args.workspaceId))
-      .unique();
-
-    if (!state) {
-      return throwAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_STATE_MISSING, {
-        workspaceId: args.workspaceId,
-      });
-    }
-
-    const now = Date.now();
-    const planKey = state.planKey;
-    const status = state.status;
-    const pastDueAt = state.pastDueAt;
-    const graceEndsAt = pastDueAt ? pastDueAt + PAST_DUE_GRACE_PERIOD_MS : undefined;
-    const isInGrace = status === 'past_due' && pastDueAt !== undefined && now < (graceEndsAt ?? 0);
-    const effectiveStatus = status === 'past_due' && isInGrace ? 'active' : status;
+    const state = await getWorkspaceBillingStateForMember(ctx, args.workspaceId);
+    const lifecycle = resolveBillingLifecycle({
+      status: state.status,
+      pastDueAt: state.pastDueAt,
+      now: Date.now(),
+    });
 
     return {
       workspaceId: args.workspaceId,
-      planKey,
-      tier: getPlanTier(planKey),
-      status,
-      effectiveStatus,
+      planKey: state.planKey,
+      tier: getPlanTier(state.planKey),
+      status: state.status,
+      effectiveStatus: lifecycle.effectiveStatus,
       periodEnd: state.periodEnd,
       cancelAtPeriodEnd: state.cancelAtPeriodEnd,
-      pastDueAt,
-      graceEndsAt,
-      isInGrace,
+      pastDueAt: state.pastDueAt,
+      graceEndsAt: lifecycle.graceEndsAt,
+      isInGrace: lifecycle.isInGrace,
       updatedAt: state.updatedAt,
     };
   },
