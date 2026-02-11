@@ -27,12 +27,14 @@ interface WorkspaceSwitcherProps {
   workspaces: Workspace[];
   currentWorkspace: Workspace;
   onNavigate: ReturnType<typeof useNavigate>;
+  canCreateWorkspace?: boolean;
 }
 
 export function WorkspaceSwitcher({
   workspaces,
   currentWorkspace,
   onNavigate,
+  canCreateWorkspace = true,
 }: WorkspaceSwitcherProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -73,28 +75,32 @@ export function WorkspaceSwitcher({
             </DropdownMenuRadioGroup>
           </DropdownMenuGroup>
           <DropdownMenuSeparator />
-          <DropdownMenuItem
-            onClick={() => {
-              setDialogOpen(true);
-            }}
-          >
-            <PlusIcon className="mr-2 h-4 w-4" />
-            Create Workspace
-          </DropdownMenuItem>
+          {canCreateWorkspace && (
+            <DropdownMenuItem
+              onClick={() => {
+                setDialogOpen(true);
+              }}
+            >
+              <PlusIcon className="mr-2 h-4 w-4" />
+              Create Workspace
+            </DropdownMenuItem>
+          )}
           <DropdownMenuItem onClick={() => onNavigate({ to: '/settings' })}>
             <SettingsIcon className="mr-2 h-4 w-4" />
-            Settings
+            Account Settings
           </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 
-      <WorkspaceCreator
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-        onSuccess={(workspaceId) => {
-          void onNavigate({ to: `/workspaces/${workspaceId}` });
-        }}
-      />
+      {canCreateWorkspace && (
+        <WorkspaceCreator
+          open={dialogOpen}
+          onOpenChange={setDialogOpen}
+          onSuccess={(workspaceId) => {
+            void onNavigate({ to: `/workspaces/${workspaceId}` });
+          }}
+        />
+      )}
     </>
   );
 }

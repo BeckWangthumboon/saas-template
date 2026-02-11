@@ -48,6 +48,7 @@ function WorkspaceSettingsPage() {
   const isReady = isWorkspaceReady(workspaceContext);
   const workspace = isReady ? workspaceContext.workspace : null;
   const workspaceId = isReady ? workspaceContext.workspaceId : null;
+  const billingPath = isReady ? workspaceContext.getWorkspacePath('/settings/billing') : null;
   const role = workspace?.role ?? null;
   const workspaces = workspaceContext.workspaces;
   const isOwner = role === 'owner';
@@ -126,6 +127,19 @@ function WorkspaceSettingsPage() {
     const result = await deleteWorkspace({ workspaceId: workspaceId as Id<'workspaces'> });
 
     if (result.isErr()) {
+      if (result.error.code === ErrorCode.BILLING_WORKSPACE_DELETE_BLOCKED) {
+        setDeleteDialogOpen(false);
+        toast.error('Cancel billing before deleting', {
+          description:
+            'This workspace is still billable. Cancel in Billing, then retry once status is canceled.',
+        });
+
+        if (billingPath) {
+          void navigate({ to: billingPath });
+        }
+        return;
+      }
+
       toast.error('Failed to delete workspace', { description: result.error.message });
       return;
     }

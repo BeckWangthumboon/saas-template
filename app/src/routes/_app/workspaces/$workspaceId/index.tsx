@@ -2,7 +2,11 @@ import { createFileRoute, Link } from '@tanstack/react-router';
 import { ArrowRightIcon, SettingsIcon, UsersIcon } from 'lucide-react';
 
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useWorkspace } from '@/features/workspaces';
+import {
+  isWorkspaceEntitlementsReady,
+  useWorkspace,
+  useWorkspaceEntitlements,
+} from '@/features/workspaces';
 
 export const Route = createFileRoute('/_app/workspaces/$workspaceId/')({
   component: OverviewPage,
@@ -25,6 +29,19 @@ const pages = [
 
 function OverviewPage() {
   const { getWorkspacePath } = useWorkspace();
+  const entitlementsContext = useWorkspaceEntitlements();
+
+  if (!isWorkspaceEntitlementsReady(entitlementsContext)) {
+    return (
+      <div className="max-w-2xl">
+        <p className="text-muted-foreground">Loading workspace...</p>
+      </div>
+    );
+  }
+
+  const visiblePages = entitlementsContext.canAccessMembersPage
+    ? pages
+    : pages.filter((page) => page.slug !== 'members');
 
   return (
     <div className="max-w-2xl">
@@ -36,7 +53,7 @@ function OverviewPage() {
       </div>
 
       <div className="grid gap-4">
-        {pages.map((page) => {
+        {visiblePages.map((page) => {
           const href = getWorkspacePath(`/${page.slug}`);
 
           return (

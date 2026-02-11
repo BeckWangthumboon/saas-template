@@ -12,6 +12,12 @@ export {
   type WorkspaceReadyContext,
 } from './WorkspaceContext';
 export { WorkspaceCreator } from './WorkspaceCreator';
+export {
+  isWorkspaceEntitlementsReady,
+  useWorkspaceEntitlements,
+  type WorkspaceEntitlementsContextValue,
+  WorkspaceEntitlementsProvider,
+} from './WorkspaceEntitlementsContext';
 export { WorkspaceInvitesTable } from './WorkspaceInvitesTable';
 export { WorkspaceMembersTable } from './WorkspaceMembersTable';
 export { WorkspaceSwitcher } from './WorkspaceSwitcher';

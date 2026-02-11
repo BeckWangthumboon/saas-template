@@ -159,6 +159,20 @@ function InviteErrorBoundary({ error }: { error: Error }) {
         }. You are signed in as ${context?.userEmail ?? 'another account'}.`;
         showSignOut = true;
         break;
+      case ErrorCode.BILLING_PLAN_REQUIRED:
+        title = 'Invite unavailable';
+        description = 'This workspace is on a plan that does not allow adding members right now.';
+        break;
+      case ErrorCode.BILLING_ENTITLEMENT_LIMIT_REACHED:
+        title = 'Workspace limit reached';
+        description =
+          'This workspace has reached its current member or invite limit. Ask an admin to upgrade.';
+        break;
+      case ErrorCode.BILLING_WORKSPACE_LOCKED:
+        title = 'Workspace locked';
+        description =
+          'This workspace is temporarily restricted due to a billing issue. Ask an admin to resolve billing.';
+        break;
       default:
         break;
     }

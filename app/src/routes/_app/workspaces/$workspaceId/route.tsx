@@ -1,14 +1,21 @@
-import { createFileRoute, Link, Outlet, useLocation, useNavigate } from '@tanstack/react-router';
+import { createFileRoute, Link, Outlet, useLocation } from '@tanstack/react-router';
 import { LayoutDashboardIcon, SettingsIcon, UsersIcon } from 'lucide-react';
 
+import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
+  isWorkspaceEntitlementsReady,
   isWorkspaceReady,
   useWorkspace,
+  useWorkspaceEntitlements,
+  WorkspaceEntitlementsProvider,
   WorkspaceProvider,
+  type WorkspaceReadyContext,
   WorkspaceSwitcher,
 } from '@/features/workspaces';
 import { cn } from '@/lib/utils';
+
+import type { Id } from '../../../../../convex/_generated/dataModel';
 
 interface AppPage {
   label: string;
@@ -60,8 +67,6 @@ function WorkspaceLayout() {
 
 function WorkspaceLayoutContent() {
   const workspaceContext = useWorkspace();
-  const location = useLocation();
-  const navigate = useNavigate();
   if (!isWorkspaceReady(workspaceContext)) {
     const message =
       workspaceContext.status === 'empty' ? 'No workspaces found.' : 'Loading workspace...';
@@ -72,15 +77,45 @@ function WorkspaceLayoutContent() {
     );
   }
 
+  return (
+    <WorkspaceEntitlementsProvider workspaceId={workspaceContext.workspaceId as Id<'workspaces'>}>
+      <WorkspaceLayoutReadyContent workspaceContext={workspaceContext} />
+    </WorkspaceEntitlementsProvider>
+  );
+}
+
+function WorkspaceLayoutReadyContent({
+  workspaceContext,
+}: {
+  workspaceContext: WorkspaceReadyContext;
+}) {
+  const navigate = Route.useNavigate();
+  const entitlementsContext = useWorkspaceEntitlements();
+  const location = useLocation();
+  const isEntitlementsReady = isWorkspaceEntitlementsReady(entitlementsContext);
   const { workspaces, getWorkspacePath, workspace } = workspaceContext;
 
+  const workspaceBasePath = getWorkspacePath();
+  const settingsPath = getWorkspacePath('/settings');
+  const membersPath = getWorkspacePath('/members');
+  const billingPath = getWorkspacePath('/settings/billing');
+  const isWorkspaceScopedPath =
+    location.pathname === workspaceBasePath ||
+    location.pathname.startsWith(`${workspaceBasePath}/`);
+  const isLockedWorkspace =
+    isEntitlementsReady && entitlementsContext.entitlements.lifecycle.isLocked;
+  const isPathAllowedWhenLocked = location.pathname.startsWith(settingsPath);
+  const isBlockedByLock = isLockedWorkspace && isWorkspaceScopedPath && !isPathAllowedWhenLocked;
+
+  if (!isEntitlementsReady) {
+    return (
+      <div className="flex h-full items-center justify-center">
+        <p className="text-muted-foreground">Loading workspace...</p>
+      </div>
+    );
+  }
+
   const appPages: AppPage[] = [
-    {
-      label: 'Overview',
-      href: getWorkspacePath(),
-      icon: LayoutDashboardIcon,
-    },
-    { label: 'Members', href: getWorkspacePath('/members'), icon: UsersIcon },
     {
       label: 'Settings',
       href: getWorkspacePath('/settings/workspace'),
@@ -88,6 +123,22 @@ function WorkspaceLayoutContent() {
       match: (path: string) => path.startsWith(getWorkspacePath('/settings')),
     },
   ];
+
+  if (!isLockedWorkspace) {
+    appPages.unshift({
+      label: 'Overview',
+      href: getWorkspacePath(),
+      icon: LayoutDashboardIcon,
+    });
+  }
+
+  if (!isLockedWorkspace && entitlementsContext.canAccessMembersPage) {
+    appPages.unshift({
+      label: 'Members',
+      href: membersPath,
+      icon: UsersIcon,
+    });
+  }
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
@@ -110,6 +161,7 @@ function WorkspaceLayoutContent() {
             workspaces={workspaces}
             currentWorkspace={workspace}
             onNavigate={navigate}
+            canCreateWorkspace={entitlementsContext.canCreateWorkspace}
           />
         </div>
       </aside>
@@ -117,10 +169,43 @@ function WorkspaceLayoutContent() {
       <main className="flex-1 min-h-0 min-w-0 overflow-hidden">
         <ScrollArea className="h-full w-full">
           <div className="p-6">
-            <Outlet />
+            {isBlockedByLock ? (
+              <div className="flex min-h-[70vh] items-center justify-center">
+                <LockedWorkspaceAccessPanel
+                  onGoToBilling={() => {
+                    void navigate({ to: billingPath });
+                  }}
+                />
+              </div>
+            ) : (
+              <Outlet />
+            )}
           </div>
         </ScrollArea>
       </main>
+    </div>
+  );
+}
+
+function LockedWorkspaceAccessPanel({ onGoToBilling }: { onGoToBilling: () => void }) {
+  return (
+    <div className="mx-auto max-w-2xl rounded-xl border bg-card p-6">
+      <div className="space-y-2">
+        <h1 className="text-xl font-semibold">Workspace access limited</h1>
+        <p className="text-muted-foreground text-sm">
+          This workspace is locked due to a billing issue. Resolve billing to restore full access.
+        </p>
+      </div>
+
+      <div className="mt-5 flex items-center gap-2">
+        <Button
+          onClick={() => {
+            onGoToBilling();
+          }}
+        >
+          Go to billing
+        </Button>
+      </div>
     </div>
   );
 }

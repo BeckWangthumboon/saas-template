@@ -101,6 +101,18 @@ export function InviteMemberDialog({
           toast.error('Cannot invite yourself', {
             description: 'You cannot send an invitation to yourself.',
           });
+        } else if (result.error.code === ErrorCode.BILLING_PLAN_REQUIRED) {
+          toast.error('Upgrade required', {
+            description: 'Inviting teammates requires a Pro plan.',
+          });
+        } else if (result.error.code === ErrorCode.BILLING_ENTITLEMENT_LIMIT_REACHED) {
+          toast.error('Plan limit reached', {
+            description: 'Your workspace has reached its current member or invite limit.',
+          });
+        } else if (result.error.code === ErrorCode.BILLING_WORKSPACE_LOCKED) {
+          toast.error('Billing action required', {
+            description: 'Workspace access is restricted until billing is resolved.',
+          });
         } else {
           toast.error('Failed to send invitation', { description: result.error.message });
         }

@@ -26,6 +26,7 @@ import { useUser } from '@/features/auth';
 import { useConvexMutation } from '@/hooks';
 
 import { api } from '../../../convex/_generated/api';
+import { ErrorCode } from '../../../shared/errors';
 
 export const Route = createFileRoute('/_app/settings')({
   component: SettingsPage,
@@ -84,6 +85,31 @@ function SettingsPage() {
     const result = await deleteAccount();
 
     if (result.isErr()) {
+      if (result.error.code === ErrorCode.BILLING_ACCOUNT_DELETE_BLOCKED) {
+        const context = result.error.context as { workspaceNames?: unknown } | undefined;
+        const workspaceNames = Array.isArray(context?.workspaceNames)
+          ? context.workspaceNames.filter(
+              (workspaceName): workspaceName is string => typeof workspaceName === 'string',
+            )
+          : [];
+        const blockedWorkspaceText =
+          workspaceNames.length > 0
+            ? `Blocked workspaces: ${workspaceNames.join(', ')}.`
+            : 'Open each paid workspace billing page and cancel first.';
+
+        toast.error('Cancel workspace billing first', {
+          description: `${blockedWorkspaceText} Account deletion is only available after status becomes canceled.`,
+        });
+        return;
+      }
+
+      if (result.error.code === ErrorCode.USER_LAST_OWNER_OF_WORKSPACE) {
+        toast.error('Transfer ownership first', {
+          description: 'Move ownership or delete those workspaces before deleting your account.',
+        });
+        return;
+      }
+
       toast.error('Failed to delete account', {
         description: result.error.message,
       });

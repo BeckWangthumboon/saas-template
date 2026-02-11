@@ -1,15 +1,14 @@
 import { useForm } from '@tanstack/react-form';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { MailIcon, PlusIcon, SettingsIcon } from 'lucide-react';
-import { useEffect, useMemo, useState } from 'react';
+import { MailIcon, SettingsIcon, UserIcon } from 'lucide-react';
+import { useEffect, useMemo } from 'react';
 import { z } from 'zod';
 
+import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Field, FieldError } from '@/components/ui/field';
 import { Input } from '@/components/ui/input';
-import { useUser } from '@/features/auth';
-import { WorkspaceCreator } from '@/features/workspaces';
-import { useConvexQuery } from '@/hooks';
+import { useConvexMutation, useConvexQuery } from '@/hooks';
 import { defaultWorkspaceStorage } from '@/lib/storage';
 
 import { api } from '../../../convex/_generated/api';
@@ -21,6 +20,9 @@ export const Route = createFileRoute('/_app/')({
 function OverviewPage() {
   const navigate = useNavigate();
   const { status, data } = useConvexQuery(api.workspaces.index.getUserWorkspaces);
+  const { mutate: ensureDefaultWorkspace, state: ensureDefaultWorkspaceState } = useConvexMutation(
+    api.workspaces.index.ensureDefaultWorkspaceForCurrentUser,
+  );
   const workspaces = useMemo(() => data ?? [], [data]);
   const defaultWorkspaceId = useMemo(() => defaultWorkspaceStorage.get(), []);
 
@@ -49,24 +51,25 @@ function OverviewPage() {
     );
   }
 
-  return <NoWorkspacesView />;
-}
+  const handleContinueSolo = () => {
+    if (ensureDefaultWorkspaceState.status === 'loading') return;
 
-function CreateWorkspaceCard({ onClick }: { onClick: () => void }) {
+    void ensureDefaultWorkspace({}).then((result) => {
+      if (result.isErr()) {
+        return;
+      }
+
+      defaultWorkspaceStorage.set(result.value);
+      void navigate({ to: `/workspaces/${result.value}`, replace: true });
+    });
+  };
+
   return (
-    <Card className="cursor-pointer transition-colors hover:bg-muted/50" onClick={onClick}>
-      <CardHeader>
-        <div className="flex items-center gap-3">
-          <div className="bg-primary/10 flex h-10 w-10 items-center justify-center rounded-lg">
-            <PlusIcon className="text-primary h-5 w-5" />
-          </div>
-          <div>
-            <CardTitle>Create a workspace</CardTitle>
-            <CardDescription>Start fresh with a new workspace</CardDescription>
-          </div>
-        </div>
-      </CardHeader>
-    </Card>
+    <NoWorkspacesView
+      onContinueSolo={handleContinueSolo}
+      isCreatingSolo={ensureDefaultWorkspaceState.status === 'loading'}
+      hasSetupError={ensureDefaultWorkspaceState.status === 'error'}
+    />
   );
 }
 
@@ -87,7 +90,7 @@ function InviteLinkCard() {
       inviteLink: '',
     },
     onSubmit: async ({ value }) => {
-      const token = extractInviteToken(value.inviteLink);
+      const token = extractInviteToken(value.inviteLink.trim());
       if (token) {
         void navigate({ to: '/invite/$token', params: { token } });
       }
@@ -95,31 +98,33 @@ function InviteLinkCard() {
   });
 
   return (
-    <Card>
+    <Card className="flex h-full flex-col">
       <CardHeader>
-        <div className="flex items-center gap-3">
-          <div className="bg-muted flex h-10 w-10 items-center justify-center rounded-lg">
+        <div className="flex items-center gap-3 pb-2">
+          <div className="bg-muted flex h-10 w-10 items-center justify-center rounded-lg shrink-0">
             <MailIcon className="text-muted-foreground h-5 w-5" />
           </div>
           <div>
-            <CardTitle>Join via invite</CardTitle>
-            <CardDescription>Paste an invite link to join a workspace</CardDescription>
+            <CardTitle>Join a workspace</CardTitle>
+            <CardDescription>Use an invite link to join an existing workspace.</CardDescription>
           </div>
         </div>
       </CardHeader>
-      <CardContent className="-mt-2">
+      <CardContent className="mt-auto">
         <form
           onSubmit={(e) => {
             e.preventDefault();
             void form.handleSubmit();
           }}
+          className="space-y-3"
         >
           <form.Field
             name="inviteLink"
             validators={{
               onBlur: ({ value }) => {
-                if (!value) return undefined;
-                const result = inviteLinkSchema.safeParse(value);
+                const trimmed = value.trim();
+                if (!trimmed) return 'Invite link is required';
+                const result = inviteLinkSchema.safeParse(trimmed);
                 if (result.success) return undefined;
                 return result.error.issues[0].message;
               },
@@ -135,10 +140,6 @@ function InviteLinkCard() {
                     onBlur={field.handleBlur}
                     onChange={(e) => {
                       field.handleChange(e.target.value);
-                      const token = extractInviteToken(e.target.value);
-                      if (token) {
-                        void navigate({ to: '/invite/$token', params: { token } });
-                      }
                     }}
                     aria-invalid={isInvalid}
                     placeholder="Paste invite link here..."
@@ -149,73 +150,95 @@ function InviteLinkCard() {
               );
             }}
           />
+
+          <form.Subscribe
+            selector={(state) => state.values.inviteLink}
+            children={(inviteLink) => {
+              const token = extractInviteToken(inviteLink.trim());
+
+              return (
+                <Button type="submit" className="w-full" disabled={!token}>
+                  Join workspace
+                </Button>
+              );
+            }}
+          />
         </form>
       </CardContent>
     </Card>
   );
 }
 
-function NoWorkspacesView() {
-  const navigate = useNavigate();
-  const [dialogOpen, setDialogOpen] = useState(false);
-  const userContext = useUser();
-  const user = userContext.status === 'ready' ? userContext.user : undefined;
-
-  const defaultWorkspaceName = user?.firstName ? `${user.firstName}'s workspace` : '';
-
-  if (userContext.status === 'loading') {
-    return (
-      <div className="flex min-h-[60vh] items-center justify-center">
-        <div className="border-primary h-8 w-8 animate-spin rounded-full border-4 border-t-transparent" />
-      </div>
-    );
-  }
-
+function StartPersonalWorkspaceCard({
+  onContinueSolo,
+  isCreatingSolo,
+}: {
+  onContinueSolo: () => void;
+  isCreatingSolo: boolean;
+}) {
   return (
-    <div className="p-6 flex min-h-[60vh] items-center justify-center">
-      <div className="w-full max-w-md space-y-6">
-        <div className="text-center">
-          <h1 className="text-2xl font-semibold tracking-tight">
-            Welcome{user?.firstName ? `, ${user.firstName}` : ''}!
-          </h1>
+    <Card className="flex h-full flex-col">
+      <CardHeader>
+        <div className="flex items-center gap-3 pb-2">
+          <div className="bg-muted flex h-10 w-10 items-center justify-center rounded-lg shrink-0">
+            <UserIcon className="text-muted-foreground h-5 w-5" />
+          </div>
+          <div>
+            <CardTitle>Start your workspace</CardTitle>
+            <CardDescription>
+              Create a personal workspace to begin building right away.
+            </CardDescription>
+          </div>
+        </div>
+      </CardHeader>
+      <CardContent className="mt-auto">
+        <Button className="w-full" onClick={onContinueSolo} disabled={isCreatingSolo}>
+          {isCreatingSolo ? 'Creating workspace...' : 'Create workspace'}
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+function NoWorkspacesView({
+  onContinueSolo,
+  isCreatingSolo,
+  hasSetupError,
+}: {
+  onContinueSolo: () => void;
+  isCreatingSolo: boolean;
+  hasSetupError: boolean;
+}) {
+  return (
+    <div className="mx-auto flex min-h-[60vh] w-full max-w-4xl items-center justify-center p-6">
+      <div className="w-full space-y-8">
+        <div className="mx-auto max-w-2xl text-center">
+          <h1 className="text-2xl font-semibold tracking-tight">How would you like to start?</h1>
           <p className="text-muted-foreground mt-2">
-            Get started by creating a workspace or joining an existing one.
+            Create your own workspace or join an existing one with an invite link.
           </p>
+          {hasSetupError && (
+            <p className="text-destructive mt-3 text-sm">
+              We couldn't create your workspace. Please try again.
+            </p>
+          )}
         </div>
 
-        <div className="space-y-3">
-          <WorkspaceCreator
-            open={dialogOpen}
-            onOpenChange={setDialogOpen}
-            defaultName={defaultWorkspaceName}
-            onSuccess={(workspaceId) => {
-              void navigate({ to: `/workspaces/${workspaceId}` });
-            }}
-            trigger={
-              <CreateWorkspaceCard
-                onClick={() => {
-                  setDialogOpen(true);
-                }}
-              />
-            }
+        <div className="grid gap-4 md:grid-cols-2">
+          <StartPersonalWorkspaceCard
+            onContinueSolo={onContinueSolo}
+            isCreatingSolo={isCreatingSolo}
           />
-
           <InviteLinkCard />
+        </div>
 
-          <Link to="/settings" className="block">
-            <Card className="cursor-pointer transition-colors hover:bg-muted/50">
-              <CardHeader>
-                <div className="flex items-center gap-3">
-                  <div className="bg-muted flex h-10 w-10 items-center justify-center rounded-lg">
-                    <SettingsIcon className="text-muted-foreground h-5 w-5" />
-                  </div>
-                  <div>
-                    <CardTitle>Account Settings</CardTitle>
-                    <CardDescription>Manage your profile and account</CardDescription>
-                  </div>
-                </div>
-              </CardHeader>
-            </Card>
+        <div className="text-center">
+          <Link
+            to="/settings"
+            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-2 text-sm underline-offset-4 hover:underline"
+          >
+            <SettingsIcon className="h-4 w-4" />
+            Account settings
           </Link>
         </div>
       </div>

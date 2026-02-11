@@ -1,11 +1,14 @@
 import { createFileRoute } from '@tanstack/react-router';
+import { useEffect } from 'react';
 
 import { isUserReady, useUser } from '@/features/auth';
 import {
   InviteMemberDialog,
+  isWorkspaceEntitlementsReady,
   isWorkspaceReady,
   type Role,
   useWorkspace,
+  useWorkspaceEntitlements,
   WorkspaceInvitesTable,
   WorkspaceMembersTable,
 } from '@/features/workspaces';
@@ -21,13 +24,22 @@ export const Route = createFileRoute('/_app/workspaces/$workspaceId/members')({
 function MembersPage() {
   const workspaceContext = useWorkspace();
   const userContext = useUser();
+  const entitlementsContext = useWorkspaceEntitlements();
 
-  if (!isWorkspaceReady(workspaceContext) || !isUserReady(userContext)) {
+  if (
+    !isWorkspaceReady(workspaceContext) ||
+    !isUserReady(userContext) ||
+    !isWorkspaceEntitlementsReady(entitlementsContext)
+  ) {
     return (
       <div className="flex h-full items-center justify-center">
         <p className="text-muted-foreground">Loading...</p>
       </div>
     );
+  }
+
+  if (entitlementsContext.isSoloWorkspace) {
+    return <SoloMembersRedirect workspaceId={workspaceContext.workspaceId} />;
   }
 
   return (
@@ -36,6 +48,24 @@ function MembersPage() {
       currentUserRole={workspaceContext.role}
       currentUserId={userContext.user._id}
     />
+  );
+}
+
+function SoloMembersRedirect({ workspaceId }: { workspaceId: string }) {
+  const navigate = Route.useNavigate();
+
+  useEffect(() => {
+    void navigate({
+      to: '/workspaces/$workspaceId',
+      params: { workspaceId },
+      replace: true,
+    });
+  }, [navigate, workspaceId]);
+
+  return (
+    <div className="flex h-full items-center justify-center">
+      <p className="text-muted-foreground">Redirecting...</p>
+    </div>
   );
 }
 

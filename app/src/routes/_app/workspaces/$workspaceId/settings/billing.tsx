@@ -6,7 +6,12 @@ import { toast } from 'sonner';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { BillingProvider, useBilling } from '@/features/billing';
-import { isWorkspaceReady, useWorkspace } from '@/features/workspaces';
+import {
+  isWorkspaceEntitlementsReady,
+  isWorkspaceReady,
+  useWorkspace,
+  useWorkspaceEntitlements,
+} from '@/features/workspaces';
 import { cn } from '@/lib/utils';
 
 import type { Id } from '../../../../../../convex/_generated/dataModel';
@@ -25,6 +30,9 @@ const formatPlanKey = (planKey: 'free' | 'pro_monthly' | 'pro_yearly') => {
       return 'Pro Yearly';
   }
 };
+
+const getPlanTier = (planKey: 'free' | 'pro_monthly' | 'pro_yearly') =>
+  planKey === 'free' ? 'free' : 'pro';
 
 const formatStatus = (value: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled') => {
   if (value === 'past_due') {
@@ -80,6 +88,7 @@ function BillingSettingsPage() {
 }
 
 function BillingSettingsContent() {
+  const entitlementsContext = useWorkspaceEntitlements();
   const {
     status,
     billing,
@@ -109,6 +118,7 @@ function BillingSettingsContent() {
 
   const isCheckoutLoading = checkoutState.status === 'loading';
   const isPortalLoading = portalState.status === 'loading';
+  const isEntitlementsReady = isWorkspaceEntitlementsReady(entitlementsContext);
 
   const handleStartCheckout = async (planKey: 'pro_monthly' | 'pro_yearly') => {
     if (!canManageBilling) {
@@ -168,14 +178,14 @@ function BillingSettingsContent() {
     portalWindow.location.href = result.data.url;
   };
 
-  if (status === 'loading' || !billing) {
+  if (status === 'loading' || !billing || !isEntitlementsReady) {
     return <p className="text-muted-foreground">Loading billing...</p>;
   }
 
-  const showsAsFree = billing.effectiveStatus === 'canceled';
-  const displayPlanKey = showsAsFree ? 'free' : billing.planKey;
-  const displayStatus = showsAsFree ? 'none' : billing.effectiveStatus;
-  const displayTier = showsAsFree ? 'free' : billing.tier;
+  const entitlements = entitlementsContext.entitlements;
+  const displayPlanKey = entitlements.plan.key;
+  const displayTier = getPlanTier(displayPlanKey);
+  const displayStatus = billing.status === 'canceled' ? 'none' : entitlements.lifecycle.status;
   const statusClassName = getStatusClassName(displayStatus);
   const isFreeTier = displayTier === 'free';
   const billingCycleText = isFreeTier
@@ -183,6 +193,8 @@ function BillingSettingsContent() {
     : billing.cancelAtPeriodEnd
       ? `Ends ${formatTimestamp(billing.periodEnd)}`
       : `Renews ${formatTimestamp(billing.periodEnd)}`;
+  const membersLimitText =
+    entitlements.limits.members === null ? 'Unlimited' : String(entitlements.limits.members);
 
   return (
     <div className="max-w-2xl space-y-8">
@@ -210,12 +222,16 @@ function BillingSettingsContent() {
             <p>
               <span className="text-muted-foreground">Billing cycle:</span> {billingCycleText}
             </p>
+            <p>
+              <span className="text-muted-foreground">Members:</span>{' '}
+              {entitlements.usage.memberCount} / {membersLimitText}
+            </p>
           </div>
 
-          {billing.isInGrace && (
+          {entitlements.lifecycle.isInGrace && (
             <p className="text-muted-foreground text-sm">
               Payment issue detected: Your access will be revoked at:{' '}
-              {formatTimestamp(billing.graceEndsAt)}.
+              {formatTimestamp(entitlements.lifecycle.graceEndsAt)}.
             </p>
           )}
         </div>
