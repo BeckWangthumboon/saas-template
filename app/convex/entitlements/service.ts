@@ -66,7 +66,6 @@ const PRO_FEATURES = {
 const PRO_LIMITS = {
   members: 50,
   invites: null,
-  workspaces: null,
 } as const satisfies PlanLimits;
 
 export const PLAN_CATALOG = {
@@ -77,7 +76,6 @@ export const PLAN_CATALOG = {
     limits: {
       members: 1,
       invites: 0,
-      workspaces: 1,
     },
     billingInterval: null,
   },

@@ -118,13 +118,11 @@ function WorkspaceLayoutReadyContent({
 
   const appPages: AppPage[] = [];
 
-
   appPages.push({
     label: 'Overview',
     href: getWorkspacePath(),
     icon: LayoutDashboardIcon,
   });
-
 
   if (entitlementsContext.canAccessMembersPage) {
     appPages.push({
@@ -162,7 +160,6 @@ function WorkspaceLayoutReadyContent({
             workspaces={workspaces}
             currentWorkspace={workspace}
             onNavigate={navigate}
-            canCreateWorkspace={entitlementsContext.canCreateWorkspace}
           />
         </div>
       </aside>

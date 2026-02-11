@@ -43,7 +43,6 @@ export const ErrorCodeSchema = z.enum([
   'BILLING_PLAN_REQUIRED',
   'BILLING_ACCOUNT_DELETE_BLOCKED',
   'BILLING_WORKSPACE_DELETE_BLOCKED',
-  'BILLING_WORKSPACE_LIMIT_REACHED',
   'BILLING_WORKSPACE_LOCKED',
   'BILLING_WORKSPACE_STATE_MISSING',
   'BILLING_PLAN_PRODUCT_MAPPING_MISSING',
@@ -87,7 +86,6 @@ export const ErrorCode = {
   BILLING_PLAN_REQUIRED: 'BILLING_PLAN_REQUIRED',
   BILLING_ACCOUNT_DELETE_BLOCKED: 'BILLING_ACCOUNT_DELETE_BLOCKED',
   BILLING_WORKSPACE_DELETE_BLOCKED: 'BILLING_WORKSPACE_DELETE_BLOCKED',
-  BILLING_WORKSPACE_LIMIT_REACHED: 'BILLING_WORKSPACE_LIMIT_REACHED',
   BILLING_WORKSPACE_LOCKED: 'BILLING_WORKSPACE_LOCKED',
   BILLING_WORKSPACE_STATE_MISSING: 'BILLING_WORKSPACE_STATE_MISSING',
   BILLING_PLAN_PRODUCT_MAPPING_MISSING: 'BILLING_PLAN_PRODUCT_MAPPING_MISSING',
@@ -129,7 +127,6 @@ const errorCategoryMap: Record<ErrorCode, ErrorCategory> = {
   [ErrorCode.BILLING_PLAN_REQUIRED]: ErrorCategory.BILLING,
   [ErrorCode.BILLING_ACCOUNT_DELETE_BLOCKED]: ErrorCategory.BILLING,
   [ErrorCode.BILLING_WORKSPACE_DELETE_BLOCKED]: ErrorCategory.BILLING,
-  [ErrorCode.BILLING_WORKSPACE_LIMIT_REACHED]: ErrorCategory.BILLING,
   [ErrorCode.BILLING_WORKSPACE_LOCKED]: ErrorCategory.BILLING,
   [ErrorCode.BILLING_WORKSPACE_STATE_MISSING]: ErrorCategory.BILLING,
   [ErrorCode.BILLING_PLAN_PRODUCT_MAPPING_MISSING]: ErrorCategory.BILLING,
@@ -174,7 +171,7 @@ export interface ErrorContextMap {
   [ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN]: { status: string };
   [ErrorCode.BILLING_ENTITLEMENT_LIMIT_REACHED]: {
     workspaceId: string;
-    limit: 'members' | 'invites' | 'workspaces';
+    limit: 'members' | 'invites';
     currentUsage: number;
     maxAllowed: number;
   };
@@ -189,10 +186,6 @@ export interface ErrorContextMap {
   [ErrorCode.BILLING_WORKSPACE_DELETE_BLOCKED]: {
     workspaceId: string;
     status: 'trialing' | 'active' | 'past_due';
-  };
-  [ErrorCode.BILLING_WORKSPACE_LIMIT_REACHED]: {
-    currentUsage: number;
-    maxAllowed: number;
   };
   [ErrorCode.BILLING_WORKSPACE_LOCKED]: {
     workspaceId: string;
@@ -242,8 +235,6 @@ const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.BILLING_ACCOUNT_DELETE_BLOCKED]:
     'Cancel billing for your paid workspaces before deleting your account',
   [ErrorCode.BILLING_WORKSPACE_DELETE_BLOCKED]: 'Cancel billing before deleting this workspace',
-  [ErrorCode.BILLING_WORKSPACE_LIMIT_REACHED]:
-    'You have reached the number of workspaces allowed on your current plan',
   [ErrorCode.BILLING_WORKSPACE_LOCKED]:
     'Workspace access is temporarily restricted due to billing issues',
   [ErrorCode.BILLING_WORKSPACE_STATE_MISSING]: 'Workspace billing state is missing',

@@ -75,7 +75,7 @@ export const getUserWorkspaces = query({
  *
  * @param name - The name of the workspace to create.
  * @returns The ID of the newly created workspace.
- * @throws Error if not authenticated or if name is empty.
+ * @throws WORKSPACE_NAME_EMPTY when the provided name is blank.
  */
 export const createWorkspace = mutation({
   args: { name: v.string() },

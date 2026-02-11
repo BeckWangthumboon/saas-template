@@ -24,7 +24,6 @@ export const planFeaturesValidator = v.object({
 export const planLimitsValidator = v.object({
   members: v.union(v.number(), v.null()),
   invites: v.union(v.number(), v.null()),
-  workspaces: v.union(v.number(), v.null()),
 });
 
 export const workspaceUsageValidator = v.object({

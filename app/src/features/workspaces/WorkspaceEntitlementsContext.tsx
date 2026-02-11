@@ -17,7 +17,6 @@ export type WorkspaceEntitlementsContextValue =
       entitlements: WorkspaceEntitlementsSummary;
       isSoloWorkspace: boolean;
       canAccessMembersPage: boolean;
-      canCreateWorkspace: boolean;
     };
 
 const WorkspaceEntitlementsContext = createContext<WorkspaceEntitlementsContextValue | null>(null);
@@ -71,7 +70,6 @@ export function WorkspaceEntitlementsProvider({
       entitlements: data,
       isSoloWorkspace,
       canAccessMembersPage: !isSoloWorkspace,
-      canCreateWorkspace: !isSoloWorkspace,
     };
   }, [data, status]);
 
