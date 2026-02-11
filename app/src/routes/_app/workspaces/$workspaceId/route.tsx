@@ -104,7 +104,8 @@ function WorkspaceLayoutReadyContent({
     location.pathname.startsWith(`${workspaceBasePath}/`);
   const isLockedWorkspace =
     isEntitlementsReady && entitlementsContext.entitlements.lifecycle.isLocked;
-  const isPathAllowedWhenLocked = location.pathname.startsWith(settingsPath);
+  const isPathAllowedWhenLocked =
+    location.pathname === membersPath || location.pathname.startsWith(settingsPath);
   const isBlockedByLock = isLockedWorkspace && isWorkspaceScopedPath && !isPathAllowedWhenLocked;
 
   if (!isEntitlementsReady) {
@@ -115,30 +116,30 @@ function WorkspaceLayoutReadyContent({
     );
   }
 
-  const appPages: AppPage[] = [
-    {
-      label: 'Settings',
-      href: getWorkspacePath('/settings/workspace'),
-      icon: SettingsIcon,
-      match: (path: string) => path.startsWith(getWorkspacePath('/settings')),
-    },
-  ];
+  const appPages: AppPage[] = [];
 
-  if (!isLockedWorkspace) {
-    appPages.unshift({
-      label: 'Overview',
-      href: getWorkspacePath(),
-      icon: LayoutDashboardIcon,
-    });
-  }
 
-  if (!isLockedWorkspace && entitlementsContext.canAccessMembersPage) {
-    appPages.unshift({
+  appPages.push({
+    label: 'Overview',
+    href: getWorkspacePath(),
+    icon: LayoutDashboardIcon,
+  });
+
+
+  if (entitlementsContext.canAccessMembersPage) {
+    appPages.push({
       label: 'Members',
       href: membersPath,
       icon: UsersIcon,
     });
   }
+
+  appPages.push({
+    label: 'Settings',
+    href: getWorkspacePath('/settings/workspace'),
+    icon: SettingsIcon,
+    match: (path: string) => path.startsWith(getWorkspacePath('/settings')),
+  });
 
   return (
     <div className="flex h-full min-h-0 overflow-hidden">
