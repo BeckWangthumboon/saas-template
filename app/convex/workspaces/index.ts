@@ -7,6 +7,7 @@ import { upsertWorkspaceBillingState } from '../billing/helpers';
 import { isBillableLifecycleStatus } from '../entitlements/service';
 import { mutation, type MutationCtx, query } from '../functions';
 import { getAuthenticatedUser } from '../users/helpers';
+import { isActiveWorkspace, tombstoneWorkspace } from './helpers';
 import {
   assertNotLastOwnerOfWorkspace,
   getWorkspaceMembership,
@@ -31,6 +32,7 @@ async function createWorkspaceWithOwner(
     creatorDisplayNameSnapshot:
       [user.firstName, user.lastName].filter(Boolean).join(' ') || undefined,
     creatorDisplayEmailSnapshot: user.email,
+    status: 'active',
     updatedAt: now,
   });
 
@@ -65,7 +67,9 @@ export const getUserWorkspaces = query({
 
     return memberships.flatMap((membership, i) => {
       const workspace = workspaces[i];
-      return workspace ? [{ id: workspace._id, name: workspace.name, role: membership.role }] : [];
+      return workspace && isActiveWorkspace(workspace)
+        ? [{ id: workspace._id, name: workspace.name, role: membership.role }]
+        : [];
     });
   },
 });
@@ -104,10 +108,21 @@ export const ensureDefaultWorkspaceForCurrentUser = mutation({
     const existingMembership = await ctx.db
       .query('workspaceMembers')
       .withIndex('by_userId', (q) => q.eq('userId', user._id))
-      .first();
+      .collect();
 
-    if (existingMembership) {
-      return existingMembership.workspaceId;
+    if (existingMembership.length > 0) {
+      const workspaces = await Promise.all(
+        existingMembership.map((membership) => ctx.db.get('workspaces', membership.workspaceId)),
+      );
+
+      const activeMembership = existingMembership.find((_, index) => {
+        const workspace = workspaces[index];
+        return workspace !== null && isActiveWorkspace(workspace);
+      });
+
+      if (activeMembership) {
+        return activeMembership.workspaceId;
+      }
     }
 
     return createWorkspaceWithOwner(ctx, user, DEFAULT_SOLO_WORKSPACE_NAME);
@@ -159,7 +174,7 @@ export const leaveWorkspace = mutation({
 });
 
 /**
- * Deletes a workspace and all its members and invites.
+ * Tombstones a workspace and removes its members and invites.
  * Only workspace owners can delete a workspace.
  * Billable workspaces must be canceled first via billing portal.
  *
@@ -171,7 +186,7 @@ export const leaveWorkspace = mutation({
 export const deleteWorkspace = mutation({
   args: { workspaceId: v.id('workspaces') },
   handler: async (ctx, args) => {
-    const { membership } = await getWorkspaceMembership(ctx, args.workspaceId);
+    const { membership, user } = await getWorkspaceMembership(ctx, args.workspaceId);
 
     if (membership.role !== 'owner') {
       throwAppErrorForConvex(ErrorCode.WORKSPACE_INSUFFICIENT_ROLE, {
@@ -199,6 +214,6 @@ export const deleteWorkspace = mutation({
       });
     }
 
-    await ctx.db.delete('workspaces', args.workspaceId);
+    await tombstoneWorkspace(ctx, args.workspaceId, user._id);
   },
 });

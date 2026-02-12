@@ -60,19 +60,39 @@ const deletedUser = v.object({
   profilePictureUrl: v.optional(v.string()),
 });
 
+const workspaceBaseFields = {
+  name: v.string(),
+  createdByUserId: v.id('users'),
+  updatedAt: v.number(),
+  creatorDisplayNameSnapshot: v.optional(v.string()),
+  creatorDisplayEmailSnapshot: v.string(),
+};
+
+const activeWorkspace = v.object({
+  ...workspaceBaseFields,
+  status: v.optional(v.literal('active')),
+  deletedAt: v.optional(v.number()),
+  purgeAt: v.optional(v.number()),
+  deletedByUserId: v.optional(v.id('users')),
+});
+
+const deletedWorkspace = v.object({
+  ...workspaceBaseFields,
+  status: v.literal('deleted'),
+  deletedAt: v.number(),
+  purgeAt: v.number(),
+  deletedByUserId: v.id('users'),
+});
+
 export default defineSchema({
   users: defineTable(v.union(activeUser, deletingUser, deletionFailedUser, deletedUser))
     .index('by_authId', ['authId'])
     .index('by_email', ['email'])
     .index('by_status', ['status']),
 
-  workspaces: defineTable({
-    name: v.string(),
-    createdByUserId: v.id('users'),
-    updatedAt: v.number(),
-    creatorDisplayNameSnapshot: v.optional(v.string()),
-    creatorDisplayEmailSnapshot: v.string(),
-  }).index('by_name', ['name']),
+  workspaces: defineTable(v.union(activeWorkspace, deletedWorkspace))
+    .index('by_name', ['name'])
+    .index('by_status', ['status']),
 
   workspaceMembers: defineTable({
     userId: v.id('users'),

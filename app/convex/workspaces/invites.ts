@@ -5,6 +5,7 @@ import type { Doc, Id } from '../_generated/dataModel';
 import { getWorkspaceEntitlementsSnapshot } from '../entitlements/service';
 import { mutation, type MutationCtx, query, type QueryCtx } from '../functions';
 import { getActiveUserByEmail, getActiveUserById, getAuthenticatedUser } from '../users/helpers';
+import { isActiveWorkspace } from './helpers';
 import { requireWorkspaceAdminOrOwner, type WorkspaceMembership } from './utils';
 
 // 7 days
@@ -309,7 +310,7 @@ async function validateInviteForAcceptance(
   }
 
   const workspace = await ctx.db.get('workspaces', invite.workspaceId);
-  if (!workspace) {
+  if (!workspace || !isActiveWorkspace(workspace)) {
     return throwAppErrorForConvex(ErrorCode.INVITE_NOT_FOUND, { token });
   }
 

@@ -5,6 +5,7 @@ import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
 import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import { httpAction, internalMutation } from '../functions';
+import { isActiveWorkspace } from '../workspaces/helpers';
 import { resolvePlanKeyFromProductId } from './products';
 
 const mapSubscriptionStatus = (
@@ -169,8 +170,8 @@ export const handlePolarSubscriptionEvent = internalMutation({
       }
 
       const workspace = await ctx.db.get('workspaces', normalizedWorkspaceId);
-      if (!workspace) {
-        await finalizeEvent('unresolved', { error: 'Workspace not found' });
+      if (!workspace || !isActiveWorkspace(workspace)) {
+        await finalizeEvent('unresolved', { error: 'Workspace not active' });
         return null;
       }
 

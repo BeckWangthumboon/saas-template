@@ -10,6 +10,7 @@ import {
   resolveWorkspaceAccountDeletionEligibility,
 } from '../entitlements/service';
 import { action, mutation, query } from '../functions';
+import { tombstoneWorkspace } from '../workspaces/helpers';
 import { getSoleOwnerWorkspaceForUser } from '../workspaces/utils';
 import {
   type ActiveUser,
@@ -135,7 +136,7 @@ export const ensureUser = action({
 /**
  * Requests account deletion for the authenticated user.
  * Cleans up memberships and pending invites, then enqueues the WorkOS delete action.
- * Automatically deletes eligible sole-owned workspaces when they are non-billable and
+ * Automatically tombstones eligible sole-owned workspaces when they are non-billable and
  * have exactly one active owner/member.
  *
  * No-ops if the user is already deleting or deleted.
@@ -222,7 +223,7 @@ export const deleteAccount = mutation({
         continue;
       }
 
-      await ctx.db.delete('workspaces', workspace._id);
+      await tombstoneWorkspace(ctx, workspace._id, user._id);
     }
 
     await cleanupUserForDeletion(ctx, user._id, user.email);

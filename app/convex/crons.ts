@@ -16,4 +16,10 @@ crons.daily(
   internal.users.internal.purgeDeletedUsers,
 );
 
+crons.daily(
+  'purge deleted workspace tombstones',
+  { hourUTC: 3, minuteUTC: 30 },
+  internal.workspaces.internal.purgeDeletedWorkspaces,
+);
+
 export default crons;

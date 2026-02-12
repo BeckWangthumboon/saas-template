@@ -2,6 +2,7 @@ import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../functions';
 import { getActiveUserById, getAuthenticatedUser } from '../users/helpers';
+import { getActiveWorkspaceById } from './helpers';
 
 export interface WorkspaceMembership {
   membership: Doc<'workspaceMembers'>;
@@ -22,6 +23,13 @@ export async function getWorkspaceMembership(
   workspaceId: Id<'workspaces'>,
 ) {
   const user = await getAuthenticatedUser(ctx);
+
+  const workspace = await getActiveWorkspaceById(ctx, workspaceId);
+  if (!workspace) {
+    return throwAppErrorForConvex(ErrorCode.WORKSPACE_ACCESS_DENIED, {
+      workspaceId: workspaceId as string,
+    });
+  }
 
   const membership = await ctx.db
     .query('workspaceMembers')
@@ -98,7 +106,7 @@ export async function assertNotLastOwnerOfWorkspace(
  * Retrieves the names of all workspaces where the specified user is the sole owner.
  * @param ctx - The Convex query or mutation context
  * @param userId - The ID of the user to check for sole ownership
- * @returns An array of workspace names where the user is the only owner
+ * @returns Workspace documents where the user is the only active owner
  */
 export async function getSoleOwnerWorkspaceForUser(
   ctx: QueryCtx | MutationCtx,
@@ -124,7 +132,7 @@ export async function getSoleOwnerWorkspaceForUser(
     const activeOwnerCount = activeOwners.filter((u) => u !== null).length;
 
     if (activeOwnerCount === 1) {
-      const workspace = await ctx.db.get('workspaces', membership.workspaceId);
+      const workspace = await getActiveWorkspaceById(ctx, membership.workspaceId);
       if (workspace) {
         soleOwnerWorkspaces.push(workspace);
       }
