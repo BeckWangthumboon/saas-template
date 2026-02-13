@@ -128,6 +128,8 @@ Use TanStack Form for form management. Field validation with `validators: { onBl
 
 - **No unused vars**: Prefix with `_` to ignore (`const _unused = 1`)
 - **Consistent type imports**: Always use inline type syntax
+- **Prefer inference**: Derive types from Convex validators/data model (`Infer`, `Doc`, validator objects) when possible
+- **Avoid explicit return types**: Let TypeScript infer return types for local/internal functions unless an explicit type is needed for public API boundaries, narrowing, or readability
 - **Template expressions**: Numbers and booleans allowed (no need for explicit casting)
 - **React event handlers**: No void return checks needed
 
