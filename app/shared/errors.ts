@@ -27,6 +27,9 @@ export const ErrorCodeSchema = z.enum([
   'WORKSPACE_INSUFFICIENT_ROLE',
   'WORKSPACE_MEMBER_NOT_FOUND',
   'WORKSPACE_REMOVE_SELF',
+  'CONTACT_NAME_EMPTY',
+  'CONTACT_INVALID_EMAIL',
+  'CONTACT_NOT_FOUND',
   'INVITE_NOT_FOUND',
   'INVITE_EXPIRED',
   'INVITE_ALREADY_ACCEPTED',
@@ -70,6 +73,9 @@ export const ErrorCode = {
   WORKSPACE_INSUFFICIENT_ROLE: 'WORKSPACE_INSUFFICIENT_ROLE',
   WORKSPACE_MEMBER_NOT_FOUND: 'WORKSPACE_MEMBER_NOT_FOUND',
   WORKSPACE_REMOVE_SELF: 'WORKSPACE_REMOVE_SELF',
+  CONTACT_NAME_EMPTY: 'CONTACT_NAME_EMPTY',
+  CONTACT_INVALID_EMAIL: 'CONTACT_INVALID_EMAIL',
+  CONTACT_NOT_FOUND: 'CONTACT_NOT_FOUND',
   INVITE_NOT_FOUND: 'INVITE_NOT_FOUND',
   INVITE_EXPIRED: 'INVITE_EXPIRED',
   INVITE_ALREADY_ACCEPTED: 'INVITE_ALREADY_ACCEPTED',
@@ -111,6 +117,9 @@ const errorCategoryMap: Record<ErrorCode, ErrorCategory> = {
   [ErrorCode.WORKSPACE_INSUFFICIENT_ROLE]: ErrorCategory.WORKSPACE,
   [ErrorCode.WORKSPACE_MEMBER_NOT_FOUND]: ErrorCategory.WORKSPACE,
   [ErrorCode.WORKSPACE_REMOVE_SELF]: ErrorCategory.WORKSPACE,
+  [ErrorCode.CONTACT_NAME_EMPTY]: ErrorCategory.WORKSPACE,
+  [ErrorCode.CONTACT_INVALID_EMAIL]: ErrorCategory.WORKSPACE,
+  [ErrorCode.CONTACT_NOT_FOUND]: ErrorCategory.WORKSPACE,
   [ErrorCode.INVITE_NOT_FOUND]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_EXPIRED]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: ErrorCategory.INVITE,
@@ -164,6 +173,9 @@ export interface ErrorContextMap {
   };
   [ErrorCode.WORKSPACE_MEMBER_NOT_FOUND]: { userId: string; workspaceId: string };
   [ErrorCode.WORKSPACE_REMOVE_SELF]: Record<string, never>;
+  [ErrorCode.CONTACT_NAME_EMPTY]: Record<string, never>;
+  [ErrorCode.CONTACT_INVALID_EMAIL]: { email: string };
+  [ErrorCode.CONTACT_NOT_FOUND]: { contactId: string; workspaceId: string };
   [ErrorCode.INVITE_NOT_FOUND]: { token?: string; inviteId?: string };
   [ErrorCode.INVITE_EXPIRED]: { token?: string; hasNewerInvite?: boolean };
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: { token?: string; hasNewerInvite?: boolean };
@@ -224,6 +236,9 @@ const errorMessages: Record<ErrorCode, string> = {
     'You do not have the required role to perform this action',
   [ErrorCode.WORKSPACE_MEMBER_NOT_FOUND]: 'Member not found in workspace',
   [ErrorCode.WORKSPACE_REMOVE_SELF]: 'Use leave workspace instead',
+  [ErrorCode.CONTACT_NAME_EMPTY]: 'Contact name cannot be empty',
+  [ErrorCode.CONTACT_INVALID_EMAIL]: 'Contact email is invalid',
+  [ErrorCode.CONTACT_NOT_FOUND]: 'Contact not found',
   [ErrorCode.INVITE_NOT_FOUND]: 'Invite not found',
   [ErrorCode.INVITE_EXPIRED]: 'This invite has expired',
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: 'This invite has already been accepted',
@@ -401,6 +416,11 @@ export const ConvexErrors = {
     memberNotFound: (userId: string, workspaceId: string) =>
       createAppErrorForConvex(ErrorCode.WORKSPACE_MEMBER_NOT_FOUND, { userId, workspaceId }),
     removeSelf: () => createAppErrorForConvex(ErrorCode.WORKSPACE_REMOVE_SELF),
+    contactNameEmpty: () => createAppErrorForConvex(ErrorCode.CONTACT_NAME_EMPTY),
+    contactInvalidEmail: (email: string) =>
+      createAppErrorForConvex(ErrorCode.CONTACT_INVALID_EMAIL, { email }),
+    contactNotFound: (contactId: string, workspaceId: string) =>
+      createAppErrorForConvex(ErrorCode.CONTACT_NOT_FOUND, { contactId, workspaceId }),
   },
   invite: {
     notFound: (context?: ErrorContextMap['INVITE_NOT_FOUND']) =>

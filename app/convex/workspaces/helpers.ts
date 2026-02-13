@@ -32,7 +32,7 @@ export async function getActiveWorkspaceById(
 }
 
 /**
- * Tombstones a workspace and immediately removes memberships and invites.
+ * Tombstones a workspace and immediately removes memberships, invites, and contacts.
  *
  * This keeps access checks simple while retaining the workspace document for
  * retention and delayed purge.
@@ -75,6 +75,15 @@ export async function tombstoneWorkspace(
     await ctx.db.delete('workspaceInvites', invite._id);
   }
 
+  const contacts = await ctx.db
+    .query('contacts')
+    .withIndex('by_workspaceId', (q) => q.eq('workspaceId', workspaceId))
+    .collect();
+
+  for (const contact of contacts) {
+    await ctx.db.delete('contacts', contact._id);
+  }
+
   logger.info({
     event: 'workspace.tombstoned',
     category: 'WORKSPACE',
@@ -83,6 +92,7 @@ export async function tombstoneWorkspace(
       deletedByUserId,
       removedMemberCount: members.length,
       removedInviteCount: invites.length,
+      removedContactCount: contacts.length,
     },
   });
 }

@@ -104,6 +104,17 @@ export default defineSchema({
     .index('by_workspaceId', ['workspaceId'])
     .index('by_workspaceId_userId', ['workspaceId', 'userId']),
 
+  contacts: defineTable({
+    workspaceId: v.id('workspaces'),
+    name: v.string(),
+    email: v.optional(v.string()),
+    notes: v.optional(v.string()),
+    createdByUserId: v.id('users'),
+    updatedAt: v.number(),
+  })
+    .index('by_workspaceId', ['workspaceId'])
+    .index('by_workspaceId_name', ['workspaceId', 'name']),
+
   workspaceInvites: defineTable({
     workspaceId: v.id('workspaces'),
     email: v.string(),

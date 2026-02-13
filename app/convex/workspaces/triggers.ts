@@ -23,6 +23,15 @@ triggers.register('workspaces', async (ctx, change) => {
     await ctx.db.delete('workspaceInvites', invite._id);
   }
 
+  const contacts = await ctx.db
+    .query('contacts')
+    .withIndex('by_workspaceId', (q) => q.eq('workspaceId', change.id))
+    .collect();
+
+  for (const contact of contacts) {
+    await ctx.db.delete('contacts', contact._id);
+  }
+
   const billingState = await ctx.db
     .query('workspaceBillingState')
     .withIndex('by_workspaceId', (q) => q.eq('workspaceId', change.id))
