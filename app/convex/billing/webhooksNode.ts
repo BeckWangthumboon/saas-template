@@ -3,7 +3,7 @@
 import { validateEvent, WebhookVerificationError } from '@polar-sh/sdk/webhooks';
 import { v } from 'convex/values';
 
-import { createAppErrorForConvex, ErrorCode } from '../../shared/errors';
+import { convexEnv } from '../env';
 import { internalAction } from '../functions';
 
 type PolarWebhookEvent = ReturnType<typeof validateEvent>;
@@ -35,17 +35,6 @@ const parseTimestampMs = (value: unknown) => {
   return undefined;
 };
 
-const getWebhookSecret = (): string => {
-  const value = process.env.POLAR_WEBHOOK_SECRET;
-  if (value !== undefined && value.trim().length > 0) {
-    return value;
-  }
-
-  throw createAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
-    details: 'POLAR_WEBHOOK_SECRET environment variable is not set',
-  });
-};
-
 /**
  * Verifies the Polar webhook signature in Node runtime and normalizes
  * subscription event payloads for the HTTP webhook handler.
@@ -60,7 +49,7 @@ export const verifyAndNormalizePolarWebhook = internalAction({
     headers: v.record(v.string(), v.string()),
   },
   handler: async (_ctx, args) => {
-    const webhookSecret = getWebhookSecret();
+    const webhookSecret = convexEnv.polarWebhookSecret;
 
     let event: PolarWebhookEvent;
     try {

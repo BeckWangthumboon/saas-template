@@ -5,6 +5,7 @@ import { v } from 'convex/values';
 
 import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
 import { components } from '../_generated/api';
+import { convexEnv } from '../env';
 import { internalAction } from '../functions';
 
 /**
@@ -12,13 +13,7 @@ import { internalAction } from '../functions';
  * Use this factory function to get a properly configured WorkOS client.
  */
 export function getWorkOS(): WorkOS {
-  const apiKey = process.env.WORKOS_API_KEY;
-  if (!apiKey) {
-    return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
-      details: 'WORKOS_API_KEY environment variable is not set',
-    });
-  }
-  return new WorkOS(apiKey);
+  return new WorkOS(convexEnv.workosApiKey);
 }
 
 export interface WorkosUserData {

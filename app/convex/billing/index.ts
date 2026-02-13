@@ -4,13 +4,14 @@ import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
 import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import { getPlanTier, resolveBillingLifecycle } from '../entitlements/service';
+import { convexEnv } from '../env';
 import { action, query, type QueryCtx } from '../functions';
 import { getWorkspaceMembership } from '../workspaces/utils';
 import { polar } from './polarClient';
 import { PLAN_KEY_TO_PRODUCT_ID } from './products';
 import { billingSummaryValidator, paidPlanKeyValidator } from './types';
 
-const ORIGIN = (process.env.APP_ORIGIN ?? 'http://localhost:5173').replace(/\/$/, '');
+const ORIGIN = convexEnv.appOrigin;
 
 const getWorkspaceBillingSettingsPath = (workspaceId: string) =>
   `/workspaces/${workspaceId}/settings/billing`;

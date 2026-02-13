@@ -54,7 +54,7 @@ Backend (Convex runtime environment):
 - `POLAR_PRO_MONTHLY_PRODUCT_ID`
 - `POLAR_PRO_YEARLY_PRODUCT_ID`
 - `POLAR_SERVER` (`sandbox` or `production`, defaults to `sandbox`)
-- `APP_ORIGIN` (used for billing return URLs, defaults to `http://localhost:5173`)
+- `APP_ORIGIN` (required, used for billing return URLs)
 
 3. Start local development (from `app/`):
 
@@ -181,5 +181,4 @@ Why this choice: access stays protected even when users know the URL.
 - TODO: add reset-dev-environment workflow/documentation.
 - TODO: add optional starter-pack examples for file upload/external API and email notifications.
 - TODO (uncertain): confirm preferred local backend env workflow for team onboarding (Convex dashboard vs scripted env setup).
-- TODO (uncertain): confirm whether `APP_ORIGIN` should remain optional with localhost fallback in all environments.
 - TODO (uncertain): confirm whether current `predev` behavior (opening Convex dashboard) should remain default for this template.

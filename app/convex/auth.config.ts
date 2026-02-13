@@ -1,4 +1,6 @@
-const clientId = process.env.WORKOS_CLIENT_ID;
+import { convexEnv } from './env';
+
+const clientId = convexEnv.workosClientId;
 
 const authConfig = {
   providers: [
