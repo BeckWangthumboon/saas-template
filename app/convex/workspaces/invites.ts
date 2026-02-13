@@ -126,12 +126,42 @@ async function hasActiveInvite(
   return activeInvite !== null;
 }
 
+type AuthenticatedUser = Awaited<ReturnType<typeof getAuthenticatedUser>>;
+
 /** Result of validating an invite for acceptance */
 interface ValidatedInvite {
   invite: Doc<'workspaceInvites'>;
-  user: Doc<'users'>;
+  user: AuthenticatedUser;
   workspace: Doc<'workspaces'>;
 }
+
+type InviteAcceptanceValidationResult =
+  | { status: 'valid'; data: ValidatedInvite }
+  | {
+      status: 'already_accepted';
+      data: ValidatedInvite;
+      hasNewerInvite: boolean;
+    }
+  | {
+      status: 'already_member';
+      data: ValidatedInvite;
+    }
+  | {
+      status: 'not_found';
+    }
+  | {
+      status: 'revoked';
+      hasNewerInvite: boolean;
+    }
+  | {
+      status: 'expired';
+      hasNewerInvite: boolean;
+    }
+  | {
+      status: 'email_mismatch';
+      inviteEmail: string;
+      userEmail: string;
+    };
 
 interface WorkspaceInviteEntitlements {
   limits: {
@@ -147,6 +177,37 @@ interface WorkspaceInviteEntitlements {
   };
   isLocked: boolean;
   graceEndsAt: number | undefined;
+}
+
+/**
+ * Ensures the authenticated user matches an invite recipient.
+ *
+ * If the invite was bound to a specific user ID, that takes precedence.
+ * Otherwise the invite is matched by normalized email address.
+ */
+function getInviteRecipientMismatch(
+  invite: Doc<'workspaceInvites'>,
+  user: AuthenticatedUser,
+): { inviteEmail: string; userEmail: string } | null {
+  if (invite.invitedUserId) {
+    if (user._id !== invite.invitedUserId) {
+      return {
+        inviteEmail: invite.email,
+        userEmail: user.email,
+      };
+    }
+
+    return null;
+  }
+
+  if (user.email.toLowerCase() !== invite.email.toLowerCase()) {
+    return {
+      inviteEmail: invite.email,
+      userEmail: user.email,
+    };
+  }
+
+  return null;
 }
 
 /**
@@ -244,20 +305,12 @@ function assertCanAcceptInvite(
 }
 
 /**
- * Validates an invite token for acceptance.
- * Performs all checks: existence, status, expiration, email match, membership.
- *
- * @throws INVITE_NOT_FOUND if token doesn't match any invite.
- * @throws INVITE_ALREADY_ACCEPTED if invite was already used (includes `hasNewerInvite`).
- * @throws INVITE_ALREADY_REVOKED if invite was cancelled (includes `hasNewerInvite`).
- * @throws INVITE_EXPIRED if invite has expired (includes `hasNewerInvite`).
- * @throws INVITE_EMAIL_MISMATCH if user email doesn't match invite.
- * @throws INVITE_ALREADY_MEMBER if user is already a workspace member.
+ * Validates an invite token for acceptance and returns a non-throwing status.
  */
 async function validateInviteForAcceptance(
   ctx: QueryCtx | MutationCtx,
   token: string,
-): Promise<ValidatedInvite> {
+): Promise<InviteAcceptanceValidationResult> {
   const user = await getAuthenticatedUser(ctx);
 
   const invite = await ctx.db
@@ -266,57 +319,93 @@ async function validateInviteForAcceptance(
     .unique();
 
   if (!invite) {
-    return throwAppErrorForConvex(ErrorCode.INVITE_NOT_FOUND, { token });
+    return { status: 'not_found' };
   }
 
-  const now = Date.now();
-
-  // Check status
-  if (invite.status === 'accepted') {
-    const hasNewerInvite = await hasActiveInvite(ctx, invite.workspaceId, invite.email, now);
-    return throwAppErrorForConvex(ErrorCode.INVITE_ALREADY_ACCEPTED, { token, hasNewerInvite });
-  }
-  if (invite.status === 'revoked') {
-    const hasNewerInvite = await hasActiveInvite(ctx, invite.workspaceId, invite.email, now);
-    return throwAppErrorForConvex(ErrorCode.INVITE_ALREADY_REVOKED, { token, hasNewerInvite });
-  }
-
-  if (invite.expiresAt < now) {
-    const hasNewerInvite = await hasActiveInvite(ctx, invite.workspaceId, invite.email, now);
-    return throwAppErrorForConvex(ErrorCode.INVITE_EXPIRED, { token, hasNewerInvite });
-  }
-
-  if (invite.invitedUserId) {
-    if (user._id !== invite.invitedUserId) {
-      return throwAppErrorForConvex(ErrorCode.INVITE_EMAIL_MISMATCH, {
-        inviteEmail: invite.email,
-        userEmail: user.email,
-      });
-    }
-  } else {
-    if (user.email.toLowerCase() !== invite.email.toLowerCase()) {
-      return throwAppErrorForConvex(ErrorCode.INVITE_EMAIL_MISMATCH, {
-        inviteEmail: invite.email,
-        userEmail: user.email,
-      });
-    }
-  }
-
-  const alreadyMember = await isUserAlreadyMember(ctx, invite.workspaceId, user._id);
-
-  if (alreadyMember) {
-    return throwAppErrorForConvex(ErrorCode.INVITE_ALREADY_MEMBER, {
-      email: user.email,
-      workspaceId: invite.workspaceId as string,
-    });
+  const mismatch = getInviteRecipientMismatch(invite, user);
+  if (mismatch) {
+    return {
+      status: 'email_mismatch',
+      inviteEmail: mismatch.inviteEmail,
+      userEmail: mismatch.userEmail,
+    };
   }
 
   const workspace = await ctx.db.get('workspaces', invite.workspaceId);
   if (!workspace || !isActiveWorkspace(workspace)) {
-    return throwAppErrorForConvex(ErrorCode.INVITE_NOT_FOUND, { token });
+    return { status: 'not_found' };
   }
 
-  return { invite, user, workspace };
+  const now = Date.now();
+
+  const validatedInvite: ValidatedInvite = { invite, user, workspace };
+
+  if (invite.status === 'accepted') {
+    const hasNewerInvite = await hasActiveInvite(ctx, invite.workspaceId, invite.email, now);
+    return {
+      status: 'already_accepted',
+      data: validatedInvite,
+      hasNewerInvite,
+    };
+  }
+
+  if (invite.status === 'revoked') {
+    const hasNewerInvite = await hasActiveInvite(ctx, invite.workspaceId, invite.email, now);
+    return { status: 'revoked', hasNewerInvite };
+  }
+
+  if (invite.expiresAt < now) {
+    const hasNewerInvite = await hasActiveInvite(ctx, invite.workspaceId, invite.email, now);
+    return { status: 'expired', hasNewerInvite };
+  }
+
+  const alreadyMember = await isUserAlreadyMember(ctx, invite.workspaceId, user._id);
+  if (alreadyMember) {
+    return {
+      status: 'already_member',
+      data: validatedInvite,
+    };
+  }
+
+  return { status: 'valid', data: validatedInvite };
+}
+
+/**
+ * Maps non-valid invite acceptance statuses to typed app errors.
+ */
+function throwInviteAcceptanceValidationError(
+  token: string,
+  result: Exclude<InviteAcceptanceValidationResult, { status: 'valid' }>,
+): never {
+  switch (result.status) {
+    case 'not_found':
+      return throwAppErrorForConvex(ErrorCode.INVITE_NOT_FOUND, { token });
+    case 'already_accepted':
+      return throwAppErrorForConvex(ErrorCode.INVITE_ALREADY_ACCEPTED, {
+        token,
+        hasNewerInvite: result.hasNewerInvite,
+      });
+    case 'revoked':
+      return throwAppErrorForConvex(ErrorCode.INVITE_ALREADY_REVOKED, {
+        token,
+        hasNewerInvite: result.hasNewerInvite,
+      });
+    case 'expired':
+      return throwAppErrorForConvex(ErrorCode.INVITE_EXPIRED, {
+        token,
+        hasNewerInvite: result.hasNewerInvite,
+      });
+    case 'email_mismatch':
+      return throwAppErrorForConvex(ErrorCode.INVITE_EMAIL_MISMATCH, {
+        inviteEmail: result.inviteEmail,
+        userEmail: result.userEmail,
+      });
+    case 'already_member':
+      return throwAppErrorForConvex(ErrorCode.INVITE_ALREADY_MEMBER, {
+        email: result.data.user.email,
+        workspaceId: result.data.invite.workspaceId as string,
+      });
+  }
 }
 
 /**
@@ -494,7 +583,12 @@ export const createInvite = mutation({
 export const getInviteForAcceptance = query({
   args: { token: v.string() },
   handler: async (ctx, args) => {
-    const { invite, workspace } = await validateInviteForAcceptance(ctx, args.token);
+    const validation = await validateInviteForAcceptance(ctx, args.token);
+    if (validation.status !== 'valid') {
+      return throwInviteAcceptanceValidationError(args.token, validation);
+    }
+
+    const { invite, workspace } = validation.data;
     const inviterInfo = await getInviterInfo(ctx, invite);
 
     return {
@@ -511,9 +605,15 @@ export const getInviteForAcceptance = query({
  * Accepts an invite to join a workspace.
  * Validates by userId if the invitee existed at invite time, otherwise by email.
  *
+ * This mutation is idempotent for accepted invites: when the invite has already
+ * been accepted by the same user, it returns success instead of throwing.
+ *
  * @param token - The invite token.
  * @returns The workspace ID, name, and assigned role.
- * @throws Same errors as `getInviteForAcceptance` (see `validateInviteForAcceptance`).
+ * @throws INVITE_NOT_FOUND if the token is unknown or workspace is no longer active.
+ * @throws INVITE_ALREADY_REVOKED if invite was revoked.
+ * @throws INVITE_EXPIRED if invite has expired.
+ * @throws INVITE_EMAIL_MISMATCH if the authenticated user does not match invite recipient.
  */
 export const acceptInvite = mutation({
   args: { token: v.string() },
@@ -521,7 +621,88 @@ export const acceptInvite = mutation({
     ctx,
     args,
   ): Promise<{ workspaceId: Id<'workspaces'>; workspaceName: string; role: InviteRole }> => {
-    const { invite, user, workspace } = await validateInviteForAcceptance(ctx, args.token);
+    const validation = await validateInviteForAcceptance(ctx, args.token);
+
+    if (validation.status === 'already_accepted') {
+      const { invite, user, workspace } = validation.data;
+      if (invite.acceptedByUserId && invite.acceptedByUserId !== user._id) {
+        return throwAppErrorForConvex(ErrorCode.INVITE_EMAIL_MISMATCH, {
+          inviteEmail: invite.email,
+          userEmail: user.email,
+        });
+      }
+
+      const membership = await ctx.db
+        .query('workspaceMembers')
+        .withIndex('by_workspaceId_userId', (q) =>
+          q.eq('workspaceId', invite.workspaceId).eq('userId', user._id),
+        )
+        .unique();
+
+      if (!membership) {
+        const now = Date.now();
+        await ctx.db.insert('workspaceMembers', {
+          userId: user._id,
+          workspaceId: invite.workspaceId,
+          role: invite.role,
+          updatedAt: now,
+        });
+
+        logger.warn({
+          event: 'invite.accepted_recovered_membership',
+          category: 'INVITE',
+          context: {
+            inviteId: invite._id,
+            workspaceId: invite.workspaceId,
+            userId: user._id,
+            role: invite.role,
+          },
+        });
+      }
+
+      logger.info({
+        event: 'invite.accepted_idempotent',
+        category: 'INVITE',
+        context: {
+          inviteId: invite._id,
+          workspaceId: invite.workspaceId,
+          userId: user._id,
+          role: invite.role,
+        },
+      });
+
+      return {
+        workspaceId: invite.workspaceId,
+        workspaceName: workspace.name,
+        role: invite.role,
+      };
+    }
+
+    if (validation.status === 'already_member') {
+      const { invite, user, workspace } = validation.data;
+      logger.info({
+        event: 'invite.accepted_already_member',
+        category: 'INVITE',
+        context: {
+          inviteId: invite._id,
+          workspaceId: invite.workspaceId,
+          userId: user._id,
+          role: invite.role,
+        },
+      });
+
+      return {
+        workspaceId: invite.workspaceId,
+        workspaceName: workspace.name,
+        role: invite.role,
+      };
+    }
+
+    if (validation.status !== 'valid') {
+      return throwInviteAcceptanceValidationError(args.token, validation);
+    }
+
+    const { invite, user, workspace } = validation.data;
     const now = Date.now();
 
     const entitlements = await getWorkspaceInviteEntitlements(ctx, invite.workspaceId, now);
