@@ -541,15 +541,58 @@ const ensurePendingInvite = async (
     )
     .collect();
 
-  const pendingInvites = invites.filter((invite) => invite.status === 'pending');
-  const extraPendingInvites = pendingInvites.slice(1);
+  const sortedInvites = invites.sort((a, b) => a._creationTime - b._creationTime);
+  if (sortedInvites.length === 0) {
+    await ctx.db.insert('workspaceInvites', {
+      workspaceId,
+      email: DEMO_PENDING_INVITE.email,
+      role: DEMO_PENDING_INVITE.role,
+      token: DEMO_PENDING_INVITE.token,
+      status: 'pending',
+      invitedByUserId,
+      invitedUserId: undefined,
+      expiresAt: now + INVITE_EXPIRATION_MS,
+      acceptedByUserId: undefined,
+      acceptedAt: undefined,
+      updatedAt: now,
+      inviterDisplayNameSnapshot: getUserDisplayName(invitedByUser),
+      inviterDisplayEmailSnapshot: invitedByUser.email,
+    });
+    return 1;
+  }
+
+  const pendingInvites = sortedInvites.filter((invite) => invite.status === 'pending');
+  const targetInvite = pendingInvites[0] ?? sortedInvites[0];
   let writes = 0;
 
-  for (const invite of extraPendingInvites) {
-    await ctx.db.patch('workspaceInvites', invite._id, {
-      status: 'revoked',
-      updatedAt: now,
-    });
+  for (const invite of sortedInvites) {
+    if (invite._id === targetInvite._id) {
+      continue;
+    }
+
+    const patch: {
+      status?: 'revoked';
+      token?: string;
+      updatedAt: number;
+    } = { updatedAt: now };
+
+    let shouldPatch = false;
+
+    if (invite.status === 'pending') {
+      patch.status = 'revoked';
+      shouldPatch = true;
+    }
+
+    if (invite.token === DEMO_PENDING_INVITE.token) {
+      patch.token = `${DEMO_PENDING_INVITE.token}-${invite._id}`;
+      shouldPatch = true;
+    }
+
+    if (!shouldPatch) {
+      continue;
+    }
+
+    await ctx.db.patch('workspaceInvites', invite._id, patch);
     writes += 1;
   }
 
@@ -569,13 +612,7 @@ const ensurePendingInvite = async (
     inviterDisplayEmailSnapshot: invitedByUser.email,
   };
 
-  if (pendingInvites.length === 0) {
-    await ctx.db.insert('workspaceInvites', nextFields);
-    return writes + 1;
-  }
-
-  const targetPendingInvite = pendingInvites[0];
-  await ctx.db.patch('workspaceInvites', targetPendingInvite._id, nextFields);
+  await ctx.db.patch('workspaceInvites', targetInvite._id, nextFields);
   return writes + 1;
 };
 
