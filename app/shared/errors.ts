@@ -138,6 +138,13 @@ const errorCategoryMap: Record<ErrorCode, ErrorCategory> = {
   [ErrorCode.INTERNAL_ERROR]: ErrorCategory.INTERNAL,
 };
 
+/**
+ * Returns the category for a given application error code.
+ */
+export const getErrorCategoryForCode = (code: ErrorCode): ErrorCategory => {
+  return errorCategoryMap[code];
+};
+
 /** Type-safe context definitions per error code */
 export interface ErrorContextMap {
   [ErrorCode.AUTH_UNAUTHORIZED]: { reason?: string };

@@ -3,10 +3,12 @@ import { Workpool } from '@convex-dev/workpool';
 import { WorkOS } from '@workos-inc/node';
 import { v } from 'convex/values';
 
-import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
+import { ErrorCode } from '../../shared/errors';
 import { components } from '../_generated/api';
 import { convexEnv } from '../env';
+import { throwAppErrorForConvex } from '../errors';
 import { internalAction } from '../functions';
+import { logger } from '../logging';
 
 /**
  * Creates a WorkOS client instance.
@@ -65,11 +67,42 @@ export const fetchWorkosUser = internalAction({
       const workosError = error as { status?: number; message?: string };
 
       if (workosError.status === 404 || workosError.message?.toLowerCase().includes('not found')) {
+        logger.warn({
+          event: 'auth.workos.user_not_found',
+          category: 'AUTH',
+          context: {
+            authId: args.authId,
+            operation: 'getUser',
+          },
+        });
+
         return { kind: 'not_found' };
       }
       if (workosError.status === 429) {
+        logger.warn({
+          event: 'auth.workos.rate_limited',
+          category: 'AUTH',
+          context: {
+            authId: args.authId,
+            operation: 'getUser',
+            status: workosError.status,
+          },
+        });
+
         return throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_RATE_LIMIT);
       }
+
+      logger.error({
+        event: 'auth.workos.request_failed',
+        category: 'AUTH',
+        context: {
+          authId: args.authId,
+          operation: 'getUser',
+          status: workosError.status,
+        },
+        error,
+      });
+
       return throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_API_ERROR, {
         operation: 'getUser',
         status: workosError.status,
@@ -93,11 +126,42 @@ export const deleteWorkosUser = internalAction({
     } catch (error) {
       const workosError = error as { status?: number; message?: string };
       if (workosError.status === 404 || workosError.message?.toLowerCase().includes('not found')) {
+        logger.debug({
+          event: 'auth.workos.user_delete_idempotent',
+          category: 'AUTH',
+          context: {
+            authId: args.authId,
+            operation: 'deleteUser',
+          },
+        });
+
         return { kind: 'deleted' } as const;
       }
       if (workosError.status === 429) {
+        logger.warn({
+          event: 'auth.workos.rate_limited',
+          category: 'AUTH',
+          context: {
+            authId: args.authId,
+            operation: 'deleteUser',
+            status: workosError.status,
+          },
+        });
+
         return throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_RATE_LIMIT);
       }
+
+      logger.error({
+        event: 'auth.workos.request_failed',
+        category: 'AUTH',
+        context: {
+          authId: args.authId,
+          operation: 'deleteUser',
+          status: workosError.status,
+        },
+        error,
+      });
+
       return throwAppErrorForConvex(ErrorCode.AUTH_WORKOS_API_ERROR, {
         operation: 'deleteUser',
         status: workosError.status,

@@ -2,14 +2,16 @@ import './triggers';
 
 import { v } from 'convex/values';
 
-import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
+import { ErrorCode } from '../../shared/errors';
 import { internal } from '../_generated/api';
 import {
   getWorkspaceUsageSnapshot,
   isBillableLifecycleStatus,
   resolveWorkspaceAccountDeletionEligibility,
 } from '../entitlements/service';
+import { throwAppErrorForConvex } from '../errors';
 import { action, mutation, query } from '../functions';
+import { logger } from '../logging';
 import { tombstoneWorkspace } from '../workspaces/helpers';
 import { getSoleOwnerWorkspaceForUser } from '../workspaces/utils';
 import {
@@ -102,6 +104,15 @@ export const ensureUser = action({
     });
 
     if (existingUser) {
+      logger.debug({
+        event: 'auth.user.ensure_existing',
+        category: 'AUTH',
+        context: {
+          userId: existingUser._id,
+          authId,
+        },
+      });
+
       return assertActiveUser(existingUser, {
         code: ErrorCode.AUTH_USER_DELETING,
         details: { authId, userId: existingUser._id },
@@ -126,6 +137,16 @@ export const ensureUser = action({
         profilePictureUrl: workosResult.userData.profilePictureUrl ?? undefined,
       },
     });
+
+    logger.info({
+      event: 'auth.user.provisioned',
+      category: 'AUTH',
+      context: {
+        userId: newUser._id,
+        authId,
+      },
+    });
+
     return assertActiveUser(newUser, {
       code: ErrorCode.AUTH_USER_DELETING,
       details: { authId, userId: newUser._id },
@@ -161,6 +182,15 @@ export const deleteAccount = mutation({
       user.status === 'deleted' ||
       user.status === 'deletion_failed'
     ) {
+      logger.debug({
+        event: 'auth.user.delete_ignored',
+        category: 'AUTH',
+        context: {
+          userId: user._id,
+          status: user.status,
+        },
+      });
+
       return;
     }
 
@@ -198,6 +228,16 @@ export const deleteAccount = mutation({
     );
 
     if (ownershipBlockedWorkspaces.length > 0) {
+      logger.warn({
+        event: 'auth.user.delete_blocked',
+        category: 'AUTH',
+        context: {
+          userId: user._id,
+          reason: 'last_owner_workspace',
+          workspaceNames: ownershipBlockedWorkspaces.map(({ workspace }) => workspace.name),
+        },
+      });
+
       return throwAppErrorForConvex(ErrorCode.USER_LAST_OWNER_OF_WORKSPACE, {
         workspaceNames: ownershipBlockedWorkspaces.map(({ workspace }) => workspace.name),
       });
@@ -212,11 +252,24 @@ export const deleteAccount = mutation({
         .map(({ billingStatus }) => billingStatus)
         .filter(isBillableLifecycleStatus);
 
+      logger.warn({
+        event: 'auth.user.delete_blocked',
+        category: 'AUTH',
+        context: {
+          userId: user._id,
+          reason: 'billing_active',
+          workspaceNames: billingBlockedWorkspaces.map(({ workspace }) => workspace.name),
+          statuses: billableStatuses,
+        },
+      });
+
       return throwAppErrorForConvex(ErrorCode.BILLING_ACCOUNT_DELETE_BLOCKED, {
         workspaceNames: billingBlockedWorkspaces.map(({ workspace }) => workspace.name),
         statuses: billableStatuses,
       });
     }
+
+    let autoDeletedWorkspaceCount = 0;
 
     for (const { workspace, deletionEligibility } of checksByWorkspace) {
       if (!deletionEligibility.canAutoDeleteOnAccountDeletion) {
@@ -224,7 +277,18 @@ export const deleteAccount = mutation({
       }
 
       await tombstoneWorkspace(ctx, workspace._id, user._id);
+      autoDeletedWorkspaceCount += 1;
     }
+
+    logger.info({
+      event: 'auth.user.delete_requested',
+      category: 'AUTH',
+      context: {
+        userId: user._id,
+        soleOwnerWorkspaceCount: checksByWorkspace.length,
+        autoDeletedWorkspaceCount,
+      },
+    });
 
     await cleanupUserForDeletion(ctx, user._id, user.email);
 
@@ -253,6 +317,14 @@ export const deleteAccount = mutation({
         workId,
       },
     });
+
+    logger.info({
+      event: 'auth.user.delete_enqueued',
+      category: 'AUTH',
+      context: {
+        userId: user._id,
+      },
+    });
   },
 });
 
@@ -268,6 +340,14 @@ export const completeOnboarding = mutation({
     await ctx.db.patch('users', user._id, {
       onboardingStatus: 'completed',
       updatedAt: Date.now(),
+    });
+
+    logger.info({
+      event: 'auth.user.onboarding_completed',
+      category: 'AUTH',
+      context: {
+        userId: user._id,
+      },
     });
   },
 });

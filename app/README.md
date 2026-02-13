@@ -55,6 +55,7 @@ Backend (Convex runtime environment):
 - `POLAR_PRO_YEARLY_PRODUCT_ID`
 - `POLAR_SERVER` (`sandbox` or `production`, defaults to `sandbox`)
 - `APP_ORIGIN` (required, used for billing return URLs)
+- `CONVEX_LOG_LEVEL` (`debug` | `info` | `warn` | `error`, defaults to `info`)
 
 3. Start local development (from `app/`):
 
@@ -173,10 +174,26 @@ Why this choice: you get consistent backend/frontend behavior and safer user-fac
 
 Why this choice: access stays protected even when users know the URL.
 
+### 9) Logging strategy and runbook
+
+- Backend logs are centralized through `convex/logging.ts` via `logger.debug/info/warn/error`.
+- All backend logs are emitted as JSON strings to `console.*`, so they appear in Convex deployment logs.
+- Log level is controlled by `CONVEX_LOG_LEVEL`.
+
+Where to look:
+
+1. Open Convex Dashboard -> Deployment -> Logs.
+2. Filter by `event` name (example: `billing.webhook.handled`, `auth.user.delete_requested`).
+3. If debugging a user-facing exception, copy the Convex request ID (`[Request ID: ...]`) and search by request ID in Logs.
+
+Notes:
+
+- Convex dashboard logs are a realtime/short-history view.
+- For long-term retention and bulk export, configure Convex log streams.
+
 ## Known gaps and TODOs
 
 - TODO: centralize backend env validation into a single startup/validation module (current checks are partially distributed).
-- TODO: add structured logging strategy + explicit "where to look" runbook.
 - TODO: add seed/demo data workflow for local dev.
 - TODO: add reset-dev-environment workflow/documentation.
 - TODO: add optional starter-pack examples for file upload/external API and email notifications.

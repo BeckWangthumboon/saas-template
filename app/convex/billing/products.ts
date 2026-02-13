@@ -1,6 +1,7 @@
-import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
+import { ErrorCode } from '../../shared/errors';
 import type { PlanKey } from '../entitlements/types';
 import { convexEnv } from '../env';
+import { throwAppErrorForConvex } from '../errors';
 
 const PRO_MONTHLY_PRODUCT_ID = convexEnv.polarProMonthlyProductId;
 const PRO_YEARLY_PRODUCT_ID = convexEnv.polarProYearlyProductId;

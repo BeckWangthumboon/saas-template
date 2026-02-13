@@ -1,7 +1,9 @@
 import { v } from 'convex/values';
 
-import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
+import { ErrorCode } from '../../shared/errors';
+import { throwAppErrorForConvex } from '../errors';
 import { mutation, query } from '../functions';
+import { logger } from '../logging';
 import { getWorkspaceMembership, requireWorkspaceAdminOrOwner } from './utils';
 
 /**
@@ -117,6 +119,18 @@ export const removeMember = mutation({
     }
 
     await ctx.db.delete('workspaceMembers', targetMembership._id);
+
+    logger.info({
+      event: 'workspace.member_removed',
+      category: 'WORKSPACE',
+      context: {
+        workspaceId: args.workspaceId,
+        actorUserId: callerUser._id,
+        targetUserId: args.userId,
+        actorRole: callerRole,
+        targetRole,
+      },
+    });
   },
 });
 
@@ -162,6 +176,7 @@ export const updateMemberRole = mutation({
     const callerRole = callerMembership.role;
     const targetRole = targetMembership.role;
     const isSelf = callerUser._id === args.userId;
+    const previousRole = targetMembership.role;
 
     switch (callerRole) {
       case 'admin':
@@ -207,6 +222,18 @@ export const updateMemberRole = mutation({
     await ctx.db.patch('workspaceMembers', targetMembership._id, {
       role: args.role,
       updatedAt: Date.now(),
+    });
+
+    logger.info({
+      event: 'workspace.member_role_updated',
+      category: 'WORKSPACE',
+      context: {
+        workspaceId: args.workspaceId,
+        actorUserId: callerUser._id,
+        targetUserId: args.userId,
+        previousRole,
+        nextRole: args.role,
+      },
     });
   },
 });

@@ -1,11 +1,13 @@
 import { v } from 'convex/values';
 
-import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
+import { ErrorCode } from '../../shared/errors';
 import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import { getPlanTier, resolveBillingLifecycle } from '../entitlements/service';
 import { convexEnv } from '../env';
+import { throwAppErrorForConvex } from '../errors';
 import { action, query, type QueryCtx } from '../functions';
+import { logger } from '../logging';
 import { getWorkspaceMembership } from '../workspaces/utils';
 import { polar } from './polarClient';
 import { PLAN_KEY_TO_PRODUCT_ID } from './products';
@@ -153,10 +155,30 @@ export const startCheckout = action({
       checkoutRequest.customerId = billingState.providerCustomerId;
     }
 
+    logger.info({
+      event: 'billing.checkout.started',
+      category: 'BILLING',
+      context: {
+        workspaceId: args.workspaceId,
+        planKey: args.planKey,
+        hasExistingCustomerId: Boolean(billingState?.providerCustomerId),
+      },
+    });
+
     try {
       const checkout = await polar.checkouts.create(checkoutRequest);
       return { url: checkout.url };
     } catch (error) {
+      logger.error({
+        event: 'billing.checkout.failed',
+        category: 'BILLING',
+        context: {
+          workspaceId: args.workspaceId,
+          planKey: args.planKey,
+        },
+        error,
+      });
+
       return throwAppErrorForConvex(ErrorCode.BILLING_CHECKOUT_CREATE_FAILED, {
         message: error instanceof Error ? error.message : String(error),
       });
@@ -193,13 +215,28 @@ export const createBillingPortalSession = action({
     const billingState = billingStateResult;
 
     let customerId = billingState?.providerCustomerId ?? undefined;
+    let customerIdSource: 'billing_state' | 'subscription_fetch' | 'none' = 'none';
+    if (customerId) {
+      customerIdSource = 'billing_state';
+    }
+
     if (!customerId && billingState?.providerSubscriptionId) {
       try {
         const subscription = await polar.subscriptions.get({
           id: billingState.providerSubscriptionId,
         });
         customerId = subscription.customerId;
+        customerIdSource = 'subscription_fetch';
       } catch (error) {
+        logger.error({
+          event: 'billing.portal.subscription_fetch_failed',
+          category: 'BILLING',
+          context: {
+            workspaceId: args.workspaceId,
+          },
+          error,
+        });
+
         return throwAppErrorForConvex(ErrorCode.BILLING_SUBSCRIPTION_FETCH_FAILED, {
           subscriptionId: billingState.providerSubscriptionId,
           message: error instanceof Error ? error.message : String(error),
@@ -208,10 +245,27 @@ export const createBillingPortalSession = action({
     }
 
     if (!customerId) {
+      logger.warn({
+        event: 'billing.portal.customer_id_missing',
+        category: 'BILLING',
+        context: {
+          workspaceId: args.workspaceId,
+        },
+      });
+
       return throwAppErrorForConvex(ErrorCode.BILLING_CUSTOMER_ID_MISSING, {
         workspaceId: args.workspaceId,
       });
     }
+
+    logger.info({
+      event: 'billing.portal.started',
+      category: 'BILLING',
+      context: {
+        workspaceId: args.workspaceId,
+        customerIdSource,
+      },
+    });
 
     try {
       const session = await polar.customerSessions.create({
@@ -221,6 +275,16 @@ export const createBillingPortalSession = action({
 
       return { url: session.customerPortalUrl };
     } catch (error) {
+      logger.error({
+        event: 'billing.portal.failed',
+        category: 'BILLING',
+        context: {
+          workspaceId: args.workspaceId,
+          customerIdSource,
+        },
+        error,
+      });
+
       return throwAppErrorForConvex(ErrorCode.BILLING_PORTAL_SESSION_CREATE_FAILED, {
         customerId,
         message: error instanceof Error ? error.message : String(error),

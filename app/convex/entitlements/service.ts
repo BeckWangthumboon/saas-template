@@ -1,6 +1,8 @@
-import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
+import { ErrorCode } from '../../shared/errors';
 import type { Id } from '../_generated/dataModel';
+import { throwAppErrorForConvex } from '../errors';
 import type { MutationCtx, QueryCtx } from '../functions';
+import { logger } from '../logging';
 import type {
   BillingStatus,
   PlanFeatures,
@@ -202,11 +204,24 @@ export async function getWorkspaceUsageSnapshot(
     .collect()
     .then((invites) => invites.length);
 
-  return {
+  const usageSnapshot = {
     memberCount,
     ownerCount,
     pendingInviteCount,
   };
+
+  logger.debug({
+    event: 'billing.entitlements.usage_snapshot_computed',
+    category: 'BILLING',
+    context: {
+      workspaceId,
+      memberCount: usageSnapshot.memberCount,
+      ownerCount: usageSnapshot.ownerCount,
+      pendingInviteCount: usageSnapshot.pendingInviteCount,
+    },
+  });
+
+  return usageSnapshot;
 }
 
 /**
@@ -292,6 +307,21 @@ export async function getWorkspaceEntitlementsSnapshot(
     pastDueAt: state.pastDueAt,
     usage,
     now,
+  });
+
+  logger.debug({
+    event: 'billing.entitlements.resolved',
+    category: 'BILLING',
+    context: {
+      workspaceId,
+      planKey: state.planKey,
+      status: state.status,
+      effectivePlanKey: entitlements.effectivePlanKey,
+      effectiveStatus: entitlements.effectiveStatus,
+      isLocked: entitlements.isLocked,
+      isInGrace: entitlements.isInGrace,
+      graceEndsAt: entitlements.graceEndsAt,
+    },
   });
 
   return {

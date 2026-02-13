@@ -2,6 +2,7 @@ import { type AuthFunctions, AuthKit } from '@convex-dev/workos-authkit';
 
 import { components, internal } from '../_generated/api';
 import type { DataModel } from '../_generated/dataModel';
+import { logger } from '../logging';
 import { getUserByAuthId, handleUserDeleted } from './helpers';
 
 const authFunctions: AuthFunctions = internal.users.auth;
@@ -37,11 +38,20 @@ export const { authKitEvent } = authKit.events({
           ...updates,
           updatedAt: Date.now(),
         });
+
+        logger.info({
+          event: 'auth.webhook_user_created_updated_existing',
+          category: 'AUTH',
+          context: {
+            userId: existingUser._id,
+            updatedFields: Object.keys(updates),
+          },
+        });
       }
       return;
     }
 
-    await ctx.db.insert('users', {
+    const userId = await ctx.db.insert('users', {
       authId: event.data.id,
       email: event.data.email,
       firstName: event.data.firstName ?? undefined,
@@ -50,6 +60,14 @@ export const { authKitEvent } = authKit.events({
       onboardingStatus: 'not_started',
       updatedAt: Date.now(),
       status: 'active',
+    });
+
+    logger.info({
+      event: 'auth.webhook_user_created_inserted',
+      category: 'AUTH',
+      context: {
+        userId,
+      },
     });
   },
   /**
@@ -69,6 +87,14 @@ export const { authKitEvent } = authKit.events({
       profilePictureUrl: event.data.profilePictureUrl ?? undefined,
       updatedAt: Date.now(),
     });
+
+    logger.info({
+      event: 'auth.webhook_user_updated',
+      category: 'AUTH',
+      context: {
+        userId: user._id,
+      },
+    });
   },
 
   /**
@@ -81,6 +107,14 @@ export const { authKitEvent } = authKit.events({
    */
   'user.deleted': async (ctx, event) => {
     await handleUserDeleted(ctx, event.data.id);
+
+    logger.warn({
+      event: 'auth.webhook_user_deleted',
+      category: 'AUTH',
+      context: {
+        authId: event.data.id,
+      },
+    });
   },
 });
 

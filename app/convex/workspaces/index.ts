@@ -2,10 +2,12 @@ import './triggers';
 
 import { v } from 'convex/values';
 
-import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
+import { ErrorCode } from '../../shared/errors';
 import { upsertWorkspaceBillingState } from '../billing/helpers';
 import { isBillableLifecycleStatus } from '../entitlements/service';
+import { throwAppErrorForConvex } from '../errors';
 import { mutation, type MutationCtx, query } from '../functions';
+import { logger } from '../logging';
 import { getAuthenticatedUser } from '../users/helpers';
 import { isActiveWorkspace, tombstoneWorkspace } from './helpers';
 import {
@@ -44,6 +46,16 @@ async function createWorkspaceWithOwner(
   });
 
   await upsertWorkspaceBillingState(ctx, workspaceId);
+
+  logger.info({
+    event: 'workspace.created',
+    category: 'WORKSPACE',
+    context: {
+      workspaceId,
+      ownerUserId: user._id,
+    },
+  });
+
   return workspaceId;
 }
 
@@ -121,11 +133,31 @@ export const ensureDefaultWorkspaceForCurrentUser = mutation({
       });
 
       if (activeMembership) {
+        logger.debug({
+          event: 'workspace.default_ensured_existing',
+          category: 'WORKSPACE',
+          context: {
+            workspaceId: activeMembership.workspaceId,
+            userId: user._id,
+          },
+        });
+
         return activeMembership.workspaceId;
       }
     }
 
-    return createWorkspaceWithOwner(ctx, user, DEFAULT_SOLO_WORKSPACE_NAME);
+    const workspaceId = await createWorkspaceWithOwner(ctx, user, DEFAULT_SOLO_WORKSPACE_NAME);
+
+    logger.info({
+      event: 'workspace.default_created',
+      category: 'WORKSPACE',
+      context: {
+        workspaceId,
+        userId: user._id,
+      },
+    });
+
+    return workspaceId;
   },
 });
 
@@ -150,6 +182,14 @@ export const updateWorkspaceName = mutation({
       name: args.name.trim(),
       updatedAt: Date.now(),
     });
+
+    logger.info({
+      event: 'workspace.name_updated',
+      category: 'WORKSPACE',
+      context: {
+        workspaceId: args.workspaceId,
+      },
+    });
   },
 });
 
@@ -170,6 +210,16 @@ export const leaveWorkspace = mutation({
     }
 
     await ctx.db.delete('workspaceMembers', membership._id);
+
+    logger.info({
+      event: 'workspace.member_left',
+      category: 'WORKSPACE',
+      context: {
+        workspaceId: args.workspaceId,
+        userId: membership.userId,
+        role: membership.role,
+      },
+    });
   },
 });
 
@@ -208,6 +258,15 @@ export const deleteWorkspace = mutation({
     }
 
     if (isBillableLifecycleStatus(billingState.status)) {
+      logger.warn({
+        event: 'workspace.delete_blocked_billable_status',
+        category: 'WORKSPACE',
+        context: {
+          workspaceId: args.workspaceId,
+          status: billingState.status,
+        },
+      });
+
       return throwAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_DELETE_BLOCKED, {
         workspaceId: args.workspaceId,
         status: billingState.status,
@@ -215,5 +274,14 @@ export const deleteWorkspace = mutation({
     }
 
     await tombstoneWorkspace(ctx, args.workspaceId, user._id);
+
+    logger.info({
+      event: 'workspace.deleted',
+      category: 'WORKSPACE',
+      context: {
+        workspaceId: args.workspaceId,
+        deletedByUserId: user._id,
+      },
+    });
   },
 });

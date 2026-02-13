@@ -1,4 +1,5 @@
-import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
+import { ErrorCode } from '../../shared/errors';
+import { throwAppErrorForConvex } from '../errors';
 import { triggers } from '../functions';
 import { cleanupUserForDeletion, revokePendingInvitesForUser } from './helpers';
 

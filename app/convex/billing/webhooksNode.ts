@@ -5,6 +5,7 @@ import { v } from 'convex/values';
 
 import { convexEnv } from '../env';
 import { internalAction } from '../functions';
+import { logger } from '../logging';
 
 type PolarWebhookEvent = ReturnType<typeof validateEvent>;
 type PolarSubscriptionEvent = Extract<
@@ -59,12 +60,30 @@ export const verifyAndNormalizePolarWebhook = internalAction({
       const errorName = error instanceof Error ? error.name : 'UnknownError';
 
       if (error instanceof WebhookVerificationError) {
+        logger.warn({
+          event: 'billing.webhook.invalid_signature',
+          category: 'BILLING',
+          context: {
+            errorName,
+          },
+          error,
+        });
+
         return {
           status: 'invalid_signature' as const,
           errorMessage,
           errorName,
         };
       }
+
+      logger.warn({
+        event: 'billing.webhook.invalid_payload',
+        category: 'BILLING',
+        context: {
+          errorName,
+        },
+        error,
+      });
 
       return {
         status: 'invalid_payload' as const,
@@ -74,6 +93,14 @@ export const verifyAndNormalizePolarWebhook = internalAction({
     }
 
     if (!isPolarSubscriptionEvent(event)) {
+      logger.debug({
+        event: 'billing.webhook.unsupported_event',
+        category: 'BILLING',
+        context: {
+          eventType: event.type,
+        },
+      });
+
       return {
         status: 'ignored' as const,
         eventType: event.type,
@@ -85,6 +112,17 @@ export const verifyAndNormalizePolarWebhook = internalAction({
     const customerId = subscription.customerId;
     const productId = subscription.productId;
     const subscriptionStatus = subscription.status;
+
+    logger.debug({
+      event: 'billing.webhook.normalized',
+      category: 'BILLING',
+      context: {
+        eventType: event.type,
+        workspaceId: getWorkspaceIdFromMetadata(subscription.metadata),
+        subscriptionId: subscription.id,
+        subscriptionStatus: subscription.status,
+      },
+    });
 
     return {
       status: 'subscription' as const,

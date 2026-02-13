@@ -1,5 +1,6 @@
 import type { Doc, Id } from '../_generated/dataModel';
 import type { MutationCtx, QueryCtx } from '../functions';
+import { logger } from '../logging';
 
 export const WORKSPACE_PURGE_DELAY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
 
@@ -73,4 +74,15 @@ export async function tombstoneWorkspace(
   for (const invite of invites) {
     await ctx.db.delete('workspaceInvites', invite._id);
   }
+
+  logger.info({
+    event: 'workspace.tombstoned',
+    category: 'WORKSPACE',
+    context: {
+      workspaceId,
+      deletedByUserId,
+      removedMemberCount: members.length,
+      removedInviteCount: invites.length,
+    },
+  });
 }

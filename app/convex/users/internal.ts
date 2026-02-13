@@ -1,9 +1,11 @@
 import { v } from 'convex/values';
 
-import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
+import { ErrorCode } from '../../shared/errors';
 import { internal } from '../_generated/api';
 import type { Doc } from '../_generated/dataModel';
+import { throwAppErrorForConvex } from '../errors';
 import { internalMutation, internalQuery } from '../functions';
+import { logger } from '../logging';
 import {
   DELETE_MAX_ATTEMPTS,
   getActiveUserById,
@@ -42,6 +44,15 @@ export const deleteAccountOnComplete = workosWorkpool.defineOnComplete({
         deletingAt: undefined,
         delete: undefined,
       });
+
+      logger.info({
+        event: 'auth.user.delete_completed',
+        category: 'AUTH',
+        context: {
+          userId,
+        },
+      });
+
       return;
     }
 
@@ -57,6 +68,15 @@ export const deleteAccountOnComplete = workosWorkpool.defineOnComplete({
         nextAttemptAt: deleteInfo.nextAttemptAt,
         workId: deleteInfo.workId,
         lastError: `WorkOS delete failed (${result.kind})`,
+      },
+    });
+
+    logger.warn({
+      event: 'auth.user.delete_completion_failed',
+      category: 'AUTH',
+      context: {
+        userId,
+        resultKind: result.kind,
       },
     });
   },
@@ -82,6 +102,8 @@ export const reconcileStuckUserDeletions = internalMutation({
 
     let requeuedCount = 0;
     let terminalCount = 0;
+    let maxAttemptsReachedCount = 0;
+    let missingAuthIdCount = 0;
 
     for (const user of deletingUsers) {
       if (!isDeletingUser(user)) {
@@ -103,6 +125,7 @@ export const reconcileStuckUserDeletions = internalMutation({
           },
         });
         terminalCount += 1;
+        missingAuthIdCount += 1;
         continue;
       }
 
@@ -118,6 +141,7 @@ export const reconcileStuckUserDeletions = internalMutation({
           },
         });
         terminalCount += 1;
+        maxAttemptsReachedCount += 1;
         continue;
       }
 
@@ -150,6 +174,28 @@ export const reconcileStuckUserDeletions = internalMutation({
       requeuedCount += 1;
     }
 
+    if (requeuedCount > 0 || terminalCount > 0) {
+      logger.warn({
+        event: 'auth.user.delete_reconciled',
+        category: 'AUTH',
+        context: {
+          requeuedCount,
+          terminalCount,
+          maxAttemptsReachedCount,
+          missingAuthIdCount,
+        },
+      });
+    } else {
+      logger.debug({
+        event: 'auth.user.delete_reconciled',
+        category: 'AUTH',
+        context: {
+          requeuedCount,
+          terminalCount,
+        },
+      });
+    }
+
     return { reconciledCount: requeuedCount, terminalCount };
   },
 });
@@ -173,6 +219,16 @@ export const purgeDeletedUsers = internalMutation({
 
     for (const user of expiredUsers) {
       await ctx.db.delete('users', user._id);
+    }
+
+    if (expiredUsers.length > 0) {
+      logger.info({
+        event: 'auth.user.tombstones_purged',
+        category: 'AUTH',
+        context: {
+          purgedCount: expiredUsers.length,
+        },
+      });
     }
 
     return { purgedCount: expiredUsers.length };
@@ -223,6 +279,14 @@ export const getUserOrUpsertInternal = internalMutation({
       .unique();
 
     if (existingUser) {
+      logger.debug({
+        event: 'auth.user.upsert_internal_existing',
+        category: 'AUTH',
+        context: {
+          userId: existingUser._id,
+        },
+      });
+
       return existingUser;
     }
 
@@ -243,6 +307,15 @@ export const getUserOrUpsertInternal = internalMutation({
         details: 'Failed to fetch created user',
       });
     }
+
+    logger.info({
+      event: 'auth.user.upsert_internal_created',
+      category: 'AUTH',
+      context: {
+        userId,
+      },
+    });
+
     return user;
   },
 });

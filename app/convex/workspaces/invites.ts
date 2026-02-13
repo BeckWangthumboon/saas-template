@@ -1,9 +1,11 @@
 import { v } from 'convex/values';
 
-import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
+import { ErrorCode } from '../../shared/errors';
 import type { Doc, Id } from '../_generated/dataModel';
 import { getWorkspaceEntitlementsSnapshot } from '../entitlements/service';
+import { throwAppErrorForConvex } from '../errors';
 import { mutation, type MutationCtx, query, type QueryCtx } from '../functions';
+import { logger } from '../logging';
 import { getActiveUserByEmail, getActiveUserById, getAuthenticatedUser } from '../users/helpers';
 import { isActiveWorkspace } from './helpers';
 import { requireWorkspaceAdminOrOwner, type WorkspaceMembership } from './utils';
@@ -353,11 +355,31 @@ export const createInvite = mutation({
 
     const invitingYourself = normalizedEmail === user.email.toLowerCase();
     if (invitingYourself) {
+      logger.warn({
+        event: 'invite.create_blocked_self_invite',
+        category: 'INVITE',
+        context: {
+          workspaceId: args.workspaceId,
+          inviterUserId: user._id,
+        },
+      });
+
       return throwAppErrorForConvex(ErrorCode.INVITE_SELF_INVITE);
     }
 
     const invitingAdminAsAdmin = inviterRole === 'admin' && args.inviteeRole === 'admin';
     if (invitingAdminAsAdmin) {
+      logger.warn({
+        event: 'invite.create_blocked_admin_role',
+        category: 'INVITE',
+        context: {
+          workspaceId: args.workspaceId,
+          inviterUserId: user._id,
+          inviterRole,
+          inviteeRole: args.inviteeRole,
+        },
+      });
+
       return throwAppErrorForConvex(ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN);
     }
 
@@ -373,6 +395,15 @@ export const createInvite = mutation({
     );
 
     if (inviteeIsAlreadyMember) {
+      logger.warn({
+        event: 'invite.create_blocked_already_member',
+        category: 'INVITE',
+        context: {
+          workspaceId: args.workspaceId,
+          inviterUserId: user._id,
+        },
+      });
+
       return throwAppErrorForConvex(ErrorCode.INVITE_ALREADY_MEMBER, {
         email: normalizedEmail,
         workspaceId: args.workspaceId as string,
@@ -399,6 +430,19 @@ export const createInvite = mutation({
           formatName(user.firstName ?? null, user.lastName ?? null) ?? undefined,
         inviterDisplayEmailSnapshot: user.email,
       });
+
+      logger.info({
+        event: 'invite.resent',
+        category: 'INVITE',
+        context: {
+          inviteId: activeInvite._id,
+          workspaceId: args.workspaceId,
+          inviterUserId: user._id,
+          inviteeRole: args.inviteeRole,
+          invitedUserId: inviteeUser?._id,
+        },
+      });
+
       return {
         token: activeInvite.token,
         inviteId: activeInvite._id,
@@ -421,6 +465,18 @@ export const createInvite = mutation({
       inviterDisplayNameSnapshot:
         formatName(user.firstName ?? null, user.lastName ?? null) ?? undefined,
       inviterDisplayEmailSnapshot: user.email,
+    });
+
+    logger.info({
+      event: 'invite.created',
+      category: 'INVITE',
+      context: {
+        inviteId,
+        workspaceId: args.workspaceId,
+        inviterUserId: user._id,
+        inviteeRole: args.inviteeRole,
+        invitedUserId: inviteeUser?._id,
+      },
     });
 
     return { token, inviteId, wasResent: false };
@@ -486,6 +542,17 @@ export const acceptInvite = mutation({
       updatedAt: now,
     });
 
+    logger.info({
+      event: 'invite.accepted',
+      category: 'INVITE',
+      context: {
+        inviteId: invite._id,
+        workspaceId: invite.workspaceId,
+        userId: user._id,
+        role: invite.role,
+      },
+    });
+
     return {
       workspaceId: invite.workspaceId,
       workspaceName: workspace.name,
@@ -525,6 +592,15 @@ export const revokeInvite = mutation({
     await ctx.db.patch('workspaceInvites', invite._id, {
       status: 'revoked',
       updatedAt: Date.now(),
+    });
+
+    logger.info({
+      event: 'invite.revoked',
+      category: 'INVITE',
+      context: {
+        inviteId: invite._id,
+        workspaceId: invite.workspaceId,
+      },
     });
   },
 });

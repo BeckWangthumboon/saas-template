@@ -1,8 +1,9 @@
 import type { RunId } from '@convex-dev/action-retrier';
 import type { Infer } from 'convex/values';
 
-import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
+import { ErrorCode } from '../../shared/errors';
 import type { Doc, Id } from '../_generated/dataModel';
+import { throwAppErrorForConvex } from '../errors';
 import type { ActionCtx, MutationCtx, QueryCtx } from '../functions';
 import type { userDeleteInfo } from '../schema';
 import { workosActionRetrier, type WorkosUserFetchResult } from './workos';

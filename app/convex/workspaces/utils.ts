@@ -1,5 +1,6 @@
-import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
+import { ErrorCode } from '../../shared/errors';
 import type { Doc, Id } from '../_generated/dataModel';
+import { throwAppErrorForConvex } from '../errors';
 import type { MutationCtx, QueryCtx } from '../functions';
 import { getActiveUserById, getAuthenticatedUser } from '../users/helpers';
 import { getActiveWorkspaceById } from './helpers';

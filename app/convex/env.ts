@@ -1,6 +1,7 @@
 import { createAppErrorForConvex, ErrorCode } from '../shared/errors';
 
 type PolarServer = 'sandbox' | 'production';
+type ConvexLogLevel = 'debug' | 'info' | 'warn' | 'error';
 
 /**
  * Reads a required environment variable and returns a trimmed value.
@@ -39,6 +40,29 @@ const parsePolarServer = (): PolarServer => {
 
   throw createAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
     details: "POLAR_SERVER must be either 'sandbox' or 'production'",
+  });
+};
+
+/**
+ * Parses and validates the configured Convex backend log level.
+ *
+ * Defaults to `info` when `CONVEX_LOG_LEVEL` is unset.
+ *
+ * @returns Log level threshold for structured backend logs.
+ * @throws ConvexError when `CONVEX_LOG_LEVEL` has an unsupported value.
+ */
+const parseConvexLogLevel = (): ConvexLogLevel => {
+  const value = process.env.CONVEX_LOG_LEVEL?.trim().toLowerCase();
+  if (value === undefined || value.length === 0) {
+    return 'info';
+  }
+
+  if (value === 'debug' || value === 'info' || value === 'warn' || value === 'error') {
+    return value;
+  }
+
+  throw createAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+    details: "CONVEX_LOG_LEVEL must be one of 'debug', 'info', 'warn', or 'error'",
   });
 };
 
@@ -103,6 +127,7 @@ export const convexEnv = {
   polarProYearlyProductId: productIds.proYearlyProductId,
   polarServer: parsePolarServer(),
   appOrigin: parseAppOrigin(),
+  logLevel: parseConvexLogLevel(),
 } as const;
 
 export type ConvexEnv = typeof convexEnv;

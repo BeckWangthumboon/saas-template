@@ -1,10 +1,12 @@
 import type { FunctionReturnType } from 'convex/server';
 import { v } from 'convex/values';
 
-import { ErrorCode, throwAppErrorForConvex } from '../../shared/errors';
+import { ErrorCode } from '../../shared/errors';
 import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
+import { throwAppErrorForConvex } from '../errors';
 import { httpAction, internalMutation } from '../functions';
+import { logger } from '../logging';
 import { isActiveWorkspace } from '../workspaces/helpers';
 import { resolvePlanKeyFromProductId } from './products';
 
@@ -54,6 +56,13 @@ export const polarWebhook = httpAction(async (ctx, request) => {
   const webhookId = headers['webhook-id'];
 
   if (!webhookId) {
+    logger.warn({
+      event: 'billing.webhook.rejected',
+      category: 'BILLING',
+      context: {
+        reason: 'missing_webhook_id',
+      },
+    });
     return new Response('Missing webhook-id header', { status: 400 });
   }
 
@@ -69,12 +78,29 @@ export const polarWebhook = httpAction(async (ctx, request) => {
       },
     );
   } catch {
+    logger.error({
+      event: 'billing.webhook.verification_failed',
+      category: 'BILLING',
+      context: {
+        webhookId,
+      },
+    });
     return new Response('Webhook verification failed', { status: 500 });
   }
 
   switch (verificationResult.status) {
     case 'invalid_signature':
     case 'invalid_payload': {
+      logger.warn({
+        event: 'billing.webhook.invalid',
+        category: 'BILLING',
+        context: {
+          webhookId,
+          status: verificationResult.status,
+          errorName: verificationResult.errorName,
+        },
+      });
+
       if (verificationResult.status === 'invalid_signature') {
         return new Response('Invalid webhook signature', { status: 400 });
       }
@@ -82,9 +108,29 @@ export const polarWebhook = httpAction(async (ctx, request) => {
       return new Response('Invalid webhook payload', { status: 400 });
     }
     case 'ignored': {
+      logger.debug({
+        event: 'billing.webhook.ignored',
+        category: 'BILLING',
+        context: {
+          webhookId,
+          eventType: verificationResult.eventType,
+        },
+      });
       return new Response('ignored', { status: 200 });
     }
     case 'subscription': {
+      logger.info({
+        event: 'billing.webhook.subscription_received',
+        category: 'BILLING',
+        context: {
+          webhookId,
+          eventType: verificationResult.eventType,
+          workspaceId: verificationResult.workspaceId,
+          subscriptionId: verificationResult.subscriptionId,
+          status: verificationResult.subscriptionStatus,
+        },
+      });
+
       await ctx.runMutation(internal.billing.webhooks.handlePolarSubscriptionEvent, {
         eventId: webhookId,
         eventType: verificationResult.eventType,
@@ -97,6 +143,15 @@ export const polarWebhook = httpAction(async (ctx, request) => {
         subscriptionUpdatedAt: verificationResult.subscriptionUpdatedAt,
         cancelAtPeriodEnd: verificationResult.cancelAtPeriodEnd,
         workspaceId: verificationResult.workspaceId,
+      });
+
+      logger.info({
+        event: 'billing.webhook.subscription_acknowledged',
+        category: 'BILLING',
+        context: {
+          webhookId,
+          eventType: verificationResult.eventType,
+        },
       });
 
       return new Response('ok', { status: 200 });
@@ -135,6 +190,14 @@ export const handlePolarSubscriptionEvent = internalMutation({
       .unique();
 
     if (existing) {
+      logger.debug({
+        event: 'billing.webhook.duplicate_ignored',
+        category: 'BILLING',
+        context: {
+          eventId: args.eventId,
+          eventType: args.eventType,
+        },
+      });
       return null;
     }
 
@@ -143,6 +206,17 @@ export const handlePolarSubscriptionEvent = internalMutation({
       type: args.eventType,
       receivedAt: Date.now(),
       status: 'received',
+    });
+
+    logger.info({
+      event: 'billing.webhook.received',
+      category: 'BILLING',
+      context: {
+        eventId: args.eventId,
+        eventType: args.eventType,
+        workspaceId: args.workspaceId,
+        subscriptionId: args.subscriptionId,
+      },
     });
 
     const finalizeEvent = async (
@@ -155,6 +229,44 @@ export const handlePolarSubscriptionEvent = internalMutation({
         error: options.error,
         workspaceId: options.workspaceId,
       });
+
+      if (status === 'handled') {
+        logger.info({
+          event: 'billing.webhook.handled',
+          category: 'BILLING',
+          context: {
+            eventId: args.eventId,
+            eventType: args.eventType,
+            workspaceId: options.workspaceId,
+          },
+        });
+      }
+
+      if (status === 'unresolved') {
+        logger.warn({
+          event: 'billing.webhook.unresolved',
+          category: 'BILLING',
+          context: {
+            eventId: args.eventId,
+            eventType: args.eventType,
+            workspaceId: options.workspaceId,
+            reason: options.error,
+          },
+        });
+      }
+
+      if (status === 'error') {
+        logger.error({
+          event: 'billing.webhook.error',
+          category: 'BILLING',
+          context: {
+            eventId: args.eventId,
+            eventType: args.eventType,
+            workspaceId: options.workspaceId,
+          },
+          error: options.error,
+        });
+      }
     };
 
     try {
@@ -226,9 +338,33 @@ export const handlePolarSubscriptionEvent = internalMutation({
           : { ...baseUpdates, providerSubscriptionUpdatedAt: incomingUpdatedAt };
 
       if (existingState) {
+        const previousStatus = existingState.status;
         await ctx.db.patch('workspaceBillingState', existingState._id, updates);
+
+        logger.info({
+          event: 'billing.workspace_state.updated',
+          category: 'BILLING',
+          context: {
+            eventId: args.eventId,
+            workspaceId: normalizedWorkspaceId,
+            previousStatus,
+            nextStatus: mappedStatus,
+            planKey,
+          },
+        });
       } else {
         await ctx.db.insert('workspaceBillingState', updates);
+
+        logger.info({
+          event: 'billing.workspace_state.created',
+          category: 'BILLING',
+          context: {
+            eventId: args.eventId,
+            workspaceId: normalizedWorkspaceId,
+            nextStatus: mappedStatus,
+            planKey,
+          },
+        });
       }
 
       await finalizeEvent('handled', { workspaceId: normalizedWorkspaceId });
