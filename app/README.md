@@ -54,6 +54,7 @@ Backend (Convex runtime environment):
 - `POLAR_PRO_MONTHLY_PRODUCT_ID`
 - `POLAR_PRO_YEARLY_PRODUCT_ID`
 - `POLAR_SERVER` (`sandbox` or `production`, defaults to `sandbox`)
+- `APP_ENV` (`dev` or `prod`, defaults to `dev`)
 - `APP_ORIGIN` (required, used for billing return URLs)
 - `CONVEX_LOG_LEVEL` (`debug` | `info` | `warn` | `error`, defaults to `info`)
 
@@ -69,6 +70,30 @@ Useful commands:
 bun run check      # lint + typecheck + format
 bun run generate   # regenerate Convex schema/api types
 ```
+
+## Seed and reset local dev data
+
+Dev data tooling lives in `convex/dev/index.ts` and is hard-blocked unless `APP_ENV=dev`.
+
+Commands (from `app/`):
+
+```bash
+bun run dev:seed-data     # Create/update deterministic demo workspaces/users/billing state
+bun run dev:reset-data    # Clear workspace + billing + invite data (preserves users)
+bun run dev:reseed-data   # Reset then seed in one command
+```
+
+Notes:
+
+- `dev:reset-data` requires an explicit confirmation token in the script (`RESET_DEV_DATA`).
+- `dev:reset-data` preserves users by default because auth is provider-backed.
+- For a full wipe, include users explicitly:
+
+```bash
+bunx convex run dev/index.js:resetDevData '{"confirm":"RESET_DEV_DATA","includeUsers":true}'
+```
+
+- Never run these with `--prod`. Even if attempted, functions are blocked unless `APP_ENV=dev`.
 
 ## Architecture and key decisions
 
@@ -194,8 +219,5 @@ Notes:
 ## Known gaps and TODOs
 
 - TODO: centralize backend env validation into a single startup/validation module (current checks are partially distributed).
-- TODO: add seed/demo data workflow for local dev.
-- TODO: add reset-dev-environment workflow/documentation.
 - TODO: add optional starter-pack examples for file upload/external API and email notifications.
-- TODO (uncertain): confirm preferred local backend env workflow for team onboarding (Convex dashboard vs scripted env setup).
 - TODO (uncertain): confirm whether current `predev` behavior (opening Convex dashboard) should remain default for this template.

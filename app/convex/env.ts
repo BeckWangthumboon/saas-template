@@ -2,6 +2,7 @@ import { createAppErrorForConvex, ErrorCode } from '../shared/errors';
 
 type PolarServer = 'sandbox' | 'production';
 type ConvexLogLevel = 'debug' | 'info' | 'warn' | 'error';
+type AppEnvironment = 'dev' | 'prod';
 
 /**
  * Reads a required environment variable and returns a trimmed value.
@@ -67,6 +68,29 @@ const parseConvexLogLevel = (): ConvexLogLevel => {
 };
 
 /**
+ * Parses and validates the app runtime environment.
+ *
+ * Defaults to `dev` when `APP_ENV` is unset to optimize local template usage.
+ *
+ * @returns App environment (`dev` or `prod`).
+ * @throws ConvexError when `APP_ENV` has an unsupported value.
+ */
+const parseAppEnvironment = (): AppEnvironment => {
+  const value = process.env.APP_ENV?.trim().toLowerCase();
+  if (value === undefined || value.length === 0) {
+    return 'dev';
+  }
+
+  if (value === 'dev' || value === 'prod') {
+    return value;
+  }
+
+  throw createAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+    details: "APP_ENV must be either 'dev' or 'prod'",
+  });
+};
+
+/**
  * Parses and normalizes the frontend app origin used in billing redirect URLs.
  *
  * @returns App origin without a trailing slash.
@@ -119,6 +143,7 @@ const productIds = parsePolarProductIds();
  * @throws ConvexError when any required environment variable is invalid.
  */
 export const convexEnv = {
+  appEnv: parseAppEnvironment(),
   workosClientId: requireEnv('WORKOS_CLIENT_ID'),
   workosApiKey: requireEnv('WORKOS_API_KEY'),
   polarOrganizationToken: requireEnv('POLAR_ORGANIZATION_TOKEN'),
