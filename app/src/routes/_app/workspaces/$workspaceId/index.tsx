@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { ArrowRightIcon, SettingsIcon, UsersIcon } from 'lucide-react';
+import { ArrowRightIcon, type LucideIcon, SettingsIcon, UsersIcon } from 'lucide-react';
 
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -11,6 +11,17 @@ import {
 export const Route = createFileRoute('/_app/workspaces/$workspaceId/')({
   component: OverviewPage,
 });
+
+interface WorkspacePage {
+  title: string;
+  description: string;
+  slug: string;
+  icon: LucideIcon;
+}
+
+interface WorkspacePageLink extends WorkspacePage {
+  href: string;
+}
 
 const pages = [
   {
@@ -31,7 +42,7 @@ const pages = [
     slug: 'settings',
     icon: SettingsIcon,
   },
-] as const;
+] satisfies readonly WorkspacePage[];
 
 function OverviewPage() {
   const { getWorkspacePath } = useWorkspace();
@@ -48,38 +59,46 @@ function OverviewPage() {
   const visiblePages = entitlementsContext.canAccessMembersPage
     ? pages
     : pages.filter((page) => page.slug !== 'members');
+  const pageLinks: WorkspacePageLink[] = visiblePages.map((page) => ({
+    ...page,
+    href: getWorkspacePath(`/${page.slug}`),
+  }));
 
   return (
-    <div className="max-w-2xl">
-      <div className="mb-6">
+    <div className="max-w-4xl space-y-6">
+      <div className="space-y-3">
         <h1 className="text-2xl font-semibold">Overview</h1>
-        <p className="text-muted-foreground mt-1">
+        <p className="text-muted-foreground">
           Welcome to your dashboard. Explore the available pages below.
         </p>
       </div>
 
-      <div className="grid gap-4">
-        {visiblePages.map((page) => {
-          const href = getWorkspacePath(`/${page.slug}`);
+      <OverviewVersionOne pageLinks={pageLinks} />
+    </div>
+  );
+}
 
-          return (
-            <Link key={page.slug} to={href}>
-              <Card className="transition-colors hover:bg-accent/50">
-                <CardHeader className="flex-row items-center gap-4">
-                  <div className="size-10 rounded-md bg-primary/10 flex items-center justify-center shrink-0">
-                    <page.icon className="size-5 text-primary" />
-                  </div>
-                  <div className="flex-1">
-                    <CardTitle className="text-base">{page.title}</CardTitle>
-                    <CardDescription>{page.description}</CardDescription>
-                  </div>
-                  <ArrowRightIcon className="size-5 text-muted-foreground" />
-                </CardHeader>
-              </Card>
-            </Link>
-          );
-        })}
-      </div>
+function OverviewVersionOne({ pageLinks }: { pageLinks: WorkspacePageLink[] }) {
+  return (
+    <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+      {pageLinks.map((page) => (
+        <Link key={page.slug} to={page.href}>
+          <Card className="h-full border-border/80 transition-colors hover:bg-muted/40">
+            <CardHeader className="gap-3">
+              <div className="flex items-center justify-between">
+                <div className="bg-primary/10 text-primary flex size-9 items-center justify-center rounded-md">
+                  <page.icon className="size-4" />
+                </div>
+                <ArrowRightIcon className="text-muted-foreground size-4" />
+              </div>
+              <div className="space-y-1">
+                <CardTitle className="text-base">{page.title}</CardTitle>
+                <CardDescription>{page.description}</CardDescription>
+              </div>
+            </CardHeader>
+          </Card>
+        </Link>
+      ))}
     </div>
   );
 }
