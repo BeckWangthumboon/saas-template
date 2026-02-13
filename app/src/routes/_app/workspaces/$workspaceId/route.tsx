@@ -98,6 +98,7 @@ function WorkspaceLayoutReadyContent({
   const workspaceBasePath = getWorkspacePath();
   const settingsPath = getWorkspacePath('/settings');
   const membersPath = getWorkspacePath('/members');
+  const contactsPath = getWorkspacePath('/contacts');
   const billingPath = getWorkspacePath('/settings/billing');
   const isWorkspaceScopedPath =
     location.pathname === workspaceBasePath ||
@@ -122,6 +123,12 @@ function WorkspaceLayoutReadyContent({
     label: 'Overview',
     href: getWorkspacePath(),
     icon: LayoutDashboardIcon,
+  });
+
+  appPages.push({
+    label: 'Contacts',
+    href: contactsPath,
+    icon: UsersIcon,
   });
 
   if (entitlementsContext.canAccessMembersPage) {

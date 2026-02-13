@@ -14,6 +14,12 @@ export const Route = createFileRoute('/_app/workspaces/$workspaceId/')({
 
 const pages = [
   {
+    title: 'Contacts',
+    description: 'Create and manage contacts with simple CRUD flows.',
+    slug: 'contacts',
+    icon: UsersIcon,
+  },
+  {
     title: 'Members',
     description: 'Manage workspace members and their permissions.',
     slug: 'members',

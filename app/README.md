@@ -128,7 +128,7 @@ Workspace deletion uses tombstones (not immediate hard delete):
 
 - `status = 'deleted'`
 - `deletedAt`, `purgeAt`, `deletedByUserId`
-- memberships and invites are removed immediately at tombstone time
+- memberships, invites, and contacts are removed immediately at tombstone time
 - daily cron purges workspace tombstones after retention
 
 Deletion is blocked if workspace billing is still billable (`trialing`/`active`/`past_due`).
@@ -215,6 +215,26 @@ Notes:
 
 - Convex dashboard logs are a realtime/short-history view.
 - For long-term retention and bulk export, configure Convex log streams.
+
+## Starter packs
+
+### Contacts starter pack (included)
+
+This template includes a minimal Contacts CRUD example you can keep or delete per project.
+
+- Route: `/workspaces/$workspaceId/contacts`
+- Backend: `convex/contacts/index.ts`
+- Table: `contacts` in `convex/schema.ts`
+- UI page: `src/routes/_app/workspaces/$workspaceId/contacts.tsx`
+
+What it demonstrates:
+
+- TanStack Form validation (`name` required, optional valid email)
+- Convex CRUD flow (`listContacts`, `createContact`, `updateContact`, `deleteContact`)
+- Workspace membership checks in backend handlers
+- Data cleanup when a workspace is tombstoned or purged
+
+If you do not need this starter pack in a new project, remove the route file, backend module, schema table, and navigation links.
 
 ## Known gaps and TODOs
 
