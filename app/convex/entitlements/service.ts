@@ -134,7 +134,7 @@ export const resolveEffectivePlanKey = (planKey: PlanKey, status: BillingStatus)
 /**
  * Resolves billing lifecycle flags from raw provider status.
  */
-export const resolveBillingLifecycle = (input: ResolveBillingLifecycleInput): BillingLifecycle => {
+export const resolveBillingLifecycle = (input: ResolveBillingLifecycleInput) => {
   const graceEndsAt = input.pastDueAt ? input.pastDueAt + PAST_DUE_GRACE_PERIOD_MS : undefined;
   const isInGrace =
     input.status === 'past_due' && graceEndsAt !== undefined && input.now < graceEndsAt;
@@ -328,4 +328,46 @@ export async function getWorkspaceEntitlementsSnapshot(
     state,
     entitlements,
   };
+}
+
+/**
+ * Ensures a workspace is not billing-locked for write operations.
+ *
+ * This check intentionally avoids usage computation because write gating only
+ * depends on raw billing lifecycle status and grace window.
+ *
+ * @param ctx - Convex query or mutation context used for billing state reads.
+ * @param workspaceId - Workspace identifier to validate.
+ * @param now - Current timestamp in milliseconds for grace window checks.
+ * @throws BILLING_WORKSPACE_STATE_MISSING when no billing state exists.
+ * @throws BILLING_WORKSPACE_LOCKED when workspace is past due and out of grace.
+ */
+export async function assertWorkspaceUnlockedForWrites(
+  ctx: QueryCtx | MutationCtx,
+  workspaceId: Id<'workspaces'>,
+  now = Date.now(),
+) {
+  const state = await ctx.db
+    .query('workspaceBillingState')
+    .withIndex('by_workspaceId', (q) => q.eq('workspaceId', workspaceId))
+    .unique();
+
+  if (!state) {
+    return throwAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_STATE_MISSING, {
+      workspaceId: workspaceId as string,
+    });
+  }
+
+  const lifecycle = resolveBillingLifecycle({
+    status: state.status,
+    pastDueAt: state.pastDueAt,
+    now,
+  });
+
+  if (lifecycle.isLocked) {
+    return throwAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_LOCKED, {
+      workspaceId: workspaceId as string,
+      graceEndsAt: lifecycle.graceEndsAt,
+    });
+  }
 }

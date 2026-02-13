@@ -4,6 +4,7 @@ import { z } from 'zod';
 
 import { ErrorCode } from '../../shared/errors';
 import type { Doc, Id } from '../_generated/dataModel';
+import { assertWorkspaceUnlockedForWrites } from '../entitlements/service';
 import { throwAppErrorForConvex } from '../errors';
 import { mutation, type MutationCtx, query } from '../functions';
 import { logger } from '../logging';
@@ -109,6 +110,8 @@ export const listContacts = query({
  * @param notes - Optional notes.
  * @returns The created contact ID.
  * @throws WORKSPACE_ACCESS_DENIED when caller is not a workspace member.
+ * @throws BILLING_WORKSPACE_STATE_MISSING when workspace billing state is missing.
+ * @throws BILLING_WORKSPACE_LOCKED when workspace is locked due to billing past grace.
  * @throws CONTACT_NAME_EMPTY when name is blank.
  * @throws CONTACT_INVALID_EMAIL when email format is invalid.
  */
@@ -119,6 +122,7 @@ export const createContact = mutation({
   },
   handler: async (ctx, args) => {
     const { user } = await getWorkspaceMembership(ctx, args.workspaceId);
+    await assertWorkspaceUnlockedForWrites(ctx, args.workspaceId);
     const normalizedInput = normalizeAndValidateContactInput(args);
     const now = Date.now();
 
@@ -154,6 +158,8 @@ export const createContact = mutation({
  * @param email - Optional contact email.
  * @param notes - Optional notes.
  * @throws WORKSPACE_ACCESS_DENIED when caller is not a workspace member.
+ * @throws BILLING_WORKSPACE_STATE_MISSING when workspace billing state is missing.
+ * @throws BILLING_WORKSPACE_LOCKED when workspace is locked due to billing past grace.
  * @throws CONTACT_NOT_FOUND when contact does not exist in workspace.
  * @throws CONTACT_NAME_EMPTY when name is blank.
  * @throws CONTACT_INVALID_EMAIL when email format is invalid.
@@ -166,6 +172,7 @@ export const updateContact = mutation({
   },
   handler: async (ctx, args) => {
     const { user } = await getWorkspaceMembership(ctx, args.workspaceId);
+    await assertWorkspaceUnlockedForWrites(ctx, args.workspaceId);
     const contact = await getContactForWorkspace(ctx, args.contactId, args.workspaceId);
     const normalizedInput = normalizeAndValidateContactInput(args);
 
@@ -194,6 +201,8 @@ export const updateContact = mutation({
  * @param workspaceId - Target workspace.
  * @param contactId - Contact to delete.
  * @throws WORKSPACE_ACCESS_DENIED when caller is not a workspace member.
+ * @throws BILLING_WORKSPACE_STATE_MISSING when workspace billing state is missing.
+ * @throws BILLING_WORKSPACE_LOCKED when workspace is locked due to billing past grace.
  * @throws CONTACT_NOT_FOUND when contact does not exist in workspace.
  */
 export const deleteContact = mutation({
@@ -203,6 +212,7 @@ export const deleteContact = mutation({
   },
   handler: async (ctx, args) => {
     const { user } = await getWorkspaceMembership(ctx, args.workspaceId);
+    await assertWorkspaceUnlockedForWrites(ctx, args.workspaceId);
     const contact = await getContactForWorkspace(ctx, args.contactId, args.workspaceId);
 
     await ctx.db.delete('contacts', contact._id);
