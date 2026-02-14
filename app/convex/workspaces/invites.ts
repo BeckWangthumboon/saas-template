@@ -6,7 +6,13 @@ import { getWorkspaceEntitlementsSnapshot } from '../entitlements/service';
 import { throwAppErrorForConvex } from '../errors';
 import { mutation, type MutationCtx, query, type QueryCtx } from '../functions';
 import { logger } from '../logging';
-import { getActiveUserByEmail, getActiveUserById, getAuthenticatedUser } from '../users/helpers';
+import { rateLimiter } from '../rateLimiter';
+import {
+  getActiveUserByEmail,
+  getActiveUserById,
+  getAuthenticatedUser,
+  getAuthIdentity,
+} from '../users/helpers';
 import { isActiveWorkspace } from './helpers';
 import { requireWorkspaceAdminOrOwner, type WorkspaceMembership } from './utils';
 
@@ -427,6 +433,7 @@ function throwInviteAcceptanceValidationError(
  * @throws INVITE_ADMIN_CANNOT_INVITE_ADMIN if admin tries to invite as admin.
  * @throws INVITE_ALREADY_MEMBER if invitee is already an active member.
  * @throws WORKSPACE_INSUFFICIENT_ROLE if caller is a regular member.
+ * @throws INVITE_CREATE_RATE_LIMITED when invite creation limits are exceeded.
  */
 export const createInvite = mutation({
   args: {
@@ -470,6 +477,25 @@ export const createInvite = mutation({
       });
 
       return throwAppErrorForConvex(ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN);
+    }
+
+    const perUserStatus = await rateLimiter.limit(ctx, 'createInviteByUser', {
+      key: user._id,
+    });
+    if (!perUserStatus.ok) {
+      logger.warn({
+        event: 'invite.create_rate_limited',
+        category: 'INVITE',
+        context: {
+          workspaceId: args.workspaceId,
+          inviterUserId: user._id,
+          retryAfter: perUserStatus.retryAfter,
+        },
+      });
+
+      return throwAppErrorForConvex(ErrorCode.INVITE_CREATE_RATE_LIMITED, {
+        retryAfter: perUserStatus.retryAfter,
+      });
     }
 
     const now = Date.now();
@@ -614,6 +640,7 @@ export const getInviteForAcceptance = query({
  * @throws INVITE_ALREADY_REVOKED if invite was revoked.
  * @throws INVITE_EXPIRED if invite has expired.
  * @throws INVITE_EMAIL_MISMATCH if the authenticated user does not match invite recipient.
+ * @throws INVITE_ACCEPT_RATE_LIMITED when invite acceptance limits are exceeded.
  */
 export const acceptInvite = mutation({
   args: { token: v.string() },
@@ -621,6 +648,25 @@ export const acceptInvite = mutation({
     ctx,
     args,
   ): Promise<{ workspaceId: Id<'workspaces'>; workspaceName: string; role: InviteRole }> => {
+    const identity = await getAuthIdentity(ctx);
+    const rateLimitStatus = await rateLimiter.limit(ctx, 'acceptInviteByUser', {
+      key: identity.subject,
+    });
+    if (!rateLimitStatus.ok) {
+      logger.warn({
+        event: 'invite.accept_rate_limited',
+        category: 'INVITE',
+        context: {
+          authId: identity.subject,
+          retryAfter: rateLimitStatus.retryAfter,
+        },
+      });
+
+      return throwAppErrorForConvex(ErrorCode.INVITE_ACCEPT_RATE_LIMITED, {
+        retryAfter: rateLimitStatus.retryAfter,
+      });
+    }
+
     const validation = await validateInviteForAcceptance(ctx, args.token);
 
     if (validation.status === 'already_accepted') {

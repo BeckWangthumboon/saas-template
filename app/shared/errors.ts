@@ -27,9 +27,11 @@ export const ErrorCodeSchema = z.enum([
   'WORKSPACE_INSUFFICIENT_ROLE',
   'WORKSPACE_MEMBER_NOT_FOUND',
   'WORKSPACE_REMOVE_SELF',
+  'WORKSPACE_CREATE_RATE_LIMITED',
   'CONTACT_NAME_EMPTY',
   'CONTACT_INVALID_EMAIL',
   'CONTACT_NOT_FOUND',
+  'CONTACT_WRITE_RATE_LIMITED',
   'INVITE_NOT_FOUND',
   'INVITE_EXPIRED',
   'INVITE_ALREADY_ACCEPTED',
@@ -39,6 +41,8 @@ export const ErrorCodeSchema = z.enum([
   'INVITE_SELF_INVITE',
   'INVITE_CANNOT_ASSIGN_OWNER',
   'INVITE_ADMIN_CANNOT_INVITE_ADMIN',
+  'INVITE_CREATE_RATE_LIMITED',
+  'INVITE_ACCEPT_RATE_LIMITED',
   'BILLING_PRODUCT_ID_REQUIRED',
   'BILLING_PRODUCT_ID_UNKNOWN',
   'BILLING_SUBSCRIPTION_STATUS_UNKNOWN',
@@ -73,9 +77,11 @@ export const ErrorCode = {
   WORKSPACE_INSUFFICIENT_ROLE: 'WORKSPACE_INSUFFICIENT_ROLE',
   WORKSPACE_MEMBER_NOT_FOUND: 'WORKSPACE_MEMBER_NOT_FOUND',
   WORKSPACE_REMOVE_SELF: 'WORKSPACE_REMOVE_SELF',
+  WORKSPACE_CREATE_RATE_LIMITED: 'WORKSPACE_CREATE_RATE_LIMITED',
   CONTACT_NAME_EMPTY: 'CONTACT_NAME_EMPTY',
   CONTACT_INVALID_EMAIL: 'CONTACT_INVALID_EMAIL',
   CONTACT_NOT_FOUND: 'CONTACT_NOT_FOUND',
+  CONTACT_WRITE_RATE_LIMITED: 'CONTACT_WRITE_RATE_LIMITED',
   INVITE_NOT_FOUND: 'INVITE_NOT_FOUND',
   INVITE_EXPIRED: 'INVITE_EXPIRED',
   INVITE_ALREADY_ACCEPTED: 'INVITE_ALREADY_ACCEPTED',
@@ -85,6 +91,8 @@ export const ErrorCode = {
   INVITE_SELF_INVITE: 'INVITE_SELF_INVITE',
   INVITE_CANNOT_ASSIGN_OWNER: 'INVITE_CANNOT_ASSIGN_OWNER',
   INVITE_ADMIN_CANNOT_INVITE_ADMIN: 'INVITE_ADMIN_CANNOT_INVITE_ADMIN',
+  INVITE_CREATE_RATE_LIMITED: 'INVITE_CREATE_RATE_LIMITED',
+  INVITE_ACCEPT_RATE_LIMITED: 'INVITE_ACCEPT_RATE_LIMITED',
   BILLING_PRODUCT_ID_REQUIRED: 'BILLING_PRODUCT_ID_REQUIRED',
   BILLING_PRODUCT_ID_UNKNOWN: 'BILLING_PRODUCT_ID_UNKNOWN',
   BILLING_SUBSCRIPTION_STATUS_UNKNOWN: 'BILLING_SUBSCRIPTION_STATUS_UNKNOWN',
@@ -117,9 +125,11 @@ const errorCategoryMap: Record<ErrorCode, ErrorCategory> = {
   [ErrorCode.WORKSPACE_INSUFFICIENT_ROLE]: ErrorCategory.WORKSPACE,
   [ErrorCode.WORKSPACE_MEMBER_NOT_FOUND]: ErrorCategory.WORKSPACE,
   [ErrorCode.WORKSPACE_REMOVE_SELF]: ErrorCategory.WORKSPACE,
+  [ErrorCode.WORKSPACE_CREATE_RATE_LIMITED]: ErrorCategory.WORKSPACE,
   [ErrorCode.CONTACT_NAME_EMPTY]: ErrorCategory.WORKSPACE,
   [ErrorCode.CONTACT_INVALID_EMAIL]: ErrorCategory.WORKSPACE,
   [ErrorCode.CONTACT_NOT_FOUND]: ErrorCategory.WORKSPACE,
+  [ErrorCode.CONTACT_WRITE_RATE_LIMITED]: ErrorCategory.WORKSPACE,
   [ErrorCode.INVITE_NOT_FOUND]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_EXPIRED]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: ErrorCategory.INVITE,
@@ -129,6 +139,8 @@ const errorCategoryMap: Record<ErrorCode, ErrorCategory> = {
   [ErrorCode.INVITE_SELF_INVITE]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_CANNOT_ASSIGN_OWNER]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN]: ErrorCategory.INVITE,
+  [ErrorCode.INVITE_CREATE_RATE_LIMITED]: ErrorCategory.INVITE,
+  [ErrorCode.INVITE_ACCEPT_RATE_LIMITED]: ErrorCategory.INVITE,
   [ErrorCode.BILLING_PRODUCT_ID_REQUIRED]: ErrorCategory.BILLING,
   [ErrorCode.BILLING_PRODUCT_ID_UNKNOWN]: ErrorCategory.BILLING,
   [ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN]: ErrorCategory.BILLING,
@@ -173,9 +185,11 @@ export interface ErrorContextMap {
   };
   [ErrorCode.WORKSPACE_MEMBER_NOT_FOUND]: { userId: string; workspaceId: string };
   [ErrorCode.WORKSPACE_REMOVE_SELF]: Record<string, never>;
+  [ErrorCode.WORKSPACE_CREATE_RATE_LIMITED]: { retryAfter?: number };
   [ErrorCode.CONTACT_NAME_EMPTY]: Record<string, never>;
   [ErrorCode.CONTACT_INVALID_EMAIL]: { email: string };
   [ErrorCode.CONTACT_NOT_FOUND]: { contactId: string; workspaceId: string };
+  [ErrorCode.CONTACT_WRITE_RATE_LIMITED]: { retryAfter?: number; workspaceId?: string };
   [ErrorCode.INVITE_NOT_FOUND]: { token?: string; inviteId?: string };
   [ErrorCode.INVITE_EXPIRED]: { token?: string; hasNewerInvite?: boolean };
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: { token?: string; hasNewerInvite?: boolean };
@@ -185,6 +199,8 @@ export interface ErrorContextMap {
   [ErrorCode.INVITE_SELF_INVITE]: Record<string, never>;
   [ErrorCode.INVITE_CANNOT_ASSIGN_OWNER]: Record<string, never>;
   [ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN]: Record<string, never>;
+  [ErrorCode.INVITE_CREATE_RATE_LIMITED]: { retryAfter?: number };
+  [ErrorCode.INVITE_ACCEPT_RATE_LIMITED]: { retryAfter?: number };
   [ErrorCode.BILLING_PRODUCT_ID_REQUIRED]: Record<string, never>;
   [ErrorCode.BILLING_PRODUCT_ID_UNKNOWN]: { productId: string };
   [ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN]: { status: string };
@@ -236,9 +252,12 @@ const errorMessages: Record<ErrorCode, string> = {
     'You do not have the required role to perform this action',
   [ErrorCode.WORKSPACE_MEMBER_NOT_FOUND]: 'Member not found in workspace',
   [ErrorCode.WORKSPACE_REMOVE_SELF]: 'Use leave workspace instead',
+  [ErrorCode.WORKSPACE_CREATE_RATE_LIMITED]:
+    'Too many workspace creation attempts. Please try again shortly',
   [ErrorCode.CONTACT_NAME_EMPTY]: 'Contact name cannot be empty',
   [ErrorCode.CONTACT_INVALID_EMAIL]: 'Contact email is invalid',
   [ErrorCode.CONTACT_NOT_FOUND]: 'Contact not found',
+  [ErrorCode.CONTACT_WRITE_RATE_LIMITED]: 'Too many contact updates. Please try again shortly',
   [ErrorCode.INVITE_NOT_FOUND]: 'Invite not found',
   [ErrorCode.INVITE_EXPIRED]: 'This invite has expired',
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: 'This invite has already been accepted',
@@ -248,6 +267,9 @@ const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.INVITE_SELF_INVITE]: 'You cannot invite yourself',
   [ErrorCode.INVITE_CANNOT_ASSIGN_OWNER]: 'Cannot invite with owner role',
   [ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN]: 'Admins can only invite members',
+  [ErrorCode.INVITE_CREATE_RATE_LIMITED]: 'Too many invitation attempts. Please try again shortly',
+  [ErrorCode.INVITE_ACCEPT_RATE_LIMITED]:
+    'Too many invite acceptance attempts. Please try again shortly',
   [ErrorCode.BILLING_PRODUCT_ID_REQUIRED]: 'Polar product ID is required',
   [ErrorCode.BILLING_PRODUCT_ID_UNKNOWN]: 'Unknown Polar product ID',
   [ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN]: 'Unknown Polar subscription status',
@@ -416,11 +438,18 @@ export const ConvexErrors = {
     memberNotFound: (userId: string, workspaceId: string) =>
       createAppErrorForConvex(ErrorCode.WORKSPACE_MEMBER_NOT_FOUND, { userId, workspaceId }),
     removeSelf: () => createAppErrorForConvex(ErrorCode.WORKSPACE_REMOVE_SELF),
+    createRateLimited: (retryAfter?: number) =>
+      createAppErrorForConvex(
+        ErrorCode.WORKSPACE_CREATE_RATE_LIMITED,
+        retryAfter ? { retryAfter } : undefined,
+      ),
     contactNameEmpty: () => createAppErrorForConvex(ErrorCode.CONTACT_NAME_EMPTY),
     contactInvalidEmail: (email: string) =>
       createAppErrorForConvex(ErrorCode.CONTACT_INVALID_EMAIL, { email }),
     contactNotFound: (contactId: string, workspaceId: string) =>
       createAppErrorForConvex(ErrorCode.CONTACT_NOT_FOUND, { contactId, workspaceId }),
+    contactWriteRateLimited: (context?: ErrorContextMap['CONTACT_WRITE_RATE_LIMITED']) =>
+      createAppErrorForConvex(ErrorCode.CONTACT_WRITE_RATE_LIMITED, context),
   },
   invite: {
     notFound: (context?: ErrorContextMap['INVITE_NOT_FOUND']) =>
@@ -439,6 +468,16 @@ export const ConvexErrors = {
     cannotAssignOwner: () => createAppErrorForConvex(ErrorCode.INVITE_CANNOT_ASSIGN_OWNER),
     adminCannotInviteAdmin: () =>
       createAppErrorForConvex(ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN),
+    createRateLimited: (retryAfter?: number) =>
+      createAppErrorForConvex(
+        ErrorCode.INVITE_CREATE_RATE_LIMITED,
+        retryAfter ? { retryAfter } : undefined,
+      ),
+    acceptRateLimited: (retryAfter?: number) =>
+      createAppErrorForConvex(
+        ErrorCode.INVITE_ACCEPT_RATE_LIMITED,
+        retryAfter ? { retryAfter } : undefined,
+      ),
   },
   billing: {
     productIdRequired: () => createAppErrorForConvex(ErrorCode.BILLING_PRODUCT_ID_REQUIRED),

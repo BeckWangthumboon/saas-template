@@ -113,6 +113,10 @@ export function InviteMemberDialog({
           toast.error('Billing action required', {
             description: 'Workspace access is restricted until billing is resolved.',
           });
+        } else if (result.error.code === ErrorCode.INVITE_CREATE_RATE_LIMITED) {
+          toast.error('Too many invite attempts', {
+            description: 'Please wait a moment before sending more invitations.',
+          });
         } else {
           toast.error('Failed to send invitation', { description: result.error.message });
         }
