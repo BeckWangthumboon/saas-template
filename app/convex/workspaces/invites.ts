@@ -7,12 +7,7 @@ import { throwAppErrorForConvex } from '../errors';
 import { mutation, type MutationCtx, query, type QueryCtx } from '../functions';
 import { logger } from '../logging';
 import { rateLimiter } from '../rateLimiter';
-import {
-  getActiveUserByEmail,
-  getActiveUserById,
-  getAuthenticatedUser,
-  getAuthIdentity,
-} from '../users/helpers';
+import { getActiveUserByEmail, getActiveUserById, getAuthenticatedUser } from '../users/helpers';
 import { isActiveWorkspace } from './helpers';
 import { requireWorkspaceAdminOrOwner, type WorkspaceMembership } from './utils';
 
@@ -648,25 +643,6 @@ export const acceptInvite = mutation({
     ctx,
     args,
   ): Promise<{ workspaceId: Id<'workspaces'>; workspaceName: string; role: InviteRole }> => {
-    const identity = await getAuthIdentity(ctx);
-    const rateLimitStatus = await rateLimiter.limit(ctx, 'acceptInviteByUser', {
-      key: identity.subject,
-    });
-    if (!rateLimitStatus.ok) {
-      logger.warn({
-        event: 'invite.accept_rate_limited',
-        category: 'INVITE',
-        context: {
-          authId: identity.subject,
-          retryAfter: rateLimitStatus.retryAfter,
-        },
-      });
-
-      return throwAppErrorForConvex(ErrorCode.INVITE_ACCEPT_RATE_LIMITED, {
-        retryAfter: rateLimitStatus.retryAfter,
-      });
-    }
-
     const validation = await validateInviteForAcceptance(ctx, args.token);
 
     if (validation.status === 'already_accepted') {
@@ -749,6 +725,26 @@ export const acceptInvite = mutation({
     }
 
     const { invite, user, workspace } = validation.data;
+
+    const rateLimitStatus = await rateLimiter.limit(ctx, 'acceptInviteByUser', {
+      key: user.authId,
+    });
+    if (!rateLimitStatus.ok) {
+      logger.warn({
+        event: 'invite.accept_rate_limited',
+        category: 'INVITE',
+        context: {
+          authId: user.authId,
+          userId: user._id,
+          retryAfter: rateLimitStatus.retryAfter,
+        },
+      });
+
+      return throwAppErrorForConvex(ErrorCode.INVITE_ACCEPT_RATE_LIMITED, {
+        retryAfter: rateLimitStatus.retryAfter,
+      });
+    }
+
     const now = Date.now();
 
     const entitlements = await getWorkspaceInviteEntitlements(ctx, invite.workspaceId, now);
