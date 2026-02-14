@@ -8,6 +8,7 @@ import { isBillableLifecycleStatus } from '../entitlements/service';
 import { throwAppErrorForConvex } from '../errors';
 import { mutation, type MutationCtx, query } from '../functions';
 import { logger } from '../logging';
+import { rateLimiter } from '../rateLimiter';
 import { getAuthenticatedUser } from '../users/helpers';
 import { isActiveWorkspace, tombstoneWorkspace } from './helpers';
 import {
@@ -92,6 +93,7 @@ export const getUserWorkspaces = query({
  * @param name - The name of the workspace to create.
  * @returns The ID of the newly created workspace.
  * @throws WORKSPACE_NAME_EMPTY when the provided name is blank.
+ * @throws WORKSPACE_CREATE_RATE_LIMITED when the user exceeds workspace creation limits.
  */
 export const createWorkspace = mutation({
   args: { name: v.string() },
@@ -100,6 +102,24 @@ export const createWorkspace = mutation({
 
     if (!args.name.trim()) {
       throwAppErrorForConvex(ErrorCode.WORKSPACE_NAME_EMPTY);
+    }
+
+    const status = await rateLimiter.limit(ctx, 'createWorkspaceByUser', {
+      key: user._id,
+    });
+    if (!status.ok) {
+      logger.warn({
+        event: 'workspace.create_rate_limited',
+        category: 'WORKSPACE',
+        context: {
+          userId: user._id,
+          retryAfter: status.retryAfter,
+        },
+      });
+
+      return throwAppErrorForConvex(ErrorCode.WORKSPACE_CREATE_RATE_LIMITED, {
+        retryAfter: status.retryAfter,
+      });
     }
 
     return createWorkspaceWithOwner(ctx, user, args.name);

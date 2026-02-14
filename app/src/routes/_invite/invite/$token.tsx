@@ -41,9 +41,15 @@ function InvitePage() {
         params: { workspaceId: result.value.workspaceId },
       });
     } else {
-      toast.error('Failed to accept invite', {
-        description: result.error.message,
-      });
+      if (result.error.code === ErrorCode.INVITE_ACCEPT_RATE_LIMITED) {
+        toast.error('Too many join attempts', {
+          description: 'Please wait a moment before trying to accept this invite again.',
+        });
+      } else {
+        toast.error('Failed to accept invite', {
+          description: result.error.message,
+        });
+      }
     }
   };
 
@@ -172,6 +178,10 @@ function InviteErrorBoundary({ error }: { error: Error }) {
         title = 'Workspace locked';
         description =
           'This workspace is temporarily restricted due to a billing issue. Ask an admin to resolve billing.';
+        break;
+      case ErrorCode.INVITE_ACCEPT_RATE_LIMITED:
+        title = 'Too many attempts';
+        description = 'Please wait a moment before trying to accept this invite again.';
         break;
       default:
         break;

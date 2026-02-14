@@ -8,6 +8,7 @@ import { assertWorkspaceUnlockedForWrites } from '../entitlements/service';
 import { throwAppErrorForConvex } from '../errors';
 import { mutation, type MutationCtx, query } from '../functions';
 import { logger } from '../logging';
+import { rateLimiter } from '../rateLimiter';
 import { getWorkspaceMembership } from '../workspaces/utils';
 
 const emailValidator = z.email();
@@ -81,6 +82,43 @@ async function getContactForWorkspace(
 }
 
 /**
+ * Enforces per-actor contact write throughput limits.
+ *
+ * @param ctx - The mutation context.
+ * @param workspaceId - The workspace where the write is occurring.
+ * @param userId - The authenticated actor performing the write.
+ * @throws CONTACT_WRITE_RATE_LIMITED when the actor exceeds write throughput.
+ */
+async function assertContactWriteRateLimit(
+  ctx: MutationCtx,
+  workspaceId: Id<'workspaces'>,
+  userId: Id<'users'>,
+) {
+  const status = await rateLimiter.limit(ctx, 'mutateContactsByActor', {
+    key: `${workspaceId}:${userId}`,
+  });
+
+  if (status.ok) {
+    return;
+  }
+
+  logger.warn({
+    event: 'contacts.write_rate_limited',
+    category: 'WORKSPACE',
+    context: {
+      workspaceId,
+      userId,
+      retryAfter: status.retryAfter,
+    },
+  });
+
+  return throwAppErrorForConvex(ErrorCode.CONTACT_WRITE_RATE_LIMITED, {
+    workspaceId: workspaceId as string,
+    retryAfter: status.retryAfter,
+  });
+}
+
+/**
  * Lists all contacts for a workspace.
  *
  * @param workspaceId - The workspace to list contacts for.
@@ -114,6 +152,7 @@ export const listContacts = query({
  * @throws BILLING_WORKSPACE_LOCKED when workspace is locked due to billing past grace.
  * @throws CONTACT_NAME_EMPTY when name is blank.
  * @throws CONTACT_INVALID_EMAIL when email format is invalid.
+ * @throws CONTACT_WRITE_RATE_LIMITED when write throughput limits are exceeded.
  */
 export const createContact = mutation({
   args: {
@@ -123,6 +162,7 @@ export const createContact = mutation({
   handler: async (ctx, args) => {
     const { user } = await getWorkspaceMembership(ctx, args.workspaceId);
     await assertWorkspaceUnlockedForWrites(ctx, args.workspaceId);
+    await assertContactWriteRateLimit(ctx, args.workspaceId, user._id);
     const normalizedInput = normalizeAndValidateContactInput(args);
     const now = Date.now();
 
@@ -163,6 +203,7 @@ export const createContact = mutation({
  * @throws CONTACT_NOT_FOUND when contact does not exist in workspace.
  * @throws CONTACT_NAME_EMPTY when name is blank.
  * @throws CONTACT_INVALID_EMAIL when email format is invalid.
+ * @throws CONTACT_WRITE_RATE_LIMITED when write throughput limits are exceeded.
  */
 export const updateContact = mutation({
   args: {
@@ -173,6 +214,7 @@ export const updateContact = mutation({
   handler: async (ctx, args) => {
     const { user } = await getWorkspaceMembership(ctx, args.workspaceId);
     await assertWorkspaceUnlockedForWrites(ctx, args.workspaceId);
+    await assertContactWriteRateLimit(ctx, args.workspaceId, user._id);
     const contact = await getContactForWorkspace(ctx, args.contactId, args.workspaceId);
     const normalizedInput = normalizeAndValidateContactInput(args);
 
@@ -204,6 +246,7 @@ export const updateContact = mutation({
  * @throws BILLING_WORKSPACE_STATE_MISSING when workspace billing state is missing.
  * @throws BILLING_WORKSPACE_LOCKED when workspace is locked due to billing past grace.
  * @throws CONTACT_NOT_FOUND when contact does not exist in workspace.
+ * @throws CONTACT_WRITE_RATE_LIMITED when write throughput limits are exceeded.
  */
 export const deleteContact = mutation({
   args: {
@@ -213,6 +256,7 @@ export const deleteContact = mutation({
   handler: async (ctx, args) => {
     const { user } = await getWorkspaceMembership(ctx, args.workspaceId);
     await assertWorkspaceUnlockedForWrites(ctx, args.workspaceId);
+    await assertContactWriteRateLimit(ctx, args.workspaceId, user._id);
     const contact = await getContactForWorkspace(ctx, args.contactId, args.workspaceId);
 
     await ctx.db.delete('contacts', contact._id);

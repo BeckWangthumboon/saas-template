@@ -19,6 +19,7 @@ import { Input } from '@/components/ui/input';
 import { useConvexMutation } from '@/hooks';
 
 import { api } from '../../../convex/_generated/api';
+import { ErrorCode } from '../../../shared/errors';
 
 const workspaceNameSchema = z
   .string()
@@ -61,7 +62,13 @@ export function WorkspaceCreator({
         form.reset();
         onSuccess(result.value);
       } else {
-        toast.error('Failed to create workspace', { description: result.error.message });
+        if (result.error.code === ErrorCode.WORKSPACE_CREATE_RATE_LIMITED) {
+          toast.error('Too many workspace requests', {
+            description: 'Please wait a moment before creating another workspace.',
+          });
+        } else {
+          toast.error('Failed to create workspace', { description: result.error.message });
+        }
       }
     },
   });
