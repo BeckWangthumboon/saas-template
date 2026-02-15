@@ -52,9 +52,22 @@ function SettingsPage() {
       lastName: user?.lastName ?? '',
     },
     onSubmit: async ({ value }) => {
+      if (!user) {
+        return;
+      }
+
+      const nextFirstName = value.firstName || undefined;
+      const nextLastName = value.lastName || undefined;
+      const currentFirstName = user.firstName ?? undefined;
+      const currentLastName = user.lastName ?? undefined;
+
+      if (nextFirstName === currentFirstName && nextLastName === currentLastName) {
+        return;
+      }
+
       const result = await updateName({
-        firstName: value.firstName || undefined,
-        lastName: value.lastName || undefined,
+        firstName: nextFirstName,
+        lastName: nextLastName,
       });
 
       if (result.isOk()) {

@@ -69,9 +69,15 @@ function WorkspaceSettingsPage() {
         });
         return;
       }
+
+      const nextWorkspaceName = value.name.trim();
+      if (nextWorkspaceName === workspace?.name) {
+        return;
+      }
+
       const result = await updateWorkspaceName({
         workspaceId: workspaceId as Id<'workspaces'>,
-        name: value.name.trim(),
+        name: nextWorkspaceName,
       });
 
       if (result.isOk()) {

@@ -81,9 +81,19 @@ export const updateName = mutation({
   },
   handler: async (ctx, args) => {
     const user = await getAuthenticatedUser(ctx);
+
+    const nextFirstName = args.firstName;
+    const nextLastName = args.lastName;
+    const currentFirstName = user.firstName ?? undefined;
+    const currentLastName = user.lastName ?? undefined;
+
+    if (nextFirstName === currentFirstName && nextLastName === currentLastName) {
+      return;
+    }
+
     await ctx.db.patch('users', user._id, {
-      firstName: args.firstName,
-      lastName: args.lastName,
+      firstName: nextFirstName,
+      lastName: nextLastName,
       updatedAt: Date.now(),
     });
   },
