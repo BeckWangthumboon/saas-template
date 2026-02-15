@@ -235,9 +235,3 @@ What it demonstrates:
 - Data cleanup when a workspace is tombstoned or purged
 
 If you do not need this starter pack in a new project, remove the route file, backend module, schema table, and navigation links.
-
-## Known gaps and TODOs
-
-- TODO: centralize backend env validation into a single startup/validation module (current checks are partially distributed).
-- TODO: add optional starter-pack examples for file upload/external API and email notifications.
-- TODO (uncertain): confirm whether current `predev` behavior (opening Convex dashboard) should remain default for this template.
