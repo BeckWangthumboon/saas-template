@@ -194,12 +194,19 @@ export const updateWorkspaceName = mutation({
   handler: async (ctx, args) => {
     await requireWorkspaceAdminOrOwner(ctx, args.workspaceId, 'update_name');
 
-    if (!args.name.trim()) {
+    const nextName = args.name.trim();
+
+    if (!nextName) {
       throwAppErrorForConvex(ErrorCode.WORKSPACE_NAME_EMPTY);
     }
 
+    const workspace = await ctx.db.get('workspaces', args.workspaceId);
+    if (workspace && isActiveWorkspace(workspace) && workspace.name === nextName) {
+      return;
+    }
+
     await ctx.db.patch('workspaces', args.workspaceId, {
-      name: args.name.trim(),
+      name: nextName,
       updatedAt: Date.now(),
     });
 
