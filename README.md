@@ -1,6 +1,10 @@
 # SaaS Template (Convex + React + WorkOS + Polar)
 
-This app is a multi-tenant SaaS template with:
+TLDR: This is an opionated SaaS template with Convex, complete with Auth, Billing, Orgs, etc. Use it as a reference for your own projects or to get a head start on building your SaaS app. :)
+
+---------------------------------------
+
+This app is a multi-tenant SaaS template with: 
 
 - WorkOS authentication
 - Convex backend (queries, mutations, actions, HTTP routes, cron jobs)
