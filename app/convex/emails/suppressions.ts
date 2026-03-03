@@ -1,4 +1,4 @@
-import { type MutationCtx, type QueryCtx } from '../functions';
+import type { MutationCtx, QueryCtx } from '../functions';
 import { logger } from '../logging';
 
 export type EmailSuppressionReason = 'bounce' | 'spam' | 'manual';
