@@ -1,21 +1,49 @@
-# SaaS Template (Convex + React + WorkOS + Polar)
+# SaaS Template 
 
-This app is a multi-tenant SaaS template with:
+## TLDR
 
-- WorkOS authentication
-- Convex backend (queries, mutations, actions, HTTP routes, cron jobs)
-- Workspace-based tenancy with role-based access control
-- Polar billing + subscription webhooks
-- Internal entitlement model (plan/features/limits) with both backend and UI gating
+An opiniated SaaS starter with auth, workspace/orgs, billing, emails, etc. Perfect for your next project without rebuilding the boring SaaS infrastructure!
+
+## What's Inside
+
+- **WorkOS authentication** - SSO, SAML, magic links
+- **Convex backend** - Queries, mutations, actions, HTTP routes, cron jobs
+- **Workspace-based tenancy** - Role-based access control (owner, admin, member)
+- **Polar billing** - Subscription webhooks, plan management
+- **Resend emails** - Transactional invites, bounce handling, suppression
+- **Entitlement model** - Plan/features/limits with backend + UI gating
 
 This template is intentionally opinionated. The goal is to give you a reliable starting point with clear backend rules, consistent deletion behavior, and predictable feature-gating patterns.
 
-## Tech stack
+---
 
-- Frontend: React 19, Vite, TanStack Router, TanStack Form, Tailwind CSS v4, shadcn/ui
-- Backend: Convex (DB + server functions + HTTP + cron)
+## Quick Start
+
+```bash
+# 1. Install dependencies
+bun install
+
+# 2. Configure environment variables (see below)
+# 3. Start development
+bun run dev
+```
+
+## Tech Stack
+
+**Frontend**
+
+- React 19, Vite, TanStack Router, TanStack Form
+- Tailwind CSS v4, shadcn/ui components
+
+**Backend**
+
+- Convex (DB + server functions + HTTP routes + cron jobs)
+
+**Integrations**
+
 - Auth: WorkOS + `@convex-dev/workos-authkit`
 - Billing: Polar (`@polar-sh/sdk`)
+- Email: Resend (transactional emails + invite flows)
 
 ## Project layout
 
@@ -31,23 +59,23 @@ This template is intentionally opinionated. The goal is to give you a reliable s
     └── convex-api/       # re-exported Convex generated API/types for frontend
 ```
 
-## Local setup
+## Local Setup
 
-1. Install dependencies (workspace root):
+### 1. Install dependencies (workspace root)
 
 ```bash
 bun install
 ```
 
-2. Configure environment variables.
+### 2. Configure environment variables
 
-Frontend (`apps/web/.env.local`):
+**Frontend** (`apps/web/.env.local`):
 
 - `VITE_CONVEX_URL`
 - `VITE_WORKOS_CLIENT_ID`
 - `VITE_WORKOS_REDIRECT_URI`
 
-Backend (`apps/backend/.env.local` or Convex runtime environment):
+**Backend** (`apps/backend/.env.local` or Convex runtime environment):
 
 - `CONVEX_DEPLOYMENT`
 - `WORKOS_CLIENT_ID`
@@ -60,28 +88,31 @@ Backend (`apps/backend/.env.local` or Convex runtime environment):
 - `APP_ENV` (`dev` or `prod`, defaults to `dev`)
 - `APP_ORIGIN` (required, used for billing return URLs)
 - `CONVEX_LOG_LEVEL` (`debug` | `info` | `warn` | `error`, defaults to `info`)
-- `RESEND_API_KEY` (required for invites)
-- `RESEND_WEBHOOK_SECRET` (required for webhook verification)
-- `RESEND_FROM_EMAIL` (required for invites, e.g. `Acme <invites@acme.com>`)
 
-3. Start local development (from workspace root):
+**Resend** (for invite emails and webhooks):
+
+- `RESEND_API_KEY` (required for sending invites)
+- `RESEND_WEBHOOK_SECRET` (required for webhook verification)
+- `RESEND_FROM_EMAIL` (required, e.g. `Acme <invites@acme.com>`)
+
+### 3. Start local development (from workspace root)
 
 ```bash
 bun run dev
 ```
 
-Useful commands:
+### Useful commands
 
 ```bash
 bun run check      # lint + typecheck + format
 bun run generate   # regenerate Convex schema/api types
 ```
 
-## Seed and reset local dev data
+## Seed & Reset Local Dev Data
 
 Dev data tooling lives in `apps/backend/convex/dev/index.ts` and is hard-blocked unless `APP_ENV=dev`.
 
-Commands (from workspace root):
+### Commands (from workspace root)
 
 ```bash
 bun run dev:seed-data     # Create/update deterministic demo workspaces/users/billing state
@@ -89,7 +120,7 @@ bun run dev:reset-data    # Clear workspace + billing + invite data (preserves u
 bun run dev:reseed-data   # Reset then seed in one command
 ```
 
-Notes:
+### Notes
 
 - `dev:reset-data` requires an explicit confirmation token in the script (`RESET_DEV_DATA`).
 - `dev:reset-data` preserves users by default because auth is provider-backed.
@@ -101,9 +132,9 @@ bunx convex run dev/index.js:resetDevData '{"confirm":"RESET_DEV_DATA","includeU
 
 - Never run these with `--prod`. Even if attempted, functions are blocked unless `APP_ENV=dev`.
 
-## Architecture and key decisions
+## Architecture & Key Decisions
 
-### 1) Tenant model and access control
+### 1. Tenant Model & Access Control
 
 - Tenancy unit is a `workspace`.
 - Membership is explicit in `workspaceMembers` with roles: `owner`, `admin`, `member`.
@@ -113,7 +144,7 @@ bunx convex run dev/index.js:resetDevData '{"confirm":"RESET_DEV_DATA","includeU
 
 Why this choice: it prevents UI-only authorization mistakes and keeps sensitive checks server-side.
 
-### 2) User lifecycle and deletion strategy
+### 2. User Lifecycle & Deletion Strategy
 
 User deletion uses tombstones (not immediate hard delete):
 
@@ -128,7 +159,7 @@ Deletion flow:
 
 Why this choice: deletion stays reliable, retryable, and auditable without blocking request/response paths.
 
-### 3) Workspace lifecycle and deletion strategy
+### 3. Workspace Lifecycle & Deletion Strategy
 
 Workspace deletion uses tombstones (not immediate hard delete):
 
@@ -141,7 +172,7 @@ Deletion is blocked if workspace billing is still billable (`trialing`/`active`/
 
 Why this choice: it matches the user lifecycle approach and gives safer operational behavior.
 
-### 4) Billing model (Polar)
+### 4. Billing Model (Polar)
 
 - `workspaceBillingState` is the source of truth for a workspace's billing state.
 - Polar webhook endpoint: `POST /billing/polar/events`.
@@ -155,7 +186,7 @@ Why this choice: it matches the user lifecycle approach and gives safer operatio
 
 Why this choice: provider events are normalized first, so feature checks always run against internal state.
 
-### 5) Entitlement model (the feature primitive)
+### 5. Entitlement Model (Feature Primitive)
 
 Entitlements are derived from billing state + usage:
 
@@ -172,7 +203,7 @@ Important behavior:
 
 Why this choice: feature logic should not depend directly on raw billing provider status. Everything goes through entitlements.
 
-### 6) Invite model and decisions
+### 6. Invite Model & Decisions
 
 Invites are designed to be safe, idempotent, and easy to reason about:
 
@@ -188,14 +219,19 @@ Invites are designed to be safe, idempotent, and easy to reason about:
 
 Why this choice: invite logic needs to be strict on the backend so links cannot bypass role, billing, or identity rules.
 
-### 7) Invite email webhooks and suppression
+### 7. Email & Invite Webhooks (Resend)
+
+Transactional emails are handled via Resend with proper webhook validation:
 
 - Resend webhook endpoint: `POST /emails/resend/events`.
 - Bounce (`email.bounced`) and spam complaint (`email.complained`) events create/update suppression rows.
-- Suppressed emails are prevented from receiving future invite emails.
+- Suppressed emails are automatically prevented from receiving future invite emails.
+- Invite email sending is wrapped in entitlement checks and workspace lock validation.
 - Resend component data is cleaned daily via cron (`cleanupOldEmails`, `cleanupAbandonedEmails`).
 
-### 8) Error model
+Why this choice: Resend provides reliable transactional email delivery with built-in bounce/complaint handling, ensuring invite flows remain safe and spam-free.
+
+### 8. Error Model
 
 Errors are standardized with shared codes and categories in `shared/errors.ts`.
 
@@ -205,7 +241,7 @@ Errors are standardized with shared codes and categories in `shared/errors.ts`.
 
 Why this choice: you get consistent backend/frontend behavior and safer user-facing messaging.
 
-### 9) Route boundaries
+### 9. Route Boundaries
 
 - Public auth routes: sign-in/callback.
 - App routes: wrapped in `UserProvider` and protected.
@@ -213,7 +249,7 @@ Why this choice: you get consistent backend/frontend behavior and safer user-fac
 
 Why this choice: access stays protected even when users know the URL.
 
-### 10) Logging strategy and runbook
+### 10. Logging Strategy & Runbook
 
 - Backend logs are centralized through `convex/logging.ts` via `logger.debug/info/warn/error`.
 - All backend logs are emitted as JSON strings to `console.*`, so they appear in Convex deployment logs.
@@ -230,9 +266,9 @@ Notes:
 - Convex dashboard logs are a realtime/short-history view.
 - For long-term retention and bulk export, configure Convex log streams.
 
-## Starter packs
+## Starter Packs
 
-### Contacts starter pack (included)
+### Contacts Starter Pack (Included)
 
 This template includes a minimal Contacts CRUD example you can keep or delete per project.
 
