@@ -2,6 +2,19 @@ import { httpAction } from '../functions';
 import { logger } from '../logging';
 import { resend } from './resend';
 
+const isWebhookValidationError = (error: unknown) => {
+  if (error instanceof SyntaxError) {
+    return true;
+  }
+
+  if (!error || typeof error !== 'object') {
+    return false;
+  }
+
+  const name = (error as { name?: unknown }).name;
+  return name === 'WebhookVerificationError' || name === 'SyntaxError';
+};
+
 /**
  * Receives Resend webhooks and forwards validated events to the resend component.
  *
@@ -23,18 +36,33 @@ export const resendWebhook = httpAction(async (ctx, request) => {
 
     return response;
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : String(error);
-    const status = errorMessage.includes('Webhook secret is not set') ? 500 : 400;
+    const isValidationError = isWebhookValidationError(error);
+    const status = isValidationError ? 400 : 500;
 
-    logger.warn({
-      event: 'email.webhook.rejected',
+    if (isValidationError) {
+      logger.warn({
+        event: 'email.webhook.rejected',
+        category: 'INVITE',
+        context: {
+          status,
+          failureType: 'validation',
+        },
+        error,
+      });
+
+      return new Response('Invalid webhook payload or signature', { status });
+    }
+
+    logger.error({
+      event: 'email.webhook.failed',
       category: 'INVITE',
       context: {
         status,
+        failureType: 'internal',
       },
       error,
     });
 
-    return new Response('Invalid webhook payload or signature', { status });
+    return new Response('Webhook processing failed', { status });
   }
 });
