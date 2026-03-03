@@ -1,12 +1,9 @@
 import { v } from 'convex/values';
 
-import { components } from '../_generated/api';
 import { convexEnv } from '../env';
 import { internalAction } from '../functions';
 import { logger } from '../logging';
-
-const RESEND_INITIAL_BACKOFF_MS = 30000;
-const RESEND_RETRY_ATTEMPTS = 5;
+import { resend } from './resend';
 
 const escapeHtml = (value: string): string =>
   value
@@ -49,6 +46,7 @@ export const sendWorkspaceInviteEmail = internalAction({
   handler: async (ctx, args): Promise<null> => {
     const inviterLabel = args.inviterName ?? args.inviterEmail;
     const inviteLink = new URL(`/invite/${args.inviteToken}`, convexEnv.appOrigin).toString();
+
     const inviteRoleLabel = formatInviteRoleLabel(args.inviteeRole);
     const expiresAtLabel = formatDateUtc(args.expiresAt);
     const safeWorkspaceName = escapeHtml(args.workspaceName);
@@ -70,14 +68,7 @@ export const sendWorkspaceInviteEmail = internalAction({
     ].join('');
 
     try {
-      await ctx.runMutation(components.resend.lib.sendEmail, {
-        options: {
-          apiKey: convexEnv.resendApiKey,
-          initialBackoffMs: RESEND_INITIAL_BACKOFF_MS,
-          retryAttempts: RESEND_RETRY_ATTEMPTS,
-          testMode: convexEnv.resendTestMode,
-        },
-        // To show a sender name, set RESEND_FROM_EMAIL like: "Acme Team <invites@example.com>"
+      const emailId = await resend.sendEmail(ctx, {
         from: convexEnv.resendFromEmail,
         to: [args.inviteeEmail],
         subject,
@@ -90,6 +81,7 @@ export const sendWorkspaceInviteEmail = internalAction({
         event: 'invite.email.enqueued',
         category: 'INVITE',
         context: {
+          emailId,
           workspaceId: args.workspaceId,
           inviteeEmail: args.inviteeEmail,
           inviteeRole: args.inviteeRole,

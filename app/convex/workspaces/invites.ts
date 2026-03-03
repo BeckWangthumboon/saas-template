@@ -3,6 +3,7 @@ import { v } from 'convex/values';
 import { ErrorCode } from '../../shared/errors';
 import { internal } from '../_generated/api';
 import type { Doc, Id } from '../_generated/dataModel';
+import { getEmailSuppressionByEmail } from '../emails/suppressions';
 import { getWorkspaceEntitlementsSnapshot } from '../entitlements/service';
 import { throwAppErrorForConvex } from '../errors';
 import { mutation, type MutationCtx, query, type QueryCtx } from '../functions';
@@ -478,6 +479,7 @@ function throwInviteAcceptanceValidationError(
  * @throws INVITE_ALREADY_MEMBER if invitee is already an active member.
  * @throws WORKSPACE_INSUFFICIENT_ROLE if caller is a regular member.
  * @throws INVITE_CREATE_RATE_LIMITED when invite creation limits are exceeded.
+ * @throws INVITE_EMAIL_SUPPRESSED when invite email is blocked by suppression list.
  * @throws INVITE_EMAIL_SCHEDULE_FAILED when invite email scheduling fails.
  */
 export const createInvite = mutation({
@@ -519,6 +521,25 @@ export const createInvite = mutation({
       });
 
       return throwAppErrorForConvex(ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN);
+    }
+
+    const activeSuppression = await getEmailSuppressionByEmail(ctx, normalizedEmail);
+    if (activeSuppression) {
+      logger.warn({
+        event: 'invite.create_blocked_suppressed_email',
+        category: 'INVITE',
+        context: {
+          workspaceId: args.workspaceId,
+          inviterUserId: user._id,
+          inviteeEmail: normalizedEmail,
+          reason: activeSuppression.reason,
+        },
+      });
+
+      return throwAppErrorForConvex(ErrorCode.INVITE_EMAIL_SUPPRESSED, {
+        inviteeEmail: normalizedEmail,
+        reason: activeSuppression.reason,
+      });
     }
 
     const perUserStatus = await rateLimiter.limit(ctx, 'createInviteByUser', {

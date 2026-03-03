@@ -58,6 +58,7 @@ Backend (Convex runtime environment):
 - `APP_ORIGIN` (required, used for billing return URLs)
 - `CONVEX_LOG_LEVEL` (`debug` | `info` | `warn` | `error`, defaults to `info`)
 - `RESEND_API_KEY` (required for invites)
+- `RESEND_WEBHOOK_SECRET` (required for webhook verification)
 - `RESEND_FROM_EMAIL` (required for invites, e.g. `Acme <invites@acme.com>`)
 
 3. Start local development (from `app/`):
@@ -180,10 +181,18 @@ Invites are designed to be safe, idempotent, and easy to reason about:
 - Historical invite rows are preserved for audit/history (accepted/revoked/expired invites are not hard-deleted as part of normal flow).
 - Acceptance is validated server-side for token state, expiry, email/account match, membership status, and active workspace state.
 - Invite creation/acceptance is also gated by entitlements (`team_members`, member limits, and workspace lock state).
+- Invite creation is blocked for suppressed email addresses (bounce or spam complaint).
 
 Why this choice: invite logic needs to be strict on the backend so links cannot bypass role, billing, or identity rules.
 
-### 7) Error model
+### 7) Invite email webhooks and suppression
+
+- Resend webhook endpoint: `POST /emails/resend/events`.
+- Bounce (`email.bounced`) and spam complaint (`email.complained`) events create/update suppression rows.
+- Suppressed emails are prevented from receiving future invite emails.
+- Resend component data is cleaned daily via cron (`cleanupOldEmails`, `cleanupAbandonedEmails`).
+
+### 8) Error model
 
 Errors are standardized with shared codes and categories in `shared/errors.ts`.
 
@@ -193,7 +202,7 @@ Errors are standardized with shared codes and categories in `shared/errors.ts`.
 
 Why this choice: you get consistent backend/frontend behavior and safer user-facing messaging.
 
-### 8) Route boundaries
+### 9) Route boundaries
 
 - Public auth routes: sign-in/callback.
 - App routes: wrapped in `UserProvider` and protected.
@@ -201,7 +210,7 @@ Why this choice: you get consistent backend/frontend behavior and safer user-fac
 
 Why this choice: access stays protected even when users know the URL.
 
-### 9) Logging strategy and runbook
+### 10) Logging strategy and runbook
 
 - Backend logs are centralized through `convex/logging.ts` via `logger.debug/info/warn/error`.
 - All backend logs are emitted as JSON strings to `console.*`, so they appear in Convex deployment logs.

@@ -155,6 +155,7 @@ export const convexEnv = {
   appOrigin: parseAppOrigin(),
   logLevel: parseConvexLogLevel(),
   resendApiKey: requireEnv('RESEND_API_KEY'),
+  resendWebhookSecret: requireEnv('RESEND_WEBHOOK_SECRET'),
   resendFromEmail: requireEnv('RESEND_FROM_EMAIL'),
   resendTestMode: false,
 } as const;

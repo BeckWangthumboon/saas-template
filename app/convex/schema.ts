@@ -136,6 +136,16 @@ export default defineSchema({
     .index('by_email', ['email'])
     .index('by_invitedUserId', ['invitedUserId']),
 
+  emailSuppressions: defineTable({
+    email: v.string(),
+    reason: v.union(v.literal('bounce'), v.literal('spam'), v.literal('manual')),
+    source: v.union(v.literal('resend_webhook'), v.literal('manual')),
+    eventType: v.optional(v.string()),
+    details: v.optional(v.string()),
+  })
+    .index('by_email', ['email'])
+    .index('by_reason', ['reason']),
+
   workspaceBillingState: defineTable({
     workspaceId: v.id('workspaces'),
     planKey: v.union(v.literal('free'), v.literal('pro_monthly'), v.literal('pro_yearly')),

@@ -1,8 +1,13 @@
 import { cronJobs } from 'convex/server';
+import { v } from 'convex/values';
 
-import { internal } from './_generated/api';
+import { components, internal } from './_generated/api';
+import { internalMutation } from './functions';
 
 const crons = cronJobs();
+
+const THIRTY_DAYS_MS = 30 * 24 * 60 * 60 * 1000;
+const ONE_HUNDRED_TWENTY_DAYS_MS = 120 * 24 * 60 * 60 * 1000;
 
 crons.daily(
   'reconcile stuck user deletions',
@@ -21,5 +26,34 @@ crons.daily(
   { hourUTC: 3, minuteUTC: 30 },
   internal.workspaces.internal.purgeDeletedWorkspaces,
 );
+
+crons.daily(
+  'cleanup resend email component data',
+  { hourUTC: 4, minuteUTC: 0 },
+  internal.crons.cleanupResendEmailData,
+  {},
+);
+
+/**
+ * Schedules cleanup jobs for finalized and abandoned resend component emails.
+ */
+export const cleanupResendEmailData = internalMutation({
+  args: {
+    finalizedOlderThan: v.optional(v.number()),
+    abandonedOlderThan: v.optional(v.number()),
+  },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.scheduler.runAfter(0, components.resend.lib.cleanupOldEmails, {
+      olderThan: args.finalizedOlderThan ?? THIRTY_DAYS_MS,
+    });
+
+    await ctx.scheduler.runAfter(0, components.resend.lib.cleanupAbandonedEmails, {
+      olderThan: args.abandonedOlderThan ?? ONE_HUNDRED_TWENTY_DAYS_MS,
+    });
+
+    return null;
+  },
+});
 
 export default crons;
