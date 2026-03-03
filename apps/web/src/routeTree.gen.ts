@@ -8,159 +8,155 @@
 // You should NOT make any changes in this file as it will be overwritten.
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
-import { Route as rootRouteImport } from './routes/__root'
-import { Route as InviteRouteRouteImport } from './routes/_invite/route'
-import { Route as AuthRouteRouteImport } from './routes/_auth/route'
-import { Route as AppRouteRouteImport } from './routes/_app/route'
-import { Route as AppIndexRouteImport } from './routes/_app/index'
-import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
-import { Route as AuthCallbackRouteImport } from './routes/_auth/callback'
-import { Route as AppSettingsRouteImport } from './routes/_app/settings'
-import { Route as InviteInviteTokenRouteImport } from './routes/_invite/invite/$token'
-import { Route as AppWorkspacesWorkspaceIdRouteRouteImport } from './routes/_app/workspaces/$workspaceId/route'
-import { Route as AppWorkspacesWorkspaceIdIndexRouteImport } from './routes/_app/workspaces/$workspaceId/index'
-import { Route as AppWorkspacesWorkspaceIdMembersRouteImport } from './routes/_app/workspaces/$workspaceId/members'
-import { Route as AppWorkspacesWorkspaceIdContactsRouteImport } from './routes/_app/workspaces/$workspaceId/contacts'
-import { Route as AppWorkspacesWorkspaceIdSettingsRouteRouteImport } from './routes/_app/workspaces/$workspaceId/settings/route'
-import { Route as AppWorkspacesWorkspaceIdSettingsIndexRouteImport } from './routes/_app/workspaces/$workspaceId/settings/index'
-import { Route as AppWorkspacesWorkspaceIdSettingsWorkspaceRouteImport } from './routes/_app/workspaces/$workspaceId/settings/workspace'
-import { Route as AppWorkspacesWorkspaceIdSettingsBillingRouteImport } from './routes/_app/workspaces/$workspaceId/settings/billing'
+import { Route as rootRouteImport } from './routes/__root';
+import { Route as InviteRouteRouteImport } from './routes/_invite/route';
+import { Route as AuthRouteRouteImport } from './routes/_auth/route';
+import { Route as AppRouteRouteImport } from './routes/_app/route';
+import { Route as AppIndexRouteImport } from './routes/_app/index';
+import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in';
+import { Route as AuthCallbackRouteImport } from './routes/_auth/callback';
+import { Route as AppSettingsRouteImport } from './routes/_app/settings';
+import { Route as InviteInviteTokenRouteImport } from './routes/_invite/invite/$token';
+import { Route as AppWorkspacesWorkspaceIdRouteRouteImport } from './routes/_app/workspaces/$workspaceId/route';
+import { Route as AppWorkspacesWorkspaceIdIndexRouteImport } from './routes/_app/workspaces/$workspaceId/index';
+import { Route as AppWorkspacesWorkspaceIdMembersRouteImport } from './routes/_app/workspaces/$workspaceId/members';
+import { Route as AppWorkspacesWorkspaceIdContactsRouteImport } from './routes/_app/workspaces/$workspaceId/contacts';
+import { Route as AppWorkspacesWorkspaceIdSettingsRouteRouteImport } from './routes/_app/workspaces/$workspaceId/settings/route';
+import { Route as AppWorkspacesWorkspaceIdSettingsIndexRouteImport } from './routes/_app/workspaces/$workspaceId/settings/index';
+import { Route as AppWorkspacesWorkspaceIdSettingsWorkspaceRouteImport } from './routes/_app/workspaces/$workspaceId/settings/workspace';
+import { Route as AppWorkspacesWorkspaceIdSettingsBillingRouteImport } from './routes/_app/workspaces/$workspaceId/settings/billing';
 
 const InviteRouteRoute = InviteRouteRouteImport.update({
   id: '/_invite',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const AuthRouteRoute = AuthRouteRouteImport.update({
   id: '/_auth',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const AppRouteRoute = AppRouteRouteImport.update({
   id: '/_app',
   getParentRoute: () => rootRouteImport,
-} as any)
+} as any);
 const AppIndexRoute = AppIndexRouteImport.update({
   id: '/',
   path: '/',
   getParentRoute: () => AppRouteRoute,
-} as any)
+} as any);
 const AuthSignInRoute = AuthSignInRouteImport.update({
   id: '/sign-in',
   path: '/sign-in',
   getParentRoute: () => AuthRouteRoute,
-} as any)
+} as any);
 const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/callback',
   path: '/callback',
   getParentRoute: () => AuthRouteRoute,
-} as any)
+} as any);
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
   getParentRoute: () => AppRouteRoute,
-} as any)
+} as any);
 const InviteInviteTokenRoute = InviteInviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
   getParentRoute: () => InviteRouteRoute,
-} as any)
-const AppWorkspacesWorkspaceIdRouteRoute =
-  AppWorkspacesWorkspaceIdRouteRouteImport.update({
-    id: '/workspaces/$workspaceId',
-    path: '/workspaces/$workspaceId',
-    getParentRoute: () => AppRouteRoute,
-  } as any)
-const AppWorkspacesWorkspaceIdIndexRoute =
-  AppWorkspacesWorkspaceIdIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => AppWorkspacesWorkspaceIdRouteRoute,
-  } as any)
-const AppWorkspacesWorkspaceIdMembersRoute =
-  AppWorkspacesWorkspaceIdMembersRouteImport.update({
-    id: '/members',
-    path: '/members',
-    getParentRoute: () => AppWorkspacesWorkspaceIdRouteRoute,
-  } as any)
-const AppWorkspacesWorkspaceIdContactsRoute =
-  AppWorkspacesWorkspaceIdContactsRouteImport.update({
-    id: '/contacts',
-    path: '/contacts',
-    getParentRoute: () => AppWorkspacesWorkspaceIdRouteRoute,
-  } as any)
+} as any);
+const AppWorkspacesWorkspaceIdRouteRoute = AppWorkspacesWorkspaceIdRouteRouteImport.update({
+  id: '/workspaces/$workspaceId',
+  path: '/workspaces/$workspaceId',
+  getParentRoute: () => AppRouteRoute,
+} as any);
+const AppWorkspacesWorkspaceIdIndexRoute = AppWorkspacesWorkspaceIdIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppWorkspacesWorkspaceIdRouteRoute,
+} as any);
+const AppWorkspacesWorkspaceIdMembersRoute = AppWorkspacesWorkspaceIdMembersRouteImport.update({
+  id: '/members',
+  path: '/members',
+  getParentRoute: () => AppWorkspacesWorkspaceIdRouteRoute,
+} as any);
+const AppWorkspacesWorkspaceIdContactsRoute = AppWorkspacesWorkspaceIdContactsRouteImport.update({
+  id: '/contacts',
+  path: '/contacts',
+  getParentRoute: () => AppWorkspacesWorkspaceIdRouteRoute,
+} as any);
 const AppWorkspacesWorkspaceIdSettingsRouteRoute =
   AppWorkspacesWorkspaceIdSettingsRouteRouteImport.update({
     id: '/settings',
     path: '/settings',
     getParentRoute: () => AppWorkspacesWorkspaceIdRouteRoute,
-  } as any)
+  } as any);
 const AppWorkspacesWorkspaceIdSettingsIndexRoute =
   AppWorkspacesWorkspaceIdSettingsIndexRouteImport.update({
     id: '/',
     path: '/',
     getParentRoute: () => AppWorkspacesWorkspaceIdSettingsRouteRoute,
-  } as any)
+  } as any);
 const AppWorkspacesWorkspaceIdSettingsWorkspaceRoute =
   AppWorkspacesWorkspaceIdSettingsWorkspaceRouteImport.update({
     id: '/workspace',
     path: '/workspace',
     getParentRoute: () => AppWorkspacesWorkspaceIdSettingsRouteRoute,
-  } as any)
+  } as any);
 const AppWorkspacesWorkspaceIdSettingsBillingRoute =
   AppWorkspacesWorkspaceIdSettingsBillingRouteImport.update({
     id: '/billing',
     path: '/billing',
     getParentRoute: () => AppWorkspacesWorkspaceIdSettingsRouteRoute,
-  } as any)
+  } as any);
 
 export interface FileRoutesByFullPath {
-  '/': typeof AppIndexRoute
-  '/settings': typeof AppSettingsRoute
-  '/callback': typeof AuthCallbackRoute
-  '/sign-in': typeof AuthSignInRoute
-  '/workspaces/$workspaceId': typeof AppWorkspacesWorkspaceIdRouteRouteWithChildren
-  '/invite/$token': typeof InviteInviteTokenRoute
-  '/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRouteRouteWithChildren
-  '/workspaces/$workspaceId/contacts': typeof AppWorkspacesWorkspaceIdContactsRoute
-  '/workspaces/$workspaceId/members': typeof AppWorkspacesWorkspaceIdMembersRoute
-  '/workspaces/$workspaceId/': typeof AppWorkspacesWorkspaceIdIndexRoute
-  '/workspaces/$workspaceId/settings/billing': typeof AppWorkspacesWorkspaceIdSettingsBillingRoute
-  '/workspaces/$workspaceId/settings/workspace': typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRoute
-  '/workspaces/$workspaceId/settings/': typeof AppWorkspacesWorkspaceIdSettingsIndexRoute
+  '/': typeof AppIndexRoute;
+  '/settings': typeof AppSettingsRoute;
+  '/callback': typeof AuthCallbackRoute;
+  '/sign-in': typeof AuthSignInRoute;
+  '/workspaces/$workspaceId': typeof AppWorkspacesWorkspaceIdRouteRouteWithChildren;
+  '/invite/$token': typeof InviteInviteTokenRoute;
+  '/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRouteRouteWithChildren;
+  '/workspaces/$workspaceId/contacts': typeof AppWorkspacesWorkspaceIdContactsRoute;
+  '/workspaces/$workspaceId/members': typeof AppWorkspacesWorkspaceIdMembersRoute;
+  '/workspaces/$workspaceId/': typeof AppWorkspacesWorkspaceIdIndexRoute;
+  '/workspaces/$workspaceId/settings/billing': typeof AppWorkspacesWorkspaceIdSettingsBillingRoute;
+  '/workspaces/$workspaceId/settings/workspace': typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRoute;
+  '/workspaces/$workspaceId/settings/': typeof AppWorkspacesWorkspaceIdSettingsIndexRoute;
 }
 export interface FileRoutesByTo {
-  '/': typeof AppIndexRoute
-  '/settings': typeof AppSettingsRoute
-  '/callback': typeof AuthCallbackRoute
-  '/sign-in': typeof AuthSignInRoute
-  '/invite/$token': typeof InviteInviteTokenRoute
-  '/workspaces/$workspaceId/contacts': typeof AppWorkspacesWorkspaceIdContactsRoute
-  '/workspaces/$workspaceId/members': typeof AppWorkspacesWorkspaceIdMembersRoute
-  '/workspaces/$workspaceId': typeof AppWorkspacesWorkspaceIdIndexRoute
-  '/workspaces/$workspaceId/settings/billing': typeof AppWorkspacesWorkspaceIdSettingsBillingRoute
-  '/workspaces/$workspaceId/settings/workspace': typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRoute
-  '/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsIndexRoute
+  '/': typeof AppIndexRoute;
+  '/settings': typeof AppSettingsRoute;
+  '/callback': typeof AuthCallbackRoute;
+  '/sign-in': typeof AuthSignInRoute;
+  '/invite/$token': typeof InviteInviteTokenRoute;
+  '/workspaces/$workspaceId/contacts': typeof AppWorkspacesWorkspaceIdContactsRoute;
+  '/workspaces/$workspaceId/members': typeof AppWorkspacesWorkspaceIdMembersRoute;
+  '/workspaces/$workspaceId': typeof AppWorkspacesWorkspaceIdIndexRoute;
+  '/workspaces/$workspaceId/settings/billing': typeof AppWorkspacesWorkspaceIdSettingsBillingRoute;
+  '/workspaces/$workspaceId/settings/workspace': typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRoute;
+  '/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsIndexRoute;
 }
 export interface FileRoutesById {
-  __root__: typeof rootRouteImport
-  '/_app': typeof AppRouteRouteWithChildren
-  '/_auth': typeof AuthRouteRouteWithChildren
-  '/_invite': typeof InviteRouteRouteWithChildren
-  '/_app/settings': typeof AppSettingsRoute
-  '/_auth/callback': typeof AuthCallbackRoute
-  '/_auth/sign-in': typeof AuthSignInRoute
-  '/_app/': typeof AppIndexRoute
-  '/_app/workspaces/$workspaceId': typeof AppWorkspacesWorkspaceIdRouteRouteWithChildren
-  '/_invite/invite/$token': typeof InviteInviteTokenRoute
-  '/_app/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRouteRouteWithChildren
-  '/_app/workspaces/$workspaceId/contacts': typeof AppWorkspacesWorkspaceIdContactsRoute
-  '/_app/workspaces/$workspaceId/members': typeof AppWorkspacesWorkspaceIdMembersRoute
-  '/_app/workspaces/$workspaceId/': typeof AppWorkspacesWorkspaceIdIndexRoute
-  '/_app/workspaces/$workspaceId/settings/billing': typeof AppWorkspacesWorkspaceIdSettingsBillingRoute
-  '/_app/workspaces/$workspaceId/settings/workspace': typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRoute
-  '/_app/workspaces/$workspaceId/settings/': typeof AppWorkspacesWorkspaceIdSettingsIndexRoute
+  __root__: typeof rootRouteImport;
+  '/_app': typeof AppRouteRouteWithChildren;
+  '/_auth': typeof AuthRouteRouteWithChildren;
+  '/_invite': typeof InviteRouteRouteWithChildren;
+  '/_app/settings': typeof AppSettingsRoute;
+  '/_auth/callback': typeof AuthCallbackRoute;
+  '/_auth/sign-in': typeof AuthSignInRoute;
+  '/_app/': typeof AppIndexRoute;
+  '/_app/workspaces/$workspaceId': typeof AppWorkspacesWorkspaceIdRouteRouteWithChildren;
+  '/_invite/invite/$token': typeof InviteInviteTokenRoute;
+  '/_app/workspaces/$workspaceId/settings': typeof AppWorkspacesWorkspaceIdSettingsRouteRouteWithChildren;
+  '/_app/workspaces/$workspaceId/contacts': typeof AppWorkspacesWorkspaceIdContactsRoute;
+  '/_app/workspaces/$workspaceId/members': typeof AppWorkspacesWorkspaceIdMembersRoute;
+  '/_app/workspaces/$workspaceId/': typeof AppWorkspacesWorkspaceIdIndexRoute;
+  '/_app/workspaces/$workspaceId/settings/billing': typeof AppWorkspacesWorkspaceIdSettingsBillingRoute;
+  '/_app/workspaces/$workspaceId/settings/workspace': typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRoute;
+  '/_app/workspaces/$workspaceId/settings/': typeof AppWorkspacesWorkspaceIdSettingsIndexRoute;
 }
 export interface FileRouteTypes {
-  fileRoutesByFullPath: FileRoutesByFullPath
+  fileRoutesByFullPath: FileRoutesByFullPath;
   fullPaths:
     | '/'
     | '/settings'
@@ -174,8 +170,8 @@ export interface FileRouteTypes {
     | '/workspaces/$workspaceId/'
     | '/workspaces/$workspaceId/settings/billing'
     | '/workspaces/$workspaceId/settings/workspace'
-    | '/workspaces/$workspaceId/settings/'
-  fileRoutesByTo: FileRoutesByTo
+    | '/workspaces/$workspaceId/settings/';
+  fileRoutesByTo: FileRoutesByTo;
   to:
     | '/'
     | '/settings'
@@ -187,7 +183,7 @@ export interface FileRouteTypes {
     | '/workspaces/$workspaceId'
     | '/workspaces/$workspaceId/settings/billing'
     | '/workspaces/$workspaceId/settings/workspace'
-    | '/workspaces/$workspaceId/settings'
+    | '/workspaces/$workspaceId/settings';
   id:
     | '__root__'
     | '/_app'
@@ -205,223 +201,209 @@ export interface FileRouteTypes {
     | '/_app/workspaces/$workspaceId/'
     | '/_app/workspaces/$workspaceId/settings/billing'
     | '/_app/workspaces/$workspaceId/settings/workspace'
-    | '/_app/workspaces/$workspaceId/settings/'
-  fileRoutesById: FileRoutesById
+    | '/_app/workspaces/$workspaceId/settings/';
+  fileRoutesById: FileRoutesById;
 }
 export interface RootRouteChildren {
-  AppRouteRoute: typeof AppRouteRouteWithChildren
-  AuthRouteRoute: typeof AuthRouteRouteWithChildren
-  InviteRouteRoute: typeof InviteRouteRouteWithChildren
+  AppRouteRoute: typeof AppRouteRouteWithChildren;
+  AuthRouteRoute: typeof AuthRouteRouteWithChildren;
+  InviteRouteRoute: typeof InviteRouteRouteWithChildren;
 }
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
     '/_invite': {
-      id: '/_invite'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof InviteRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
+      id: '/_invite';
+      path: '';
+      fullPath: '/';
+      preLoaderRoute: typeof InviteRouteRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     '/_auth': {
-      id: '/_auth'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AuthRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
+      id: '/_auth';
+      path: '';
+      fullPath: '/';
+      preLoaderRoute: typeof AuthRouteRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     '/_app': {
-      id: '/_app'
-      path: ''
-      fullPath: '/'
-      preLoaderRoute: typeof AppRouteRouteImport
-      parentRoute: typeof rootRouteImport
-    }
+      id: '/_app';
+      path: '';
+      fullPath: '/';
+      preLoaderRoute: typeof AppRouteRouteImport;
+      parentRoute: typeof rootRouteImport;
+    };
     '/_app/': {
-      id: '/_app/'
-      path: '/'
-      fullPath: '/'
-      preLoaderRoute: typeof AppIndexRouteImport
-      parentRoute: typeof AppRouteRoute
-    }
+      id: '/_app/';
+      path: '/';
+      fullPath: '/';
+      preLoaderRoute: typeof AppIndexRouteImport;
+      parentRoute: typeof AppRouteRoute;
+    };
     '/_auth/sign-in': {
-      id: '/_auth/sign-in'
-      path: '/sign-in'
-      fullPath: '/sign-in'
-      preLoaderRoute: typeof AuthSignInRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
+      id: '/_auth/sign-in';
+      path: '/sign-in';
+      fullPath: '/sign-in';
+      preLoaderRoute: typeof AuthSignInRouteImport;
+      parentRoute: typeof AuthRouteRoute;
+    };
     '/_auth/callback': {
-      id: '/_auth/callback'
-      path: '/callback'
-      fullPath: '/callback'
-      preLoaderRoute: typeof AuthCallbackRouteImport
-      parentRoute: typeof AuthRouteRoute
-    }
+      id: '/_auth/callback';
+      path: '/callback';
+      fullPath: '/callback';
+      preLoaderRoute: typeof AuthCallbackRouteImport;
+      parentRoute: typeof AuthRouteRoute;
+    };
     '/_app/settings': {
-      id: '/_app/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AppSettingsRouteImport
-      parentRoute: typeof AppRouteRoute
-    }
+      id: '/_app/settings';
+      path: '/settings';
+      fullPath: '/settings';
+      preLoaderRoute: typeof AppSettingsRouteImport;
+      parentRoute: typeof AppRouteRoute;
+    };
     '/_invite/invite/$token': {
-      id: '/_invite/invite/$token'
-      path: '/invite/$token'
-      fullPath: '/invite/$token'
-      preLoaderRoute: typeof InviteInviteTokenRouteImport
-      parentRoute: typeof InviteRouteRoute
-    }
+      id: '/_invite/invite/$token';
+      path: '/invite/$token';
+      fullPath: '/invite/$token';
+      preLoaderRoute: typeof InviteInviteTokenRouteImport;
+      parentRoute: typeof InviteRouteRoute;
+    };
     '/_app/workspaces/$workspaceId': {
-      id: '/_app/workspaces/$workspaceId'
-      path: '/workspaces/$workspaceId'
-      fullPath: '/workspaces/$workspaceId'
-      preLoaderRoute: typeof AppWorkspacesWorkspaceIdRouteRouteImport
-      parentRoute: typeof AppRouteRoute
-    }
+      id: '/_app/workspaces/$workspaceId';
+      path: '/workspaces/$workspaceId';
+      fullPath: '/workspaces/$workspaceId';
+      preLoaderRoute: typeof AppWorkspacesWorkspaceIdRouteRouteImport;
+      parentRoute: typeof AppRouteRoute;
+    };
     '/_app/workspaces/$workspaceId/': {
-      id: '/_app/workspaces/$workspaceId/'
-      path: '/'
-      fullPath: '/workspaces/$workspaceId/'
-      preLoaderRoute: typeof AppWorkspacesWorkspaceIdIndexRouteImport
-      parentRoute: typeof AppWorkspacesWorkspaceIdRouteRoute
-    }
+      id: '/_app/workspaces/$workspaceId/';
+      path: '/';
+      fullPath: '/workspaces/$workspaceId/';
+      preLoaderRoute: typeof AppWorkspacesWorkspaceIdIndexRouteImport;
+      parentRoute: typeof AppWorkspacesWorkspaceIdRouteRoute;
+    };
     '/_app/workspaces/$workspaceId/members': {
-      id: '/_app/workspaces/$workspaceId/members'
-      path: '/members'
-      fullPath: '/workspaces/$workspaceId/members'
-      preLoaderRoute: typeof AppWorkspacesWorkspaceIdMembersRouteImport
-      parentRoute: typeof AppWorkspacesWorkspaceIdRouteRoute
-    }
+      id: '/_app/workspaces/$workspaceId/members';
+      path: '/members';
+      fullPath: '/workspaces/$workspaceId/members';
+      preLoaderRoute: typeof AppWorkspacesWorkspaceIdMembersRouteImport;
+      parentRoute: typeof AppWorkspacesWorkspaceIdRouteRoute;
+    };
     '/_app/workspaces/$workspaceId/contacts': {
-      id: '/_app/workspaces/$workspaceId/contacts'
-      path: '/contacts'
-      fullPath: '/workspaces/$workspaceId/contacts'
-      preLoaderRoute: typeof AppWorkspacesWorkspaceIdContactsRouteImport
-      parentRoute: typeof AppWorkspacesWorkspaceIdRouteRoute
-    }
+      id: '/_app/workspaces/$workspaceId/contacts';
+      path: '/contacts';
+      fullPath: '/workspaces/$workspaceId/contacts';
+      preLoaderRoute: typeof AppWorkspacesWorkspaceIdContactsRouteImport;
+      parentRoute: typeof AppWorkspacesWorkspaceIdRouteRoute;
+    };
     '/_app/workspaces/$workspaceId/settings': {
-      id: '/_app/workspaces/$workspaceId/settings'
-      path: '/settings'
-      fullPath: '/workspaces/$workspaceId/settings'
-      preLoaderRoute: typeof AppWorkspacesWorkspaceIdSettingsRouteRouteImport
-      parentRoute: typeof AppWorkspacesWorkspaceIdRouteRoute
-    }
+      id: '/_app/workspaces/$workspaceId/settings';
+      path: '/settings';
+      fullPath: '/workspaces/$workspaceId/settings';
+      preLoaderRoute: typeof AppWorkspacesWorkspaceIdSettingsRouteRouteImport;
+      parentRoute: typeof AppWorkspacesWorkspaceIdRouteRoute;
+    };
     '/_app/workspaces/$workspaceId/settings/': {
-      id: '/_app/workspaces/$workspaceId/settings/'
-      path: '/'
-      fullPath: '/workspaces/$workspaceId/settings/'
-      preLoaderRoute: typeof AppWorkspacesWorkspaceIdSettingsIndexRouteImport
-      parentRoute: typeof AppWorkspacesWorkspaceIdSettingsRouteRoute
-    }
+      id: '/_app/workspaces/$workspaceId/settings/';
+      path: '/';
+      fullPath: '/workspaces/$workspaceId/settings/';
+      preLoaderRoute: typeof AppWorkspacesWorkspaceIdSettingsIndexRouteImport;
+      parentRoute: typeof AppWorkspacesWorkspaceIdSettingsRouteRoute;
+    };
     '/_app/workspaces/$workspaceId/settings/workspace': {
-      id: '/_app/workspaces/$workspaceId/settings/workspace'
-      path: '/workspace'
-      fullPath: '/workspaces/$workspaceId/settings/workspace'
-      preLoaderRoute: typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRouteImport
-      parentRoute: typeof AppWorkspacesWorkspaceIdSettingsRouteRoute
-    }
+      id: '/_app/workspaces/$workspaceId/settings/workspace';
+      path: '/workspace';
+      fullPath: '/workspaces/$workspaceId/settings/workspace';
+      preLoaderRoute: typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRouteImport;
+      parentRoute: typeof AppWorkspacesWorkspaceIdSettingsRouteRoute;
+    };
     '/_app/workspaces/$workspaceId/settings/billing': {
-      id: '/_app/workspaces/$workspaceId/settings/billing'
-      path: '/billing'
-      fullPath: '/workspaces/$workspaceId/settings/billing'
-      preLoaderRoute: typeof AppWorkspacesWorkspaceIdSettingsBillingRouteImport
-      parentRoute: typeof AppWorkspacesWorkspaceIdSettingsRouteRoute
-    }
+      id: '/_app/workspaces/$workspaceId/settings/billing';
+      path: '/billing';
+      fullPath: '/workspaces/$workspaceId/settings/billing';
+      preLoaderRoute: typeof AppWorkspacesWorkspaceIdSettingsBillingRouteImport;
+      parentRoute: typeof AppWorkspacesWorkspaceIdSettingsRouteRoute;
+    };
   }
 }
 
 interface AppWorkspacesWorkspaceIdSettingsRouteRouteChildren {
-  AppWorkspacesWorkspaceIdSettingsBillingRoute: typeof AppWorkspacesWorkspaceIdSettingsBillingRoute
-  AppWorkspacesWorkspaceIdSettingsWorkspaceRoute: typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRoute
-  AppWorkspacesWorkspaceIdSettingsIndexRoute: typeof AppWorkspacesWorkspaceIdSettingsIndexRoute
+  AppWorkspacesWorkspaceIdSettingsBillingRoute: typeof AppWorkspacesWorkspaceIdSettingsBillingRoute;
+  AppWorkspacesWorkspaceIdSettingsWorkspaceRoute: typeof AppWorkspacesWorkspaceIdSettingsWorkspaceRoute;
+  AppWorkspacesWorkspaceIdSettingsIndexRoute: typeof AppWorkspacesWorkspaceIdSettingsIndexRoute;
 }
 
 const AppWorkspacesWorkspaceIdSettingsRouteRouteChildren: AppWorkspacesWorkspaceIdSettingsRouteRouteChildren =
   {
-    AppWorkspacesWorkspaceIdSettingsBillingRoute:
-      AppWorkspacesWorkspaceIdSettingsBillingRoute,
-    AppWorkspacesWorkspaceIdSettingsWorkspaceRoute:
-      AppWorkspacesWorkspaceIdSettingsWorkspaceRoute,
-    AppWorkspacesWorkspaceIdSettingsIndexRoute:
-      AppWorkspacesWorkspaceIdSettingsIndexRoute,
-  }
+    AppWorkspacesWorkspaceIdSettingsBillingRoute: AppWorkspacesWorkspaceIdSettingsBillingRoute,
+    AppWorkspacesWorkspaceIdSettingsWorkspaceRoute: AppWorkspacesWorkspaceIdSettingsWorkspaceRoute,
+    AppWorkspacesWorkspaceIdSettingsIndexRoute: AppWorkspacesWorkspaceIdSettingsIndexRoute,
+  };
 
 const AppWorkspacesWorkspaceIdSettingsRouteRouteWithChildren =
   AppWorkspacesWorkspaceIdSettingsRouteRoute._addFileChildren(
     AppWorkspacesWorkspaceIdSettingsRouteRouteChildren,
-  )
+  );
 
 interface AppWorkspacesWorkspaceIdRouteRouteChildren {
-  AppWorkspacesWorkspaceIdSettingsRouteRoute: typeof AppWorkspacesWorkspaceIdSettingsRouteRouteWithChildren
-  AppWorkspacesWorkspaceIdContactsRoute: typeof AppWorkspacesWorkspaceIdContactsRoute
-  AppWorkspacesWorkspaceIdMembersRoute: typeof AppWorkspacesWorkspaceIdMembersRoute
-  AppWorkspacesWorkspaceIdIndexRoute: typeof AppWorkspacesWorkspaceIdIndexRoute
+  AppWorkspacesWorkspaceIdSettingsRouteRoute: typeof AppWorkspacesWorkspaceIdSettingsRouteRouteWithChildren;
+  AppWorkspacesWorkspaceIdContactsRoute: typeof AppWorkspacesWorkspaceIdContactsRoute;
+  AppWorkspacesWorkspaceIdMembersRoute: typeof AppWorkspacesWorkspaceIdMembersRoute;
+  AppWorkspacesWorkspaceIdIndexRoute: typeof AppWorkspacesWorkspaceIdIndexRoute;
 }
 
-const AppWorkspacesWorkspaceIdRouteRouteChildren: AppWorkspacesWorkspaceIdRouteRouteChildren =
-  {
-    AppWorkspacesWorkspaceIdSettingsRouteRoute:
-      AppWorkspacesWorkspaceIdSettingsRouteRouteWithChildren,
-    AppWorkspacesWorkspaceIdContactsRoute:
-      AppWorkspacesWorkspaceIdContactsRoute,
-    AppWorkspacesWorkspaceIdMembersRoute: AppWorkspacesWorkspaceIdMembersRoute,
-    AppWorkspacesWorkspaceIdIndexRoute: AppWorkspacesWorkspaceIdIndexRoute,
-  }
+const AppWorkspacesWorkspaceIdRouteRouteChildren: AppWorkspacesWorkspaceIdRouteRouteChildren = {
+  AppWorkspacesWorkspaceIdSettingsRouteRoute:
+    AppWorkspacesWorkspaceIdSettingsRouteRouteWithChildren,
+  AppWorkspacesWorkspaceIdContactsRoute: AppWorkspacesWorkspaceIdContactsRoute,
+  AppWorkspacesWorkspaceIdMembersRoute: AppWorkspacesWorkspaceIdMembersRoute,
+  AppWorkspacesWorkspaceIdIndexRoute: AppWorkspacesWorkspaceIdIndexRoute,
+};
 
 const AppWorkspacesWorkspaceIdRouteRouteWithChildren =
-  AppWorkspacesWorkspaceIdRouteRoute._addFileChildren(
-    AppWorkspacesWorkspaceIdRouteRouteChildren,
-  )
+  AppWorkspacesWorkspaceIdRouteRoute._addFileChildren(AppWorkspacesWorkspaceIdRouteRouteChildren);
 
 interface AppRouteRouteChildren {
-  AppSettingsRoute: typeof AppSettingsRoute
-  AppIndexRoute: typeof AppIndexRoute
-  AppWorkspacesWorkspaceIdRouteRoute: typeof AppWorkspacesWorkspaceIdRouteRouteWithChildren
+  AppSettingsRoute: typeof AppSettingsRoute;
+  AppIndexRoute: typeof AppIndexRoute;
+  AppWorkspacesWorkspaceIdRouteRoute: typeof AppWorkspacesWorkspaceIdRouteRouteWithChildren;
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
   AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
-  AppWorkspacesWorkspaceIdRouteRoute:
-    AppWorkspacesWorkspaceIdRouteRouteWithChildren,
-}
+  AppWorkspacesWorkspaceIdRouteRoute: AppWorkspacesWorkspaceIdRouteRouteWithChildren,
+};
 
-const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(
-  AppRouteRouteChildren,
-)
+const AppRouteRouteWithChildren = AppRouteRoute._addFileChildren(AppRouteRouteChildren);
 
 interface AuthRouteRouteChildren {
-  AuthCallbackRoute: typeof AuthCallbackRoute
-  AuthSignInRoute: typeof AuthSignInRoute
+  AuthCallbackRoute: typeof AuthCallbackRoute;
+  AuthSignInRoute: typeof AuthSignInRoute;
 }
 
 const AuthRouteRouteChildren: AuthRouteRouteChildren = {
   AuthCallbackRoute: AuthCallbackRoute,
   AuthSignInRoute: AuthSignInRoute,
-}
+};
 
-const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(
-  AuthRouteRouteChildren,
-)
+const AuthRouteRouteWithChildren = AuthRouteRoute._addFileChildren(AuthRouteRouteChildren);
 
 interface InviteRouteRouteChildren {
-  InviteInviteTokenRoute: typeof InviteInviteTokenRoute
+  InviteInviteTokenRoute: typeof InviteInviteTokenRoute;
 }
 
 const InviteRouteRouteChildren: InviteRouteRouteChildren = {
   InviteInviteTokenRoute: InviteInviteTokenRoute,
-}
+};
 
-const InviteRouteRouteWithChildren = InviteRouteRoute._addFileChildren(
-  InviteRouteRouteChildren,
-)
+const InviteRouteRouteWithChildren = InviteRouteRoute._addFileChildren(InviteRouteRouteChildren);
 
 const rootRouteChildren: RootRouteChildren = {
   AppRouteRoute: AppRouteRouteWithChildren,
   AuthRouteRoute: AuthRouteRouteWithChildren,
   InviteRouteRoute: InviteRouteRouteWithChildren,
-}
+};
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
-  ._addFileTypes<FileRouteTypes>()
+  ._addFileTypes<FileRouteTypes>();
