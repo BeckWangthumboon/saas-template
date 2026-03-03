@@ -43,6 +43,7 @@ export const ErrorCodeSchema = z.enum([
   'INVITE_ADMIN_CANNOT_INVITE_ADMIN',
   'INVITE_CREATE_RATE_LIMITED',
   'INVITE_ACCEPT_RATE_LIMITED',
+  'INVITE_EMAIL_SCHEDULE_FAILED',
   'BILLING_PRODUCT_ID_REQUIRED',
   'BILLING_PRODUCT_ID_UNKNOWN',
   'BILLING_SUBSCRIPTION_STATUS_UNKNOWN',
@@ -93,6 +94,7 @@ export const ErrorCode = {
   INVITE_ADMIN_CANNOT_INVITE_ADMIN: 'INVITE_ADMIN_CANNOT_INVITE_ADMIN',
   INVITE_CREATE_RATE_LIMITED: 'INVITE_CREATE_RATE_LIMITED',
   INVITE_ACCEPT_RATE_LIMITED: 'INVITE_ACCEPT_RATE_LIMITED',
+  INVITE_EMAIL_SCHEDULE_FAILED: 'INVITE_EMAIL_SCHEDULE_FAILED',
   BILLING_PRODUCT_ID_REQUIRED: 'BILLING_PRODUCT_ID_REQUIRED',
   BILLING_PRODUCT_ID_UNKNOWN: 'BILLING_PRODUCT_ID_UNKNOWN',
   BILLING_SUBSCRIPTION_STATUS_UNKNOWN: 'BILLING_SUBSCRIPTION_STATUS_UNKNOWN',
@@ -141,6 +143,7 @@ const errorCategoryMap: Record<ErrorCode, ErrorCategory> = {
   [ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_CREATE_RATE_LIMITED]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_ACCEPT_RATE_LIMITED]: ErrorCategory.INVITE,
+  [ErrorCode.INVITE_EMAIL_SCHEDULE_FAILED]: ErrorCategory.INVITE,
   [ErrorCode.BILLING_PRODUCT_ID_REQUIRED]: ErrorCategory.BILLING,
   [ErrorCode.BILLING_PRODUCT_ID_UNKNOWN]: ErrorCategory.BILLING,
   [ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN]: ErrorCategory.BILLING,
@@ -201,6 +204,7 @@ export interface ErrorContextMap {
   [ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN]: Record<string, never>;
   [ErrorCode.INVITE_CREATE_RATE_LIMITED]: { retryAfter?: number };
   [ErrorCode.INVITE_ACCEPT_RATE_LIMITED]: { retryAfter?: number };
+  [ErrorCode.INVITE_EMAIL_SCHEDULE_FAILED]: { workspaceId?: string; inviteeEmail?: string };
   [ErrorCode.BILLING_PRODUCT_ID_REQUIRED]: Record<string, never>;
   [ErrorCode.BILLING_PRODUCT_ID_UNKNOWN]: { productId: string };
   [ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN]: { status: string };
@@ -270,6 +274,8 @@ const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.INVITE_CREATE_RATE_LIMITED]: 'Too many invitation attempts. Please try again shortly',
   [ErrorCode.INVITE_ACCEPT_RATE_LIMITED]:
     'Too many invite acceptance attempts. Please try again shortly',
+  [ErrorCode.INVITE_EMAIL_SCHEDULE_FAILED]:
+    'Failed to schedule invitation email. Please try again.',
   [ErrorCode.BILLING_PRODUCT_ID_REQUIRED]: 'Polar product ID is required',
   [ErrorCode.BILLING_PRODUCT_ID_UNKNOWN]: 'Unknown Polar product ID',
   [ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN]: 'Unknown Polar subscription status',
@@ -478,6 +484,8 @@ export const ConvexErrors = {
         ErrorCode.INVITE_ACCEPT_RATE_LIMITED,
         retryAfter ? { retryAfter } : undefined,
       ),
+    emailScheduleFailed: (context?: ErrorContextMap['INVITE_EMAIL_SCHEDULE_FAILED']) =>
+      createAppErrorForConvex(ErrorCode.INVITE_EMAIL_SCHEDULE_FAILED, context),
   },
   billing: {
     productIdRequired: () => createAppErrorForConvex(ErrorCode.BILLING_PRODUCT_ID_REQUIRED),

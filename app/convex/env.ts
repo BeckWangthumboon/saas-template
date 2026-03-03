@@ -134,6 +134,7 @@ const parsePolarProductIds = () => {
 };
 
 const productIds = parsePolarProductIds();
+const appEnv = parseAppEnvironment();
 
 /**
  * Centralized, validated Convex runtime environment configuration.
@@ -143,7 +144,7 @@ const productIds = parsePolarProductIds();
  * @throws ConvexError when any required environment variable is invalid.
  */
 export const convexEnv = {
-  appEnv: parseAppEnvironment(),
+  appEnv,
   workosClientId: requireEnv('WORKOS_CLIENT_ID'),
   workosApiKey: requireEnv('WORKOS_API_KEY'),
   polarOrganizationToken: requireEnv('POLAR_ORGANIZATION_TOKEN'),
@@ -153,6 +154,9 @@ export const convexEnv = {
   polarServer: parsePolarServer(),
   appOrigin: parseAppOrigin(),
   logLevel: parseConvexLogLevel(),
+  resendApiKey: requireEnv('RESEND_API_KEY'),
+  resendFromEmail: requireEnv('RESEND_FROM_EMAIL'),
+  resendTestMode: false,
 } as const;
 
 export type ConvexEnv = typeof convexEnv;

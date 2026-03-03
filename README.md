@@ -57,6 +57,8 @@ Backend (Convex runtime environment):
 - `APP_ENV` (`dev` or `prod`, defaults to `dev`)
 - `APP_ORIGIN` (required, used for billing return URLs)
 - `CONVEX_LOG_LEVEL` (`debug` | `info` | `warn` | `error`, defaults to `info`)
+- `RESEND_API_KEY` (required for invites)
+- `RESEND_FROM_EMAIL` (required for invites, e.g. `Acme <invites@acme.com>`)
 
 3. Start local development (from `app/`):
 

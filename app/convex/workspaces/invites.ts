@@ -1,6 +1,7 @@
 import { v } from 'convex/values';
 
 import { ErrorCode } from '../../shared/errors';
+import { internal } from '../_generated/api';
 import type { Doc, Id } from '../_generated/dataModel';
 import { getWorkspaceEntitlementsSnapshot } from '../entitlements/service';
 import { throwAppErrorForConvex } from '../errors';
@@ -21,6 +22,53 @@ function formatName(firstName: string | null, lastName: string | null): string |
     return [firstName, lastName].filter(Boolean).join(' ');
   }
   return null;
+}
+
+interface ScheduleWorkspaceInviteEmailArgs {
+  workspaceId: Id<'workspaces'>;
+  workspaceName: string;
+  inviteToken: string;
+  inviteeEmail: string;
+  inviteeRole: InviteRole;
+  inviterName: string | undefined;
+  inviterEmail: string;
+  expiresAt: number;
+}
+
+/**
+ * Schedules a background invite email send.
+ */
+async function scheduleWorkspaceInviteEmail(
+  ctx: MutationCtx,
+  args: ScheduleWorkspaceInviteEmailArgs,
+) {
+  try {
+    await ctx.scheduler.runAfter(0, internal.emails.invites.sendWorkspaceInviteEmail, {
+      workspaceId: args.workspaceId,
+      workspaceName: args.workspaceName,
+      inviteToken: args.inviteToken,
+      inviteeEmail: args.inviteeEmail,
+      inviteeRole: args.inviteeRole,
+      inviterName: args.inviterName,
+      inviterEmail: args.inviterEmail,
+      expiresAt: args.expiresAt,
+    });
+  } catch (error) {
+    logger.error({
+      event: 'invite.email.schedule_failed',
+      category: 'INVITE',
+      context: {
+        workspaceId: args.workspaceId,
+        inviteeEmail: args.inviteeEmail,
+        inviteeRole: args.inviteeRole,
+      },
+      error,
+    });
+    return throwAppErrorForConvex(ErrorCode.INVITE_EMAIL_SCHEDULE_FAILED, {
+      workspaceId: args.workspaceId as string,
+      inviteeEmail: args.inviteeEmail,
+    });
+  }
 }
 
 /**
@@ -419,16 +467,18 @@ function throwInviteAcceptanceValidationError(
  * - If no active invite exists (expired, accepted, revoked, or none), creates a new invite
  * - Old invite records are preserved for audit history (never deleted)
  * - When refreshing, the original `invitedByUserId` is preserved
+ * - Invite creation fails if the invite email cannot be scheduled
  *
  * @param workspaceId - The workspace to invite to.
  * @param email - The email address to invite.
  * @param inviteeRole - The role to assign ('admin' | 'member').
- * @returns The invite token, ID, and whether it was resent.
+ * @returns The invite token, ID, and resend flag.
  * @throws INVITE_SELF_INVITE if inviting yourself.
  * @throws INVITE_ADMIN_CANNOT_INVITE_ADMIN if admin tries to invite as admin.
  * @throws INVITE_ALREADY_MEMBER if invitee is already an active member.
  * @throws WORKSPACE_INSUFFICIENT_ROLE if caller is a regular member.
  * @throws INVITE_CREATE_RATE_LIMITED when invite creation limits are exceeded.
+ * @throws INVITE_EMAIL_SCHEDULE_FAILED when invite email scheduling fails.
  */
 export const createInvite = mutation({
   args: {
@@ -436,10 +486,7 @@ export const createInvite = mutation({
     email: v.string(),
     inviteeRole: v.union(v.literal('admin'), v.literal('member')),
   },
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{ token: string; inviteId: Id<'workspaceInvites'>; wasResent: boolean }> => {
+  handler: async (ctx, args) => {
     const { membership, user } = await validateInvitePermission(ctx, args.workspaceId);
     const inviterRole = membership.role;
     const normalizedEmail = args.email.toLowerCase().trim();
@@ -496,6 +543,14 @@ export const createInvite = mutation({
     const now = Date.now();
     const entitlements = await getWorkspaceInviteEntitlements(ctx, args.workspaceId, now);
     assertCanCreateInvite(args.workspaceId, entitlements);
+    const workspace = await ctx.db.get('workspaces', args.workspaceId);
+    if (!workspace || !isActiveWorkspace(workspace)) {
+      return throwAppErrorForConvex(ErrorCode.WORKSPACE_ACCESS_DENIED, {
+        workspaceId: args.workspaceId,
+      });
+    }
+    const inviterDisplayName =
+      formatName(user.firstName ?? null, user.lastName ?? null) ?? undefined;
 
     // Look up invitee by email to get their userId (if they exist)
     const { user: inviteeUser, isAlreadyMember: inviteeIsAlreadyMember } = await lookupUserByEmail(
@@ -536,8 +591,7 @@ export const createInvite = mutation({
         role: args.inviteeRole,
         invitedUserId: inviteeUser?._id,
         updatedAt: now,
-        inviterDisplayNameSnapshot:
-          formatName(user.firstName ?? null, user.lastName ?? null) ?? undefined,
+        inviterDisplayNameSnapshot: inviterDisplayName,
         inviterDisplayEmailSnapshot: user.email,
       });
 
@@ -551,6 +605,17 @@ export const createInvite = mutation({
           inviteeRole: args.inviteeRole,
           invitedUserId: inviteeUser?._id,
         },
+      });
+
+      await scheduleWorkspaceInviteEmail(ctx, {
+        workspaceId: args.workspaceId,
+        workspaceName: workspace.name,
+        inviteToken: activeInvite.token,
+        inviteeEmail: normalizedEmail,
+        inviteeRole: args.inviteeRole,
+        inviterName: inviterDisplayName,
+        inviterEmail: user.email,
+        expiresAt,
       });
 
       return {
@@ -572,8 +637,7 @@ export const createInvite = mutation({
       invitedUserId: inviteeUser?._id,
       expiresAt,
       updatedAt: now,
-      inviterDisplayNameSnapshot:
-        formatName(user.firstName ?? null, user.lastName ?? null) ?? undefined,
+      inviterDisplayNameSnapshot: inviterDisplayName,
       inviterDisplayEmailSnapshot: user.email,
     });
 
@@ -589,7 +653,22 @@ export const createInvite = mutation({
       },
     });
 
-    return { token, inviteId, wasResent: false };
+    await scheduleWorkspaceInviteEmail(ctx, {
+      workspaceId: args.workspaceId,
+      workspaceName: workspace.name,
+      inviteToken: token,
+      inviteeEmail: normalizedEmail,
+      inviteeRole: args.inviteeRole,
+      inviterName: inviterDisplayName,
+      inviterEmail: user.email,
+      expiresAt,
+    });
+
+    return {
+      token,
+      inviteId,
+      wasResent: false,
+    };
   },
 });
 

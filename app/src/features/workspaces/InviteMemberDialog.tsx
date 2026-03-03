@@ -48,7 +48,11 @@ export function InviteMemberDialog({
   trigger,
 }: InviteMemberDialogProps) {
   const [uncontrolledOpen, setUncontrolledOpen] = useState(false);
-  const [successData, setSuccessData] = useState<{ link: string; email: string } | null>(null);
+  const [successData, setSuccessData] = useState<{
+    link: string;
+    email: string;
+    wasResent: boolean;
+  } | null>(null);
   const [copied, setCopied] = useState(false);
   const [copyError, setCopyError] = useState(false);
 
@@ -90,7 +94,11 @@ export function InviteMemberDialog({
 
       if (result.isOk()) {
         const link = formatInviteLink(result.value.token);
-        setSuccessData({ link, email: value.email.trim() });
+        setSuccessData({
+          link,
+          email: value.email.trim(),
+          wasResent: result.value.wasResent,
+        });
         form.reset();
       } else {
         if (result.error.code === ErrorCode.INVITE_ALREADY_MEMBER) {
@@ -116,6 +124,10 @@ export function InviteMemberDialog({
         } else if (result.error.code === ErrorCode.INVITE_CREATE_RATE_LIMITED) {
           toast.error('Too many invite attempts', {
             description: 'Please wait a moment before sending more invitations.',
+          });
+        } else if (result.error.code === ErrorCode.INVITE_EMAIL_SCHEDULE_FAILED) {
+          toast.error('Invitation email failed', {
+            description: 'We could not schedule the invitation email. Please try again.',
           });
         } else {
           toast.error('Failed to send invitation', { description: result.error.message });
@@ -147,9 +159,10 @@ export function InviteMemberDialog({
   const successContent = successData && (
     <DialogContent>
       <DialogHeader>
-        <DialogTitle>Invitation sent</DialogTitle>
+        <DialogTitle>{successData.wasResent ? 'Invitation resent' : 'Invitation sent'}</DialogTitle>
         <DialogDescription>
-          An invitation has been sent to {successData.email}. Share the link below to let them join.
+          An invitation email has been sent to {successData.email}. You can also share the link
+          below.
         </DialogDescription>
       </DialogHeader>
 
