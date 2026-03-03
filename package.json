@@ -1,8 +1,48 @@
 {
   "name": "saas-template",
+  "private": true,
+  "type": "module",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "scripts": {
+    "dev": "bun run dev:backend & bun run dev:web",
+    "dev:web": "bun run --cwd apps/web dev",
+    "dev:backend": "bun run --cwd apps/backend dev",
+    "dev:seed-data": "bun run --cwd apps/backend dev:seed-data",
+    "dev:reset-data": "bun run --cwd apps/backend dev:reset-data",
+    "dev:reseed-data": "bun run --cwd apps/backend dev:reseed-data",
+    "generate": "bun run generate:backend",
+    "generate:backend": "bun run --cwd apps/backend generate",
+    "lint": "bun run lint:web && bun run lint:backend && bun run lint:shared",
+    "lint:web": "bun run --cwd apps/web lint",
+    "lint:backend": "bun run --cwd apps/backend lint",
+    "lint:shared": "bun run --cwd packages/shared lint",
+    "typecheck": "bun run typecheck:web && bun run typecheck:backend && bun run typecheck:shared",
+    "typecheck:web": "bun run --cwd apps/web typecheck",
+    "typecheck:backend": "bun run --cwd apps/backend typecheck",
+    "typecheck:shared": "bun run --cwd packages/shared typecheck",
+    "format": "bun run format:web && bun run format:backend && bun run format:shared",
+    "format:web": "bun run --cwd apps/web format",
+    "format:backend": "bun run --cwd apps/backend format",
+    "format:shared": "bun run --cwd packages/shared format",
+    "format:check": "bun run format:check:web && bun run format:check:backend && bun run format:check:shared",
+    "format:check:web": "bun run --cwd apps/web format:check",
+    "format:check:backend": "bun run --cwd apps/backend format:check",
+    "format:check:shared": "bun run --cwd packages/shared format:check",
+    "check": "bun run check:web && bun run check:backend && bun run check:shared",
+    "check:web": "bun run --cwd apps/web check",
+    "check:backend": "bun run --cwd apps/backend check",
+    "check:shared": "bun run --cwd packages/shared check"
+  },
+  "dependencies": {
+    "convex": "^1.32.0"
+  },
   "devDependencies": {
     "@convex-dev/eslint-plugin": "^1.1.1",
     "@eslint/js": "^9.39.3",
+    "@types/node": "^24.10.9",
     "eslint": "^9.39.3",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-react-hooks": "^7.0.1",
@@ -12,19 +52,5 @@
     "prettier": "^3.8.1",
     "typescript": "~5.9.3",
     "typescript-eslint": "^8.56.1"
-  },
-  "private": true,
-  "scripts": {
-    "lint": "eslint . --fix --cache --cache-location .eslintcache",
-    "typecheck": "tsc --noEmit",
-    "format": "prettier --write .",
-    "format:check": "prettier --check ."
-  },
-  "type": "module",
-  "workspaces": [
-    "app"
-  ],
-  "dependencies": {
-    "convex": "^1.32.0"
   }
 }

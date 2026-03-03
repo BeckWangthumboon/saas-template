@@ -1,0 +1,34 @@
+{
+  "name": "@saas/backend",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "convex dev",
+    "dev:seed-data": "bunx convex run dev/index.js:seedDemoData",
+    "dev:reset-data": "bunx convex run dev/index.js:resetDevData '{\"confirm\":\"RESET_DEV_DATA\"}'",
+    "dev:reseed-data": "bun run dev:reset-data && bun run dev:seed-data",
+    "generate": "bunx convex dev --once",
+    "lint": "eslint convex --fix --cache --cache-location ../../.eslintcache",
+    "typecheck": "tsc --noEmit -p convex/tsconfig.json",
+    "format": "prettier --write convex *.json",
+    "format:check": "prettier --check convex *.json",
+    "check": "bun run lint && bun run typecheck && bun run format"
+  },
+  "dependencies": {
+    "@convex-dev/action-retrier": "^0.3.0",
+    "@convex-dev/rate-limiter": "^0.3.2",
+    "@convex-dev/resend": "^0.2.3",
+    "@convex-dev/workos-authkit": "^0.1.6",
+    "@convex-dev/workpool": "^0.3.1",
+    "@polar-sh/sdk": "^0.42.5",
+    "@saas/shared": "workspace:*",
+    "@workos-inc/node": "^8.0.0",
+    "convex": "^1.32.0",
+    "convex-helpers": "^0.1.111",
+    "zod": "^4.3.6"
+  },
+  "devDependencies": {
+    "@types/node": "^24.10.9"
+  }
+}

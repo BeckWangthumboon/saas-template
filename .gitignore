@@ -43,7 +43,7 @@ pnpm-lock.yaml
 Thumbs.db
 
 # Convex
-app/convex/_generated
+apps/backend/convex/_generated
 
 # TypeScript
 *.tsbuildinfo

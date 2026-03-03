@@ -1,4 +1,8 @@
 {
-  "extends": "./app/tsconfig.app.json",
-  "include": ["app/src", "app/vite.config.ts"]
+  "files": [],
+  "references": [
+    { "path": "./apps/web/tsconfig.json" },
+    { "path": "./packages/shared/tsconfig.json" },
+    { "path": "./packages/convex-api/tsconfig.json" }
+  ]
 }

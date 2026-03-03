@@ -1,23 +1,21 @@
+import convexPlugin from '@convex-dev/eslint-plugin';
 import js from '@eslint/js';
 import eslintConfigPrettier from 'eslint-config-prettier';
+import reactHooks from 'eslint-plugin-react-hooks';
+import reactRefresh from 'eslint-plugin-react-refresh';
 import simpleImportSort from 'eslint-plugin-simple-import-sort';
 import globals from 'globals';
 import tseslint from 'typescript-eslint';
-import reactHooks from 'eslint-plugin-react-hooks';
-import reactRefresh from 'eslint-plugin-react-refresh';
-import convexPlugin from '@convex-dev/eslint-plugin';
 
 export default tseslint.config(
   {
     ignores: [
       '**/dist/**',
       '**/node_modules/**',
-      'app/convex/_generated/**',
-      'app/src/routeTree.gen.ts',
+      'apps/backend/convex/_generated/**',
+      'apps/web/src/routeTree.gen.ts',
       'eslint.config.js',
-      'app/postcss.config.js',
-      'app/tailwind.config.js',
-      'app/vite.config.ts',
+      'apps/web/vite.config.ts',
     ],
   },
   js.configs.recommended,
@@ -77,7 +75,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['app/convex/**/*.{ts,tsx}'],
+    files: ['apps/backend/convex/**/*.{ts,tsx}'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -99,7 +97,7 @@ export default tseslint.config(
     },
   },
   {
-    files: ['app/convex/functions.ts'],
+    files: ['apps/backend/convex/functions.ts'],
     rules: {
       'no-restricted-imports': 'off',
     },

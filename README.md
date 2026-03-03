@@ -21,12 +21,14 @@ This template is intentionally opinionated. The goal is to give you a reliable s
 
 ```txt
 .
-├── package.json          # workspace-level lint/typecheck/format scripts
-└── app/
-    ├── convex/           # backend schema, server functions, webhooks, cron jobs
+├── package.json          # workspace-level scripts
+├── apps/
+│   ├── web/              # frontend workspace
+│   └── backend/          # Convex backend workspace
+│       └── convex/
+└── packages/
     ├── shared/           # cross-runtime shared types/utilities (errors)
-    ├── src/              # frontend app
-    └── package.json      # frontend/dev scripts
+    └── convex-api/       # re-exported Convex generated API/types for frontend
 ```
 
 ## Local setup
@@ -39,14 +41,15 @@ bun install
 
 2. Configure environment variables.
 
-Frontend (`app/.env.local`):
+Frontend (`apps/web/.env.local`):
 
 - `VITE_CONVEX_URL`
 - `VITE_WORKOS_CLIENT_ID`
 - `VITE_WORKOS_REDIRECT_URI`
 
-Backend (Convex runtime environment):
+Backend (`apps/backend/.env.local` or Convex runtime environment):
 
+- `CONVEX_DEPLOYMENT`
 - `WORKOS_CLIENT_ID`
 - `WORKOS_API_KEY`
 - `POLAR_ORGANIZATION_TOKEN`
@@ -61,7 +64,7 @@ Backend (Convex runtime environment):
 - `RESEND_WEBHOOK_SECRET` (required for webhook verification)
 - `RESEND_FROM_EMAIL` (required for invites, e.g. `Acme <invites@acme.com>`)
 
-3. Start local development (from `app/`):
+3. Start local development (from workspace root):
 
 ```bash
 bun run dev
@@ -76,9 +79,9 @@ bun run generate   # regenerate Convex schema/api types
 
 ## Seed and reset local dev data
 
-Dev data tooling lives in `convex/dev/index.ts` and is hard-blocked unless `APP_ENV=dev`.
+Dev data tooling lives in `apps/backend/convex/dev/index.ts` and is hard-blocked unless `APP_ENV=dev`.
 
-Commands (from `app/`):
+Commands (from workspace root):
 
 ```bash
 bun run dev:seed-data     # Create/update deterministic demo workspaces/users/billing state
