@@ -2,79 +2,16 @@ import { R2 } from '@convex-dev/r2';
 import { ErrorCode } from '@saas/shared/errors';
 
 import { components } from '../_generated/api';
-import type { Id } from '../_generated/dataModel';
 import { convexEnv, type R2Config } from '../env';
 import { throwAppErrorForConvex } from '../errors';
-import type { MutationCtx } from '../functions';
+import type { ActionCtx, MutationCtx, QueryCtx } from '../functions';
 import { logger } from '../logging';
 
-export const AVATAR_MAX_SIZE_BYTES = 5 * 1024 * 1024; // 5 MB
-export const WORKSPACE_FILE_MAX_SIZE_BYTES = 50 * 1024 * 1024; // 50 MB
+const getR2Config = (): R2Config => convexEnv.r2;
 
-export const getR2Config = (): R2Config => convexEnv.r2;
+const r2 = new R2(components.r2, getR2Config());
 
-const primaryR2 = new R2(components.r2, getR2Config());
-
-export const getR2 = () => primaryR2;
-
-const fileNameSafePattern = /[^A-Za-z0-9._-]/g;
-
-export const sanitizeFileName = (fileName: string) => {
-  const trimmed = fileName.trim();
-
-  if (!trimmed) {
-    return '';
-  }
-
-  return trimmed.replace(/\s+/g, '_').replace(fileNameSafePattern, '_').slice(0, 120);
-};
-
-export const buildAvatarObjectKey = (userId: Id<'users'>) => {
-  return `avatars/${userId}/${crypto.randomUUID()}`;
-};
-
-export const buildWorkspaceFileObjectKey = (
-  workspaceId: Id<'workspaces'>,
-  sanitizedFileName: string,
-) => {
-  return `workspaces/${workspaceId}/${crypto.randomUUID()}-${sanitizedFileName}`;
-};
-
-export const isAvatarObjectKeyForUser = (key: string, userId: Id<'users'>) => {
-  return key.startsWith(`avatars/${userId}/`);
-};
-
-export const isWorkspaceObjectKeyForWorkspace = (key: string, workspaceId: Id<'workspaces'>) => {
-  return key.startsWith(`workspaces/${workspaceId}/`);
-};
-
-export const assertAvatarContentType = (contentType: string | undefined) => {
-  if (typeof contentType !== 'string' || !contentType.startsWith('image/')) {
-    return throwAppErrorForConvex(ErrorCode.AVATAR_INVALID_FILE_TYPE, {
-      contentType,
-    });
-  }
-};
-
-export const assertAvatarSize = (size: number | undefined) => {
-  if (typeof size !== 'number' || size <= 0 || size > AVATAR_MAX_SIZE_BYTES) {
-    return throwAppErrorForConvex(ErrorCode.AVATAR_FILE_TOO_LARGE, {
-      maxSizeBytes: AVATAR_MAX_SIZE_BYTES,
-      actualSizeBytes: size,
-    });
-  }
-};
-
-export const assertWorkspaceFileSize = (size: number | undefined) => {
-  if (typeof size !== 'number' || size <= 0 || size > WORKSPACE_FILE_MAX_SIZE_BYTES) {
-    return throwAppErrorForConvex(ErrorCode.WORKSPACE_FILE_TOO_LARGE, {
-      maxSizeBytes: WORKSPACE_FILE_MAX_SIZE_BYTES,
-      actualSizeBytes: size,
-    });
-  }
-};
-
-export const throwR2OperationError = (operation: string, error: unknown): never => {
+const throwR2OperationError = (operation: string, error: unknown): never => {
   logger.error({
     event: 'storage.r2.operation_failed',
     category: 'INTERNAL',
@@ -89,11 +26,32 @@ export const throwR2OperationError = (operation: string, error: unknown): never 
   });
 };
 
-export async function scheduleDeleteR2Object(ctx: MutationCtx, key: string, _reason: string) {
-  const config = getR2Config();
+export const generateR2UploadUrlForKey = async (key: string) => {
+  return r2
+    .generateUploadUrl(key)
+    .catch((error: unknown) => throwR2OperationError('generateUploadUrl', error));
+};
 
-  await ctx.scheduler.runAfter(0, components.r2.lib.deleteObject, {
-    key,
-    ...config,
-  });
-}
+export const syncR2Metadata = async (ctx: ActionCtx, key: string): Promise<void> => {
+  await r2
+    .syncMetadata(ctx, key)
+    .catch((error: unknown) => throwR2OperationError('syncMetadata', error));
+};
+
+export const getR2Metadata = async (ctx: ActionCtx | QueryCtx, key: string) => {
+  return r2
+    .getMetadata(ctx, key)
+    .catch((error: unknown) => throwR2OperationError('getMetadata', error));
+};
+
+export const getR2SignedUrl = async (key: string, expiresIn: number) => {
+  return r2
+    .getUrl(key, { expiresIn })
+    .catch((error: unknown) => throwR2OperationError('getUrl', error));
+};
+
+export const deleteR2Object = async (ctx: MutationCtx, key: string): Promise<void> => {
+  await r2
+    .deleteObject(ctx, key)
+    .catch((error: unknown) => throwR2OperationError('deleteObject', error));
+};

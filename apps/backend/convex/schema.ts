@@ -115,6 +115,31 @@ export default defineSchema({
     .index('by_workspaceId', ['workspaceId'])
     .index('by_workspaceId_name', ['workspaceId', 'name']),
 
+  workspaceFiles: defineTable({
+    workspaceId: v.id('workspaces'),
+    uploadedByUserId: v.id('users'),
+    fileName: v.string(),
+    contentType: v.optional(v.string()),
+    size: v.number(),
+    key: v.string(),
+    updatedAt: v.number(),
+  })
+    .index('by_workspaceId', ['workspaceId'])
+    .index('by_workspaceId_key', ['workspaceId', 'key'])
+    .index('by_key', ['key']),
+
+  uploads: defineTable({
+    key: v.string(),
+    kind: v.string(),
+    requestedByUserId: v.id('users'),
+    workspaceId: v.optional(v.id('workspaces')),
+    expiresAt: v.number(),
+  })
+    .index('by_key', ['key'])
+    .index('by_kind_expiresAt', ['kind', 'expiresAt'])
+    .index('by_requestedByUserId', ['requestedByUserId'])
+    .index('by_workspaceId', ['workspaceId']),
+
   workspaceInvites: defineTable({
     workspaceId: v.id('workspaces'),
     email: v.string(),

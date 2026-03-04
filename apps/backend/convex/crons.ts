@@ -34,6 +34,12 @@ crons.daily(
   {},
 );
 
+crons.daily(
+  'cleanup expired workspace file uploads',
+  { hourUTC: 4, minuteUTC: 0 },
+  internal.workspaceFiles.upload.cleanupExpiredWorkspaceFileUploads,
+);
+
 /**
  * Schedules cleanup jobs for finalized and abandoned resend component emails.
  */

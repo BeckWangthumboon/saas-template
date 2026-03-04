@@ -84,6 +84,15 @@ export async function tombstoneWorkspace(
     await ctx.db.delete('contacts', contact._id);
   }
 
+  const files = await ctx.db
+    .query('workspaceFiles')
+    .withIndex('by_workspaceId', (q) => q.eq('workspaceId', workspaceId))
+    .collect();
+
+  for (const file of files) {
+    await ctx.db.delete('workspaceFiles', file._id);
+  }
+
   logger.info({
     event: 'workspace.tombstoned',
     category: 'WORKSPACE',
@@ -93,6 +102,7 @@ export async function tombstoneWorkspace(
       removedMemberCount: members.length,
       removedInviteCount: invites.length,
       removedContactCount: contacts.length,
+      removedFileCount: files.length,
     },
   });
 }
