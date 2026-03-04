@@ -34,7 +34,8 @@
     "check": "bun run check:web && bun run check:backend && bun run check:shared",
     "check:web": "bun run --cwd apps/web check",
     "check:backend": "bun run --cwd apps/backend check",
-    "check:shared": "bun run --cwd packages/shared check"
+    "check:shared": "bun run --cwd packages/shared check",
+    "convex": "bun run --cwd apps/backend bunx convex"
   },
   "dependencies": {
     "convex": "^1.32.0"

@@ -3,6 +3,12 @@ import { createAppErrorForConvex, ErrorCode } from '@saas/shared/errors';
 type PolarServer = 'sandbox' | 'production';
 type ConvexLogLevel = 'debug' | 'info' | 'warn' | 'error';
 type AppEnvironment = 'dev' | 'prod';
+interface R2Config {
+  bucket: string;
+  endpoint: string;
+  accessKeyId: string;
+  secretAccessKey: string;
+}
 
 /**
  * Reads a required environment variable and returns a trimmed value.
@@ -91,6 +97,25 @@ const parseAppEnvironment = (): AppEnvironment => {
 };
 
 /**
+ * Parses required Cloudflare R2 configuration.
+ *
+ * All variables are required to ensure storage features fail fast at startup.
+ */
+const parseR2Config = (): R2Config => {
+  const bucket = requireEnv('R2_BUCKET');
+  const endpoint = requireEnv('R2_ENDPOINT');
+  const accessKeyId = requireEnv('R2_ACCESS_KEY_ID');
+  const secretAccessKey = requireEnv('R2_SECRET_ACCESS_KEY');
+
+  return {
+    bucket,
+    endpoint,
+    accessKeyId,
+    secretAccessKey,
+  };
+};
+
+/**
  * Parses and normalizes the frontend app origin used in billing redirect URLs.
  *
  * @returns App origin without a trailing slash.
@@ -158,6 +183,8 @@ export const convexEnv = {
   resendWebhookSecret: requireEnv('RESEND_WEBHOOK_SECRET'),
   resendFromEmail: requireEnv('RESEND_FROM_EMAIL'),
   resendTestMode: false,
+  r2: parseR2Config(),
 } as const;
 
 export type ConvexEnv = typeof convexEnv;
+export type { R2Config };

@@ -20,6 +20,9 @@ export const ErrorCodeSchema = z.enum([
   'AUTH_WORKOS_USER_NOT_FOUND',
   'AUTH_WORKOS_API_ERROR',
   'AUTH_WORKOS_RATE_LIMIT',
+  'AVATAR_FILE_TOO_LARGE',
+  'AVATAR_INVALID_FILE_TYPE',
+  'AVATAR_UPLOAD_NOT_FOUND',
   'USER_LAST_OWNER_OF_WORKSPACE',
   'WORKSPACE_ACCESS_DENIED',
   'WORKSPACE_NAME_EMPTY',
@@ -32,6 +35,10 @@ export const ErrorCodeSchema = z.enum([
   'CONTACT_INVALID_EMAIL',
   'CONTACT_NOT_FOUND',
   'CONTACT_WRITE_RATE_LIMITED',
+  'WORKSPACE_FILE_NAME_EMPTY',
+  'WORKSPACE_FILE_TOO_LARGE',
+  'WORKSPACE_FILE_NOT_FOUND',
+  'WORKSPACE_FILE_UPLOAD_NOT_FOUND',
   'INVITE_NOT_FOUND',
   'INVITE_EXPIRED',
   'INVITE_ALREADY_ACCEPTED',
@@ -72,6 +79,9 @@ export const ErrorCode = {
   AUTH_WORKOS_USER_NOT_FOUND: 'AUTH_WORKOS_USER_NOT_FOUND',
   AUTH_WORKOS_API_ERROR: 'AUTH_WORKOS_API_ERROR',
   AUTH_WORKOS_RATE_LIMIT: 'AUTH_WORKOS_RATE_LIMIT',
+  AVATAR_FILE_TOO_LARGE: 'AVATAR_FILE_TOO_LARGE',
+  AVATAR_INVALID_FILE_TYPE: 'AVATAR_INVALID_FILE_TYPE',
+  AVATAR_UPLOAD_NOT_FOUND: 'AVATAR_UPLOAD_NOT_FOUND',
   USER_LAST_OWNER_OF_WORKSPACE: 'USER_LAST_OWNER_OF_WORKSPACE',
   WORKSPACE_ACCESS_DENIED: 'WORKSPACE_ACCESS_DENIED',
   WORKSPACE_NAME_EMPTY: 'WORKSPACE_NAME_EMPTY',
@@ -84,6 +94,10 @@ export const ErrorCode = {
   CONTACT_INVALID_EMAIL: 'CONTACT_INVALID_EMAIL',
   CONTACT_NOT_FOUND: 'CONTACT_NOT_FOUND',
   CONTACT_WRITE_RATE_LIMITED: 'CONTACT_WRITE_RATE_LIMITED',
+  WORKSPACE_FILE_NAME_EMPTY: 'WORKSPACE_FILE_NAME_EMPTY',
+  WORKSPACE_FILE_TOO_LARGE: 'WORKSPACE_FILE_TOO_LARGE',
+  WORKSPACE_FILE_NOT_FOUND: 'WORKSPACE_FILE_NOT_FOUND',
+  WORKSPACE_FILE_UPLOAD_NOT_FOUND: 'WORKSPACE_FILE_UPLOAD_NOT_FOUND',
   INVITE_NOT_FOUND: 'INVITE_NOT_FOUND',
   INVITE_EXPIRED: 'INVITE_EXPIRED',
   INVITE_ALREADY_ACCEPTED: 'INVITE_ALREADY_ACCEPTED',
@@ -122,6 +136,9 @@ const errorCategoryMap: Record<ErrorCode, ErrorCategory> = {
   [ErrorCode.AUTH_WORKOS_USER_NOT_FOUND]: ErrorCategory.AUTH,
   [ErrorCode.AUTH_WORKOS_API_ERROR]: ErrorCategory.AUTH,
   [ErrorCode.AUTH_WORKOS_RATE_LIMIT]: ErrorCategory.AUTH,
+  [ErrorCode.AVATAR_FILE_TOO_LARGE]: ErrorCategory.AUTH,
+  [ErrorCode.AVATAR_INVALID_FILE_TYPE]: ErrorCategory.AUTH,
+  [ErrorCode.AVATAR_UPLOAD_NOT_FOUND]: ErrorCategory.AUTH,
   [ErrorCode.USER_LAST_OWNER_OF_WORKSPACE]: ErrorCategory.AUTH,
   [ErrorCode.WORKSPACE_ACCESS_DENIED]: ErrorCategory.WORKSPACE,
   [ErrorCode.WORKSPACE_NAME_EMPTY]: ErrorCategory.WORKSPACE,
@@ -134,6 +151,10 @@ const errorCategoryMap: Record<ErrorCode, ErrorCategory> = {
   [ErrorCode.CONTACT_INVALID_EMAIL]: ErrorCategory.WORKSPACE,
   [ErrorCode.CONTACT_NOT_FOUND]: ErrorCategory.WORKSPACE,
   [ErrorCode.CONTACT_WRITE_RATE_LIMITED]: ErrorCategory.WORKSPACE,
+  [ErrorCode.WORKSPACE_FILE_NAME_EMPTY]: ErrorCategory.WORKSPACE,
+  [ErrorCode.WORKSPACE_FILE_TOO_LARGE]: ErrorCategory.WORKSPACE,
+  [ErrorCode.WORKSPACE_FILE_NOT_FOUND]: ErrorCategory.WORKSPACE,
+  [ErrorCode.WORKSPACE_FILE_UPLOAD_NOT_FOUND]: ErrorCategory.WORKSPACE,
   [ErrorCode.INVITE_NOT_FOUND]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_EXPIRED]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: ErrorCategory.INVITE,
@@ -180,6 +201,9 @@ export interface ErrorContextMap {
   [ErrorCode.AUTH_WORKOS_USER_NOT_FOUND]: { authId: string };
   [ErrorCode.AUTH_WORKOS_API_ERROR]: { operation?: string; status?: number; message?: string };
   [ErrorCode.AUTH_WORKOS_RATE_LIMIT]: { retryAfter?: number };
+  [ErrorCode.AVATAR_FILE_TOO_LARGE]: { maxSizeBytes: number; actualSizeBytes?: number };
+  [ErrorCode.AVATAR_INVALID_FILE_TYPE]: { contentType?: string };
+  [ErrorCode.AVATAR_UPLOAD_NOT_FOUND]: { key: string };
   [ErrorCode.USER_LAST_OWNER_OF_WORKSPACE]: { workspaceNames: string[] };
   [ErrorCode.WORKSPACE_ACCESS_DENIED]: { workspaceId?: string };
   [ErrorCode.WORKSPACE_NAME_EMPTY]: Record<string, never>;
@@ -196,6 +220,10 @@ export interface ErrorContextMap {
   [ErrorCode.CONTACT_INVALID_EMAIL]: { email: string };
   [ErrorCode.CONTACT_NOT_FOUND]: { contactId: string; workspaceId: string };
   [ErrorCode.CONTACT_WRITE_RATE_LIMITED]: { retryAfter?: number; workspaceId?: string };
+  [ErrorCode.WORKSPACE_FILE_NAME_EMPTY]: Record<string, never>;
+  [ErrorCode.WORKSPACE_FILE_TOO_LARGE]: { maxSizeBytes: number; actualSizeBytes?: number };
+  [ErrorCode.WORKSPACE_FILE_NOT_FOUND]: { fileId: string; workspaceId: string };
+  [ErrorCode.WORKSPACE_FILE_UPLOAD_NOT_FOUND]: { key: string; workspaceId: string };
   [ErrorCode.INVITE_NOT_FOUND]: { token?: string; inviteId?: string };
   [ErrorCode.INVITE_EXPIRED]: { token?: string; hasNewerInvite?: boolean };
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: { token?: string; hasNewerInvite?: boolean };
@@ -254,6 +282,9 @@ const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.AUTH_WORKOS_USER_NOT_FOUND]: 'User not found in authentication service',
   [ErrorCode.AUTH_WORKOS_API_ERROR]: 'Authentication service error',
   [ErrorCode.AUTH_WORKOS_RATE_LIMIT]: 'Too many requests',
+  [ErrorCode.AVATAR_FILE_TOO_LARGE]: 'Avatar file exceeds the allowed size',
+  [ErrorCode.AVATAR_INVALID_FILE_TYPE]: 'Avatar file type is not supported',
+  [ErrorCode.AVATAR_UPLOAD_NOT_FOUND]: 'Uploaded avatar file was not found',
   [ErrorCode.USER_LAST_OWNER_OF_WORKSPACE]:
     'Cannot delete account. You are the only owner of one or more workspaces',
   [ErrorCode.WORKSPACE_ACCESS_DENIED]: 'You do not have access to this workspace',
@@ -269,6 +300,10 @@ const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.CONTACT_INVALID_EMAIL]: 'Contact email is invalid',
   [ErrorCode.CONTACT_NOT_FOUND]: 'Contact not found',
   [ErrorCode.CONTACT_WRITE_RATE_LIMITED]: 'Too many contact updates. Please try again shortly',
+  [ErrorCode.WORKSPACE_FILE_NAME_EMPTY]: 'File name cannot be empty',
+  [ErrorCode.WORKSPACE_FILE_TOO_LARGE]: 'File exceeds the allowed size',
+  [ErrorCode.WORKSPACE_FILE_NOT_FOUND]: 'File not found',
+  [ErrorCode.WORKSPACE_FILE_UPLOAD_NOT_FOUND]: 'Uploaded file was not found',
   [ErrorCode.INVITE_NOT_FOUND]: 'Invite not found',
   [ErrorCode.INVITE_EXPIRED]: 'This invite has expired',
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: 'This invite has already been accepted',
@@ -438,6 +473,12 @@ export const ConvexErrors = {
         ErrorCode.AUTH_WORKOS_RATE_LIMIT,
         retryAfter ? { retryAfter } : undefined,
       ),
+    avatarFileTooLarge: (context: ErrorContextMap['AVATAR_FILE_TOO_LARGE']) =>
+      createAppErrorForConvex(ErrorCode.AVATAR_FILE_TOO_LARGE, context),
+    avatarInvalidFileType: (context?: ErrorContextMap['AVATAR_INVALID_FILE_TYPE']) =>
+      createAppErrorForConvex(ErrorCode.AVATAR_INVALID_FILE_TYPE, context),
+    avatarUploadNotFound: (key: string) =>
+      createAppErrorForConvex(ErrorCode.AVATAR_UPLOAD_NOT_FOUND, { key }),
   },
   workspace: {
     accessDenied: (workspaceId?: string) =>
@@ -465,6 +506,13 @@ export const ConvexErrors = {
       createAppErrorForConvex(ErrorCode.CONTACT_NOT_FOUND, { contactId, workspaceId }),
     contactWriteRateLimited: (context?: ErrorContextMap['CONTACT_WRITE_RATE_LIMITED']) =>
       createAppErrorForConvex(ErrorCode.CONTACT_WRITE_RATE_LIMITED, context),
+    fileNameEmpty: () => createAppErrorForConvex(ErrorCode.WORKSPACE_FILE_NAME_EMPTY),
+    fileTooLarge: (context: ErrorContextMap['WORKSPACE_FILE_TOO_LARGE']) =>
+      createAppErrorForConvex(ErrorCode.WORKSPACE_FILE_TOO_LARGE, context),
+    fileNotFound: (fileId: string, workspaceId: string) =>
+      createAppErrorForConvex(ErrorCode.WORKSPACE_FILE_NOT_FOUND, { fileId, workspaceId }),
+    fileUploadNotFound: (key: string, workspaceId: string) =>
+      createAppErrorForConvex(ErrorCode.WORKSPACE_FILE_UPLOAD_NOT_FOUND, { key, workspaceId }),
   },
   invite: {
     notFound: (context?: ErrorContextMap['INVITE_NOT_FOUND']) =>

@@ -17,6 +17,7 @@
   },
   "dependencies": {
     "@convex-dev/action-retrier": "^0.3.0",
+    "@convex-dev/r2": "^0.9.1",
     "@convex-dev/rate-limiter": "^0.3.2",
     "@convex-dev/resend": "^0.2.3",
     "@convex-dev/workos-authkit": "^0.1.6",
