@@ -7,7 +7,7 @@ This repo is a Convex + React (Vite) SaaS template.
 - `bun run check`: run lint + typecheck + format
 - `bun run generate`: regenerate Convex types/schema
 
-Do not run `bun run dev` or `bun run build`.
+Do not run `bun run dev` or `bun run build`. Assume dev server is already running. If not, alert user. 
 
 ## Core Standards
 

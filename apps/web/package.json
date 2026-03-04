@@ -8,8 +8,8 @@
     "preview": "vite preview",
     "lint": "eslint src --fix --cache --cache-location ../../.eslintcache",
     "typecheck": "tsc -b",
-    "format": "prettier --write .",
-    "format:check": "prettier --check .",
+    "format": "prettier --write --log-level silent .",
+    "format:check": "prettier --check --log-level silent .",
     "check": "bun run lint && bun run typecheck && bun run format"
   },
   "dependencies": {

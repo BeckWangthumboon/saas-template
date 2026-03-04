@@ -11,8 +11,8 @@
     "generate": "bunx convex dev --once",
     "lint": "eslint convex --fix --cache --cache-location ../../.eslintcache",
     "typecheck": "tsc --noEmit -p convex/tsconfig.json",
-    "format": "prettier --write convex *.json",
-    "format:check": "prettier --check convex *.json",
+    "format": "prettier --write --log-level silent convex *.json",
+    "format:check": "prettier --check --log-level silent convex *.json",
     "check": "bun run lint && bun run typecheck && bun run format"
   },
   "dependencies": {

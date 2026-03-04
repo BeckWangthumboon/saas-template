@@ -59,3 +59,6 @@ coverage
 .codex
 .opencode
 .agents
+
+# TanStack Router generated file
+apps/web/src/routeTree.gen.ts
