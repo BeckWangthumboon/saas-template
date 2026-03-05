@@ -1,9 +1,24 @@
 import type { Id } from '@saas/convex-api';
-import { createFileRoute, Link, Outlet, useLocation } from '@tanstack/react-router';
+import { createFileRoute, Outlet, useLocation } from '@tanstack/react-router';
+import { useAuth } from '@workos-inc/authkit-react';
 import { FilesIcon, LayoutDashboardIcon, SettingsIcon, UsersIcon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import {
+  Sidebar,
+  SidebarContent,
+  SidebarFooter,
+  SidebarGroup,
+  SidebarGroupContent,
+  SidebarGroupLabel,
+  SidebarInset,
+  SidebarMenu,
+  SidebarMenuButton,
+  SidebarMenuItem,
+  SidebarProvider,
+  SidebarSeparator,
+} from '@/components/ui/sidebar';
 import {
   isWorkspaceEntitlementsReady,
   isWorkspaceReady,
@@ -14,7 +29,6 @@ import {
   type WorkspaceReadyContext,
   WorkspaceSwitcher,
 } from '@/features/workspaces';
-import { cn } from '@/lib/utils';
 
 interface AppPage {
   label: string;
@@ -27,38 +41,11 @@ export const Route = createFileRoute('/_app/workspaces/$workspaceId')({
   component: WorkspaceLayout,
 });
 
-function NavItem({
-  href,
-  icon: Icon,
-  label,
-  isActive,
-}: {
-  href: string;
-  icon: typeof LayoutDashboardIcon;
-  label: string;
-  isActive: boolean;
-}) {
-  return (
-    <Link
-      to={href}
-      className={cn(
-        'flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-        isActive
-          ? 'bg-accent text-accent-foreground'
-          : 'text-muted-foreground hover:bg-accent hover:text-accent-foreground',
-      )}
-    >
-      <Icon className="size-4" />
-      <span>{label}</span>
-    </Link>
-  );
-}
-
 function WorkspaceLayout() {
   const { workspaceId } = Route.useParams();
-  const { pathname } = useLocation();
+
   return (
-    <WorkspaceProvider key={pathname} workspaceId={workspaceId}>
+    <WorkspaceProvider key={workspaceId} workspaceId={workspaceId}>
       <WorkspaceLayoutContent />
     </WorkspaceProvider>
   );
@@ -88,6 +75,7 @@ function WorkspaceLayoutReadyContent({
 }: {
   workspaceContext: WorkspaceReadyContext;
 }) {
+  const { signOut } = useAuth();
   const navigate = Route.useNavigate();
   const entitlementsContext = useWorkspaceEntitlements();
   const location = useLocation();
@@ -153,48 +141,87 @@ function WorkspaceLayoutReadyContent({
   });
 
   return (
-    <div className="flex h-full min-h-0 overflow-hidden">
-      <aside className="w-56 shrink-0 border-r bg-muted/40 p-3 flex flex-col">
-        <nav className="flex flex-col gap-1 flex-1">
-          {appPages.map((page) => (
-            <NavItem
-              key={page.href}
-              href={page.href}
-              icon={page.icon}
-              label={page.label}
-              isActive={
-                page.match ? page.match(location.pathname) : location.pathname === page.href
-              }
-            />
-          ))}
-        </nav>
-        <div className="border-t pt-3 mt-3">
+    <SidebarProvider className="h-full min-h-0">
+      <Sidebar collapsible="none" className="border-r border-sidebar-border">
+        <SidebarContent>
+          <SidebarGroup>
+            <SidebarGroupLabel>Workspace</SidebarGroupLabel>
+            <SidebarGroupContent>
+              <SidebarMenu>
+                {appPages.map((page) => (
+                  <SidebarMenuItem key={page.href}>
+                    <SidebarMenuButton
+                      isActive={
+                        page.match ? page.match(location.pathname) : location.pathname === page.href
+                      }
+                      tooltip={page.label}
+                      onClick={() => {
+                        void navigate({ to: page.href });
+                      }}
+                    >
+                      <page.icon className="size-4" />
+                      <span>{page.label}</span>
+                    </SidebarMenuButton>
+                  </SidebarMenuItem>
+                ))}
+              </SidebarMenu>
+            </SidebarGroupContent>
+          </SidebarGroup>
+        </SidebarContent>
+
+        <SidebarSeparator />
+
+        <SidebarFooter>
           <WorkspaceSwitcher
             workspaces={workspaces}
             currentWorkspace={workspace}
             onNavigate={navigate}
+            onSignOut={() => {
+              signOut();
+            }}
           />
-        </div>
-      </aside>
+        </SidebarFooter>
+      </Sidebar>
 
-      <main className="flex-1 min-h-0 min-w-0 overflow-hidden">
-        <ScrollArea className="h-full w-full">
-          <div className="p-6">
-            {isBlockedByLock ? (
-              <div className="flex min-h-[70vh] items-center justify-center">
-                <LockedWorkspaceAccessPanel
-                  onGoToBilling={() => {
-                    void navigate({ to: billingPath });
-                  }}
-                />
-              </div>
-            ) : (
-              <Outlet />
-            )}
-          </div>
-        </ScrollArea>
-      </main>
-    </div>
+      <SidebarInset className="min-h-0 overflow-hidden">
+        <header className="flex h-14 items-center justify-end border-b px-4">
+          <a
+            href="https://github.com/BeckWangthumboon/saas-template"
+            target="_blank"
+            rel="noreferrer"
+            aria-label="Open GitHub repository"
+            className="text-muted-foreground hover:text-foreground hover:bg-accent focus-visible:ring-ring/50 inline-flex size-8 items-center justify-center rounded-md transition-colors outline-none focus-visible:ring-[3px]"
+          >
+            <svg
+              viewBox="0 0 24 24"
+              aria-hidden="true"
+              className="size-4 fill-current"
+              xmlns="http://www.w3.org/2000/svg"
+            >
+              <path d="M12 .5a12 12 0 0 0-3.79 23.39c.6.1.82-.26.82-.58v-2.22c-3.34.73-4.04-1.6-4.04-1.6-.54-1.36-1.33-1.73-1.33-1.73-1.09-.74.08-.73.08-.73 1.2.08 1.83 1.23 1.83 1.23 1.08 1.83 2.82 1.3 3.5.99.11-.77.42-1.3.76-1.59-2.66-.3-5.47-1.32-5.47-5.9 0-1.3.47-2.37 1.24-3.2-.12-.31-.54-1.56.12-3.25 0 0 1-.32 3.3 1.22a11.52 11.52 0 0 1 6 0c2.3-1.54 3.3-1.22 3.3-1.22.66 1.69.24 2.94.12 3.25.77.83 1.24 1.9 1.24 3.2 0 4.59-2.81 5.6-5.49 5.9.43.37.81 1.1.81 2.22v3.29c0 .32.22.69.83.58A12 12 0 0 0 12 .5Z" />
+            </svg>
+          </a>
+        </header>
+
+        <div className="min-h-0 flex-1 overflow-hidden">
+          <ScrollArea className="h-full w-full">
+            <div className="p-6">
+              {isBlockedByLock ? (
+                <div className="flex min-h-[70vh] items-center justify-center">
+                  <LockedWorkspaceAccessPanel
+                    onGoToBilling={() => {
+                      void navigate({ to: billingPath });
+                    }}
+                  />
+                </div>
+              ) : (
+                <Outlet />
+              )}
+            </div>
+          </ScrollArea>
+        </div>
+      </SidebarInset>
+    </SidebarProvider>
   );
 }
 

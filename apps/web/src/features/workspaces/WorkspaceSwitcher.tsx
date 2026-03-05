@@ -1,5 +1,5 @@
 import type { useNavigate } from '@tanstack/react-router';
-import { ChevronDownIcon, PlusIcon, SettingsIcon } from 'lucide-react';
+import { ChevronDownIcon, LogOutIcon, PlusIcon, SettingsIcon } from 'lucide-react';
 import { useState } from 'react';
 
 import {
@@ -27,12 +27,14 @@ interface WorkspaceSwitcherProps {
   workspaces: Workspace[];
   currentWorkspace: Workspace;
   onNavigate: ReturnType<typeof useNavigate>;
+  onSignOut?: () => void;
 }
 
 export function WorkspaceSwitcher({
   workspaces,
   currentWorkspace,
   onNavigate,
+  onSignOut,
 }: WorkspaceSwitcherProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
 
@@ -58,7 +60,12 @@ export function WorkspaceSwitcher({
           </div>
           <ChevronDownIcon className="size-4 shrink-0 opacity-50" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent side="top" align="start" sideOffset={8} className="w-52">
+        <DropdownMenuContent
+          side="top"
+          align="start"
+          sideOffset={8}
+          className="w-52 ring-2 ring-border shadow-lg"
+        >
           <DropdownMenuGroup>
             <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
             <DropdownMenuRadioGroup
@@ -85,6 +92,14 @@ export function WorkspaceSwitcher({
             <SettingsIcon className="mr-2 h-4 w-4" />
             Account Settings
           </DropdownMenuItem>
+          {onSignOut && (
+            <>
+              <DropdownMenuItem onClick={onSignOut}>
+                <LogOutIcon className="mr-2 h-4 w-4" />
+                Sign out
+              </DropdownMenuItem>
+            </>
+          )}
         </DropdownMenuContent>
       </DropdownMenu>
 
