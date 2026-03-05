@@ -22,6 +22,7 @@ import {
   getAuthIdentity,
   getDeleteNextAttemptAt,
   isActiveUser,
+  resolveUserProfilePictureUrl,
   waitForWorkosFetchResult,
 } from './helpers';
 import { workosActionRetrier, workosWorkpool } from './workos';
@@ -48,7 +49,11 @@ export const getUserOrNull = query({
     if (!user || !isActiveUser(user)) {
       return null;
     }
-    return user;
+
+    return {
+      ...user,
+      profilePictureUrl: await resolveUserProfilePictureUrl(user),
+    };
   },
 });
 
@@ -123,10 +128,15 @@ export const ensureUser = action({
         },
       });
 
-      return assertActiveUser(existingUser, {
+      const user = assertActiveUser(existingUser, {
         code: ErrorCode.AUTH_USER_DELETING,
         details: { authId, userId: existingUser._id },
       });
+
+      return {
+        ...user,
+        profilePictureUrl: await resolveUserProfilePictureUrl(user),
+      };
     }
 
     const runId = await workosActionRetrier.run(ctx, internal.users.workos.fetchWorkosUser, {
@@ -157,10 +167,15 @@ export const ensureUser = action({
       },
     });
 
-    return assertActiveUser(newUser, {
+    const user = assertActiveUser(newUser, {
       code: ErrorCode.AUTH_USER_DELETING,
       details: { authId, userId: newUser._id },
     });
+
+    return {
+      ...user,
+      profilePictureUrl: await resolveUserProfilePictureUrl(user),
+    };
   },
 });
 

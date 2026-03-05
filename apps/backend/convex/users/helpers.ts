@@ -7,6 +7,7 @@ import { throwAppErrorForConvex } from '../errors';
 import type { ActionCtx, MutationCtx, QueryCtx } from '../functions';
 import type { userDeleteInfo } from '../schema';
 import { deleteR2ObjectOrDefer } from '../storage/deletes';
+import { getR2SignedUrl } from '../storage/r2Client';
 import { workosActionRetrier, type WorkosUserFetchResult } from './workos';
 
 export const PURGE_DELAY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -20,6 +21,7 @@ const DELETE_BACKOFF_SCHEDULE_MS = [
 ];
 const WORKOS_FETCH_POLL_INTERVAL_MS = 500;
 const WORKOS_FETCH_MAX_WAIT_MS = 10_000;
+const AVATAR_URL_EXPIRES_IN_SECONDS = 7 * 24 * 60 * 60; // 7 days
 
 type AuthIdentity = NonNullable<Awaited<ReturnType<QueryCtx['auth']['getUserIdentity']>>>;
 export type ActiveUser = Extract<Doc<'users'>, { status: 'active' }>;
@@ -322,6 +324,23 @@ export const getActiveUserByEmail = async (ctx: QueryCtx | MutationCtx, email: s
     return null;
   }
   return user;
+};
+
+/**
+ * Resolves the avatar URL returned to clients.
+ * Custom avatars are stored by R2 object key and must be converted to a signed URL on read.
+ */
+export const resolveUserProfilePictureUrl = async (
+  user: Pick<
+    ActiveUser,
+    'avatarKey' | 'avatarSource' | 'profilePictureUrl' | 'workosProfilePictureUrl'
+  >,
+) => {
+  if (user.avatarSource === 'custom' && user.avatarKey) {
+    return getR2SignedUrl(user.avatarKey, AVATAR_URL_EXPIRES_IN_SECONDS);
+  }
+
+  return user.profilePictureUrl ?? user.workosProfilePictureUrl ?? undefined;
 };
 
 /**

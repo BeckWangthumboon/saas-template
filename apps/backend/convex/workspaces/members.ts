@@ -4,6 +4,7 @@ import { v } from 'convex/values';
 import { throwAppErrorForConvex } from '../errors';
 import { mutation, query } from '../functions';
 import { logger } from '../logging';
+import { resolveUserProfilePictureUrl } from '../users/helpers';
 import { getWorkspaceMembership, requireWorkspaceAdminOrOwner } from './utils';
 
 /**
@@ -33,7 +34,7 @@ export const getWorkspaceMembers = query({
 
         return {
           _id: user._id,
-          profilePictureUrl: user.profilePictureUrl,
+          profilePictureUrl: await resolveUserProfilePictureUrl(user),
           firstName: user.firstName,
           lastName: user.lastName,
           email: user.email,
