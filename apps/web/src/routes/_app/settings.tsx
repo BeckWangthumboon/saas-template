@@ -8,7 +8,6 @@ import { ArrowLeftIcon } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 
-import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -25,6 +24,7 @@ import { Field, FieldError, FieldGroup, FieldLabel } from '@/components/ui/field
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { useUser } from '@/features/auth';
+import { AvatarSettingsCard } from '@/features/auth/AvatarSettingsCard';
 import { useConvexMutation } from '@/hooks';
 
 export const Route = createFileRoute('/_app/settings')({
@@ -142,10 +142,6 @@ function SettingsPage() {
     return <p className="text-muted-foreground">Loading account...</p>;
   }
 
-  const initials =
-    [user.firstName?.[0], user.lastName?.[0]].filter(Boolean).join('').toUpperCase() ||
-    user.email[0].toUpperCase();
-
   return (
     <ScrollArea className="h-full">
       <div className="mx-auto max-w-xl space-y-8 p-6">
@@ -161,21 +157,7 @@ function SettingsPage() {
           Back
         </Button>
 
-        {/* Profile Header Banner */}
-        <div className="flex flex-col items-center space-y-3 py-4">
-          <Avatar className="h-24 w-24 text-2xl">
-            <AvatarImage src={user.profilePictureUrl} alt={user.firstName ?? user.email} />
-            <AvatarFallback>{initials}</AvatarFallback>
-          </Avatar>
-          <div className="text-center">
-            <h1 className="text-xl font-semibold">
-              {user.firstName || user.lastName
-                ? `${user.firstName ?? ''} ${user.lastName ?? ''}`.trim()
-                : 'No name set'}
-            </h1>
-            <p className="text-muted-foreground text-sm">{user.email}</p>
-          </div>
-        </div>
+        <AvatarSettingsCard user={user} />
 
         {/* Profile Card */}
         <Card>
