@@ -46,6 +46,12 @@ crons.daily(
   internal.users.avatar.cleanupExpiredAvatarUploads,
 );
 
+crons.daily(
+  'reconcile failed r2 deletes',
+  { hourUTC: 5, minuteUTC: 0 },
+  internal.storage.deletes.reconcileFailedR2Deletes,
+);
+
 /**
  * Schedules cleanup jobs for finalized and abandoned resend component emails.
  */

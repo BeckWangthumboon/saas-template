@@ -836,6 +836,7 @@ export const resetDevData = internalMutation({
       'contacts',
       'workspaceFiles',
       'uploads',
+      'r2DeleteQueue',
       'workspaceBillingState',
       'workspaces',
       ...(includeUsers ? (['users'] as const) : []),

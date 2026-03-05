@@ -5,9 +5,8 @@ import type { Infer } from 'convex/values';
 import type { Doc, Id } from '../_generated/dataModel';
 import { throwAppErrorForConvex } from '../errors';
 import type { ActionCtx, MutationCtx, QueryCtx } from '../functions';
-import { logger } from '../logging';
 import type { userDeleteInfo } from '../schema';
-import { deleteR2Object } from '../storage/r2';
+import { deleteR2ObjectOrDefer } from '../storage/deletes';
 import { workosActionRetrier, type WorkosUserFetchResult } from './workos';
 
 export const PURGE_DELAY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -367,19 +366,11 @@ export async function markUserAsDeleted(ctx: MutationCtx, userId: Id<'users'>) {
       : undefined;
 
   if (customAvatarKey) {
-    try {
-      await deleteR2Object(ctx, customAvatarKey);
-    } catch (error: unknown) {
-      logger.warn({
-        event: 'auth.avatar.user_delete_cleanup_failed',
-        category: 'AUTH',
-        context: {
-          userId,
-          key: customAvatarKey,
-        },
-        error,
-      });
-    }
+    await deleteR2ObjectOrDefer(ctx, {
+      key: customAvatarKey,
+      source: 'auth.avatar.user_delete_cleanup_failed',
+      reason: 'user_marked_deleted',
+    });
   }
 
   const now = Date.now();

@@ -12,5 +12,6 @@ app.use(rateLimiter);
 app.use(r2);
 app.use(resend);
 app.use(workpool, { name: 'workosWorkpool' });
+app.use(workpool, { name: 'r2CleanupWorkpool' });
 app.use(workOSAuthKit);
 export default app;

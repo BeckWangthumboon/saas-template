@@ -5,12 +5,14 @@ import { internal } from '../_generated/api';
 import { throwAppErrorForConvex } from '../errors';
 import { action, internalMutation, mutation } from '../functions';
 import { logger } from '../logging';
+import { deleteR2ObjectOrDefer } from '../storage/deletes';
+import { generateR2UploadUrlForKey, getR2Metadata, syncR2Metadata } from '../storage/r2Client';
 import {
-  deleteR2Object,
-  generateR2UploadUrlForKey,
-  getR2Metadata,
-  syncR2Metadata,
-} from '../storage/r2';
+  createPendingUpload,
+  deletePendingUpload,
+  getPendingUploadByKey,
+  listExpiredPendingUploadsByKind,
+} from '../storage/uploads';
 import {
   assertAvatarContentType,
   assertAvatarFileSize,
@@ -49,7 +51,7 @@ export const requestAvatarUploadUrl = mutation({
     const key = buildAvatarObjectKey(user._id, sanitizedFileName);
     const { url } = await generateR2UploadUrlForKey(key);
 
-    await ctx.db.insert('uploads', {
+    await createPendingUpload(ctx, {
       key,
       kind: AVATAR_UPLOAD_KIND,
       requestedByUserId: user._id,
@@ -78,10 +80,7 @@ export const finalizeAvatarPendingUpload = internalMutation({
       return throwAvatarUploadNotFound(args.key);
     }
 
-    const pendingUpload = await ctx.db
-      .query('uploads')
-      .withIndex('by_key', (q) => q.eq('key', args.key))
-      .unique();
+    const pendingUpload = await getPendingUploadByKey(ctx, args.key);
 
     if (!pendingUpload) {
       if (user.avatarSource === 'custom' && user.avatarKey === args.key) {
@@ -95,22 +94,13 @@ export const finalizeAvatarPendingUpload = internalMutation({
     }
 
     const cleanupFailedUpload = async (reason: string) => {
-      try {
-        await deleteR2Object(ctx, args.key);
-      } catch (error: unknown) {
-        logger.warn({
-          event: 'auth.avatar.cleanup_failed',
-          category: 'AUTH',
-          context: {
-            userId: user._id,
-            key: args.key,
-            reason,
-          },
-          error,
-        });
-      }
+      await deleteR2ObjectOrDefer(ctx, {
+        key: args.key,
+        source: 'auth.avatar.cleanup_failed',
+        reason,
+      });
 
-      await ctx.db.delete('uploads', pendingUpload._id);
+      await deletePendingUpload(ctx, pendingUpload._id);
     };
 
     if (!args.metadataFound) {
@@ -136,22 +126,14 @@ export const finalizeAvatarPendingUpload = internalMutation({
       updatedAt: now,
     });
 
-    await ctx.db.delete('uploads', pendingUpload._id);
+    await deletePendingUpload(ctx, pendingUpload._id);
 
     if (previousCustomAvatarKey && previousCustomAvatarKey !== args.key) {
-      try {
-        await deleteR2Object(ctx, previousCustomAvatarKey);
-      } catch (error: unknown) {
-        logger.warn({
-          event: 'auth.avatar.previous_cleanup_failed',
-          category: 'AUTH',
-          context: {
-            userId: user._id,
-            key: previousCustomAvatarKey,
-          },
-          error,
-        });
-      }
+      await deleteR2ObjectOrDefer(ctx, {
+        key: previousCustomAvatarKey,
+        source: 'auth.avatar.previous_cleanup_failed',
+        reason: 'replaced_by_new_avatar',
+      });
     }
 
     logger.info({
@@ -206,19 +188,11 @@ export const removeAvatar = mutation({
     });
 
     if (previousCustomAvatarKey) {
-      try {
-        await deleteR2Object(ctx, previousCustomAvatarKey);
-      } catch (error: unknown) {
-        logger.warn({
-          event: 'auth.avatar.remove_cleanup_failed',
-          category: 'AUTH',
-          context: {
-            userId: user._id,
-            key: previousCustomAvatarKey,
-          },
-          error,
-        });
-      }
+      await deleteR2ObjectOrDefer(ctx, {
+        key: previousCustomAvatarKey,
+        source: 'auth.avatar.remove_cleanup_failed',
+        reason: 'avatar_removed',
+      });
     }
 
     logger.info({
@@ -235,27 +209,21 @@ export const cleanupExpiredAvatarUploads = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    const expiredUploads = await ctx.db
-      .query('uploads')
-      .withIndex('by_kind_expiresAt', (q) => q.eq('kind', AVATAR_UPLOAD_KIND).lt('expiresAt', now))
-      .take(AVATAR_UPLOAD_CLEANUP_BATCH_SIZE);
+    const expiredUploads = await listExpiredPendingUploadsByKind(
+      ctx,
+      AVATAR_UPLOAD_KIND,
+      now,
+      AVATAR_UPLOAD_CLEANUP_BATCH_SIZE,
+    );
 
     for (const upload of expiredUploads) {
-      try {
-        await deleteR2Object(ctx, upload.key);
-      } catch (error: unknown) {
-        logger.warn({
-          event: 'auth.avatar.expired_upload_cleanup_failed',
-          category: 'AUTH',
-          context: {
-            uploadId: upload._id,
-            key: upload.key,
-          },
-          error,
-        });
-      }
+      await deleteR2ObjectOrDefer(ctx, {
+        key: upload.key,
+        source: 'auth.avatar.expired_upload_cleanup_failed',
+        reason: 'expired_pending_upload',
+      });
 
-      await ctx.db.delete('uploads', upload._id);
+      await deletePendingUpload(ctx, upload._id);
     }
 
     if (expiredUploads.length > 0) {

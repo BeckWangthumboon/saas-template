@@ -154,6 +154,19 @@ export default defineSchema({
     .index('by_requestedByUserId', ['requestedByUserId'])
     .index('by_workspaceId', ['workspaceId']),
 
+  r2DeleteQueue: defineTable({
+    key: v.string(),
+    reason: v.string(),
+    source: v.string(),
+    attempts: v.number(),
+    nextAttemptAt: v.number(),
+    lastError: v.optional(v.string()),
+    workId: v.optional(v.string()),
+    updatedAt: v.number(),
+  })
+    .index('by_key', ['key'])
+    .index('by_nextAttemptAt', ['nextAttemptAt']),
+
   workspaceInvites: defineTable({
     workspaceId: v.id('workspaces'),
     email: v.string(),

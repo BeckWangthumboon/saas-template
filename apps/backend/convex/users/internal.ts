@@ -6,7 +6,7 @@ import type { Doc } from '../_generated/dataModel';
 import { throwAppErrorForConvex } from '../errors';
 import { internalMutation, internalQuery } from '../functions';
 import { logger } from '../logging';
-import { deleteR2Object } from '../storage/r2';
+import { deleteR2ObjectOrDefer } from '../storage/deletes';
 import {
   DELETE_MAX_ATTEMPTS,
   getActiveUserById,
@@ -33,19 +33,11 @@ export const deleteAccountOnComplete = workosWorkpool.defineOnComplete({
     }
     if (result.kind === 'success') {
       if (user.avatarSource === 'custom' && user.avatarKey) {
-        try {
-          await deleteR2Object(ctx, user.avatarKey);
-        } catch (error: unknown) {
-          logger.warn({
-            event: 'auth.avatar.user_delete_cleanup_failed',
-            category: 'AUTH',
-            context: {
-              userId,
-              key: user.avatarKey,
-            },
-            error,
-          });
-        }
+        await deleteR2ObjectOrDefer(ctx, {
+          key: user.avatarKey,
+          source: 'auth.avatar.user_delete_cleanup_failed',
+          reason: 'user_delete_completed',
+        });
       }
 
       const now = Date.now();

@@ -8,7 +8,7 @@ import { assertWorkspaceUnlockedForWrites } from '../entitlements/service';
 import { throwAppErrorForConvex } from '../errors';
 import { action, internalQuery, mutation, query } from '../functions';
 import { logger } from '../logging';
-import { getR2SignedUrl } from '../storage/r2';
+import { getR2SignedUrl } from '../storage/r2Client';
 import { getWorkspaceMembership } from '../workspaces/utils';
 
 /**

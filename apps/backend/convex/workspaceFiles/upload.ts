@@ -7,12 +7,14 @@ import { assertWorkspaceUnlockedForWrites } from '../entitlements/service';
 import { throwAppErrorForConvex } from '../errors';
 import { action, internalMutation, mutation } from '../functions';
 import { logger } from '../logging';
+import { deleteR2ObjectOrDefer } from '../storage/deletes';
+import { generateR2UploadUrlForKey, getR2Metadata, syncR2Metadata } from '../storage/r2Client';
 import {
-  deleteR2Object,
-  generateR2UploadUrlForKey,
-  getR2Metadata,
-  syncR2Metadata,
-} from '../storage/r2';
+  createPendingUpload,
+  deletePendingUpload,
+  getPendingUploadByKey,
+  listExpiredPendingUploadsByKind,
+} from '../storage/uploads';
 import { getWorkspaceMembership } from '../workspaces/utils';
 import {
   assertWorkspaceFileSize,
@@ -55,7 +57,7 @@ export const requestWorkspaceFileUploadUrl = mutation({
     const { url } = await generateR2UploadUrlForKey(key);
     const now = Date.now();
 
-    await ctx.db.insert('uploads', {
+    await createPendingUpload(ctx, {
       key,
       kind: WORKSPACE_FILE_UPLOAD_KIND,
       requestedByUserId: user._id,
@@ -106,10 +108,7 @@ export const finalizeWorkspacePendingUpload = internalMutation({
       )
       .unique();
 
-    const pendingUpload = await ctx.db
-      .query('uploads')
-      .withIndex('by_key', (q) => q.eq('key', args.key))
-      .unique();
+    const pendingUpload = await getPendingUploadByKey(ctx, args.key);
 
     if (!pendingUpload) {
       if (existingFile) {
@@ -127,26 +126,17 @@ export const finalizeWorkspacePendingUpload = internalMutation({
     }
 
     const cleanupFailedUpload = async (reason: string) => {
-      try {
-        await deleteR2Object(ctx, args.key);
-      } catch (error: unknown) {
-        logger.warn({
-          event: 'workspace.file.cleanup_failed',
-          category: 'WORKSPACE',
-          context: {
-            workspaceId: args.workspaceId,
-            key: args.key,
-            reason,
-          },
-          error,
-        });
-      }
+      await deleteR2ObjectOrDefer(ctx, {
+        key: args.key,
+        source: 'workspace.file.cleanup_failed',
+        reason,
+      });
 
-      await ctx.db.delete('uploads', pendingUpload._id);
+      await deletePendingUpload(ctx, pendingUpload._id);
     };
 
     if (existingFile) {
-      await ctx.db.delete('uploads', pendingUpload._id);
+      await deletePendingUpload(ctx, pendingUpload._id);
       return existingFile._id;
     }
 
@@ -174,7 +164,7 @@ export const finalizeWorkspacePendingUpload = internalMutation({
       updatedAt: now,
     });
 
-    await ctx.db.delete('uploads', pendingUpload._id);
+    await deletePendingUpload(ctx, pendingUpload._id);
 
     logger.info({
       event: 'workspace.file.upload_finalized',
@@ -233,29 +223,21 @@ export const cleanupExpiredWorkspaceFileUploads = internalMutation({
   args: {},
   handler: async (ctx) => {
     const now = Date.now();
-    const expiredUploads = await ctx.db
-      .query('uploads')
-      .withIndex('by_kind_expiresAt', (q) =>
-        q.eq('kind', WORKSPACE_FILE_UPLOAD_KIND).lt('expiresAt', now),
-      )
-      .take(WORKSPACE_FILE_UPLOAD_CLEANUP_BATCH_SIZE);
+    const expiredUploads = await listExpiredPendingUploadsByKind(
+      ctx,
+      WORKSPACE_FILE_UPLOAD_KIND,
+      now,
+      WORKSPACE_FILE_UPLOAD_CLEANUP_BATCH_SIZE,
+    );
 
     for (const upload of expiredUploads) {
-      try {
-        await deleteR2Object(ctx, upload.key);
-      } catch (error: unknown) {
-        logger.warn({
-          event: 'workspace.file.expired_upload_r2_cleanup_failed',
-          category: 'WORKSPACE',
-          context: {
-            key: upload.key,
-            uploadId: upload._id,
-          },
-          error,
-        });
-      }
+      await deleteR2ObjectOrDefer(ctx, {
+        key: upload.key,
+        source: 'workspace.file.expired_upload_r2_cleanup_failed',
+        reason: 'expired_pending_upload',
+      });
 
-      await ctx.db.delete('uploads', upload._id);
+      await deletePendingUpload(ctx, upload._id);
     }
 
     if (expiredUploads.length > 0) {

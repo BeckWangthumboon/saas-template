@@ -1,5 +1,5 @@
 import { triggers } from '../functions';
-import { deleteR2Object } from '../storage/r2';
+import { deleteR2Object } from '../storage/r2Client';
 
 triggers.register('workspaceFiles', async (ctx, change) => {
   if (change.operation !== 'delete') {
