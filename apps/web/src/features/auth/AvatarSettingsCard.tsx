@@ -4,7 +4,6 @@ import { toast } from 'sonner';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 
 import { useAvatarUpload } from './useAvatarUpload';
 import type { User } from './UserContext';
@@ -129,55 +128,54 @@ export function AvatarSettingsCard({ user }: { user: User }) {
       : 'No name set';
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Avatar</CardTitle>
-        <CardDescription>Upload a profile photo for your account.</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div className="flex items-center gap-4">
-            <Avatar className="h-20 w-20 text-xl">
-              <AvatarImage src={displayAvatarUrl} alt={user.firstName ?? user.email} />
-              <AvatarFallback>{initials}</AvatarFallback>
-            </Avatar>
-            <div className="space-y-1">
-              <p className="font-medium">{displayName}</p>
-              <p className="text-muted-foreground text-sm">{user.email}</p>
-              <p className="text-muted-foreground text-xs">JPG, PNG, WebP, or GIF up to 5 MB.</p>
-            </div>
-          </div>
+    <section className="space-y-4 rounded-lg border p-4">
+      <div>
+        <h2 className="text-base font-medium">Avatar</h2>
+        <p className="text-muted-foreground text-sm">Upload a profile photo for your account.</p>
+      </div>
 
-          <div className="flex flex-wrap gap-2">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={AVATAR_INPUT_ACCEPT}
-              className="sr-only"
-              onChange={handleFileInputChange}
-              tabIndex={-1}
-              aria-hidden
-            />
-
-            <Button type="button" onClick={handleUploadClick} disabled={isBusy}>
-              <CameraIcon className="size-4" />
-              {isUploading ? 'Uploading...' : 'Upload new photo'}
-            </Button>
-
-            {user.avatarSource === 'custom' && (
-              <Button
-                type="button"
-                variant="outline"
-                onClick={() => void handleRemoveAvatar()}
-                disabled={isBusy}
-              >
-                <Trash2Icon className="size-4" />
-                {isRemoving ? 'Removing...' : 'Remove photo'}
-              </Button>
-            )}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <Avatar className="h-20 w-20 text-xl">
+            <AvatarImage src={displayAvatarUrl} alt={user.firstName ?? user.email} />
+            <AvatarFallback>{initials}</AvatarFallback>
+          </Avatar>
+          <div className="space-y-1">
+            <p className="font-medium">{displayName}</p>
+            <p className="text-muted-foreground text-sm">{user.email}</p>
+            <p className="text-muted-foreground text-xs">JPG, PNG, WebP, or GIF up to 5 MB.</p>
           </div>
         </div>
-      </CardContent>
-    </Card>
+
+        <div className="flex flex-wrap gap-2">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept={AVATAR_INPUT_ACCEPT}
+            className="sr-only"
+            onChange={handleFileInputChange}
+            tabIndex={-1}
+            aria-hidden
+          />
+
+          <Button type="button" onClick={handleUploadClick} disabled={isBusy}>
+            <CameraIcon className="size-4" />
+            {isUploading ? 'Uploading...' : 'Upload new photo'}
+          </Button>
+
+          {user.avatarSource === 'custom' && (
+            <Button
+              type="button"
+              variant="outline"
+              onClick={() => void handleRemoveAvatar()}
+              disabled={isBusy}
+            >
+              <Trash2Icon className="size-4" />
+              {isRemoving ? 'Removing...' : 'Remove photo'}
+            </Button>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }

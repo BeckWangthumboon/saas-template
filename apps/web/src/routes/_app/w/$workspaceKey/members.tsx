@@ -13,6 +13,7 @@ import {
   useWorkspaceEntitlements,
   WorkspaceInvitesTable,
   WorkspaceMembersTable,
+  WorkspacePageHeading,
 } from '@/features/workspaces';
 import { useConvexQuery } from '@/hooks';
 
@@ -86,12 +87,10 @@ function MembersPageContent({
 
   return (
     <div className="max-w-4xl space-y-10">
-      <div>
-        <h1 className="text-xl font-semibold">Members</h1>
-        <p className="text-muted-foreground text-sm">
-          Manage workspace members and their permissions.
-        </p>
-      </div>
+      <WorkspacePageHeading
+        title="Members"
+        description="Manage workspace members and their permissions."
+      />
 
       <section className="space-y-4">
         <div className="flex items-center justify-between">

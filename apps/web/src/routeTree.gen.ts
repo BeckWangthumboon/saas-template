@@ -19,6 +19,7 @@ import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as InviteInviteTokenRouteImport } from './routes/_invite/invite/$token'
 import { Route as AppWWorkspaceKeyRouteRouteImport } from './routes/_app/w/$workspaceKey/route'
 import { Route as AppWWorkspaceKeyIndexRouteImport } from './routes/_app/w/$workspaceKey/index'
+import { Route as AppWWorkspaceKeyProfileRouteImport } from './routes/_app/w/$workspaceKey/profile'
 import { Route as AppWWorkspaceKeyMembersRouteImport } from './routes/_app/w/$workspaceKey/members'
 import { Route as AppWWorkspaceKeyFilesRouteImport } from './routes/_app/w/$workspaceKey/files'
 import { Route as AppWWorkspaceKeyContactsRouteImport } from './routes/_app/w/$workspaceKey/contacts'
@@ -74,6 +75,11 @@ const AppWWorkspaceKeyIndexRoute = AppWWorkspaceKeyIndexRouteImport.update({
   path: '/',
   getParentRoute: () => AppWWorkspaceKeyRouteRoute,
 } as any)
+const AppWWorkspaceKeyProfileRoute = AppWWorkspaceKeyProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => AppWWorkspaceKeyRouteRoute,
+} as any)
 const AppWWorkspaceKeyMembersRoute = AppWWorkspaceKeyMembersRouteImport.update({
   id: '/members',
   path: '/members',
@@ -126,6 +132,7 @@ export interface FileRoutesByFullPath {
   '/w/$workspaceKey/contacts': typeof AppWWorkspaceKeyContactsRoute
   '/w/$workspaceKey/files': typeof AppWWorkspaceKeyFilesRoute
   '/w/$workspaceKey/members': typeof AppWWorkspaceKeyMembersRoute
+  '/w/$workspaceKey/profile': typeof AppWWorkspaceKeyProfileRoute
   '/w/$workspaceKey/': typeof AppWWorkspaceKeyIndexRoute
   '/w/$workspaceKey/settings/billing': typeof AppWWorkspaceKeySettingsBillingRoute
   '/w/$workspaceKey/settings/workspace': typeof AppWWorkspaceKeySettingsWorkspaceRoute
@@ -140,6 +147,7 @@ export interface FileRoutesByTo {
   '/w/$workspaceKey/contacts': typeof AppWWorkspaceKeyContactsRoute
   '/w/$workspaceKey/files': typeof AppWWorkspaceKeyFilesRoute
   '/w/$workspaceKey/members': typeof AppWWorkspaceKeyMembersRoute
+  '/w/$workspaceKey/profile': typeof AppWWorkspaceKeyProfileRoute
   '/w/$workspaceKey': typeof AppWWorkspaceKeyIndexRoute
   '/w/$workspaceKey/settings/billing': typeof AppWWorkspaceKeySettingsBillingRoute
   '/w/$workspaceKey/settings/workspace': typeof AppWWorkspaceKeySettingsWorkspaceRoute
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/_app/w/$workspaceKey/contacts': typeof AppWWorkspaceKeyContactsRoute
   '/_app/w/$workspaceKey/files': typeof AppWWorkspaceKeyFilesRoute
   '/_app/w/$workspaceKey/members': typeof AppWWorkspaceKeyMembersRoute
+  '/_app/w/$workspaceKey/profile': typeof AppWWorkspaceKeyProfileRoute
   '/_app/w/$workspaceKey/': typeof AppWWorkspaceKeyIndexRoute
   '/_app/w/$workspaceKey/settings/billing': typeof AppWWorkspaceKeySettingsBillingRoute
   '/_app/w/$workspaceKey/settings/workspace': typeof AppWWorkspaceKeySettingsWorkspaceRoute
@@ -178,6 +187,7 @@ export interface FileRouteTypes {
     | '/w/$workspaceKey/contacts'
     | '/w/$workspaceKey/files'
     | '/w/$workspaceKey/members'
+    | '/w/$workspaceKey/profile'
     | '/w/$workspaceKey/'
     | '/w/$workspaceKey/settings/billing'
     | '/w/$workspaceKey/settings/workspace'
@@ -192,6 +202,7 @@ export interface FileRouteTypes {
     | '/w/$workspaceKey/contacts'
     | '/w/$workspaceKey/files'
     | '/w/$workspaceKey/members'
+    | '/w/$workspaceKey/profile'
     | '/w/$workspaceKey'
     | '/w/$workspaceKey/settings/billing'
     | '/w/$workspaceKey/settings/workspace'
@@ -211,6 +222,7 @@ export interface FileRouteTypes {
     | '/_app/w/$workspaceKey/contacts'
     | '/_app/w/$workspaceKey/files'
     | '/_app/w/$workspaceKey/members'
+    | '/_app/w/$workspaceKey/profile'
     | '/_app/w/$workspaceKey/'
     | '/_app/w/$workspaceKey/settings/billing'
     | '/_app/w/$workspaceKey/settings/workspace'
@@ -295,6 +307,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppWWorkspaceKeyIndexRouteImport
       parentRoute: typeof AppWWorkspaceKeyRouteRoute
     }
+    '/_app/w/$workspaceKey/profile': {
+      id: '/_app/w/$workspaceKey/profile'
+      path: '/profile'
+      fullPath: '/w/$workspaceKey/profile'
+      preLoaderRoute: typeof AppWWorkspaceKeyProfileRouteImport
+      parentRoute: typeof AppWWorkspaceKeyRouteRoute
+    }
     '/_app/w/$workspaceKey/members': {
       id: '/_app/w/$workspaceKey/members'
       path: '/members'
@@ -371,6 +390,7 @@ interface AppWWorkspaceKeyRouteRouteChildren {
   AppWWorkspaceKeyContactsRoute: typeof AppWWorkspaceKeyContactsRoute
   AppWWorkspaceKeyFilesRoute: typeof AppWWorkspaceKeyFilesRoute
   AppWWorkspaceKeyMembersRoute: typeof AppWWorkspaceKeyMembersRoute
+  AppWWorkspaceKeyProfileRoute: typeof AppWWorkspaceKeyProfileRoute
   AppWWorkspaceKeyIndexRoute: typeof AppWWorkspaceKeyIndexRoute
 }
 
@@ -380,6 +400,7 @@ const AppWWorkspaceKeyRouteRouteChildren: AppWWorkspaceKeyRouteRouteChildren = {
   AppWWorkspaceKeyContactsRoute: AppWWorkspaceKeyContactsRoute,
   AppWWorkspaceKeyFilesRoute: AppWWorkspaceKeyFilesRoute,
   AppWWorkspaceKeyMembersRoute: AppWWorkspaceKeyMembersRoute,
+  AppWWorkspaceKeyProfileRoute: AppWWorkspaceKeyProfileRoute,
   AppWWorkspaceKeyIndexRoute: AppWWorkspaceKeyIndexRoute,
 }
 

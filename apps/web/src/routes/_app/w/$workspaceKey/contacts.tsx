@@ -17,7 +17,7 @@ import {
   TableRow,
 } from '@/components/ui/table';
 import { Textarea } from '@/components/ui/textarea';
-import { isWorkspaceReady, useWorkspace } from '@/features/workspaces';
+import { isWorkspaceReady, useWorkspace, WorkspacePageHeading } from '@/features/workspaces';
 import { useConvexMutation, useConvexQuery } from '@/hooks';
 
 export const Route = createFileRoute('/_app/w/$workspaceKey/contacts')({
@@ -184,12 +184,10 @@ function ContactsPageContent({ workspaceId }: { workspaceId: Id<'workspaces'> })
 
   return (
     <div className="max-w-5xl space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold">Contacts</h1>
-        <p className="text-muted-foreground text-sm">
-          A simple CRUD starter pack for contact data.
-        </p>
-      </div>
+      <WorkspacePageHeading
+        title="Contacts"
+        description="A simple CRUD starter pack for contact data."
+      />
 
       <section className="space-y-4 rounded-lg border p-4">
         <div>

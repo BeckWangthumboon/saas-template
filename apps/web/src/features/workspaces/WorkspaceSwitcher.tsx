@@ -100,9 +100,11 @@ export function WorkspaceSwitcher({
             <PlusIcon className="mr-2 h-4 w-4" />
             Create Workspace
           </DropdownMenuItem>
-          <DropdownMenuItem onClick={() => onNavigate({ to: '/settings' })}>
+          <DropdownMenuItem
+            onClick={() => onNavigate({ to: `/w/${currentWorkspace.workspaceKey}/profile` })}
+          >
             <SettingsIcon className="mr-2 h-4 w-4" />
-            Account Settings
+            Profile
           </DropdownMenuItem>
           <DropdownMenuItem onClick={handleThemeToggle}>
             {isDarkMode ? (

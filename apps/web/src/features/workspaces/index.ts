@@ -27,4 +27,5 @@ export {
 } from './WorkspaceEntitlementsContext';
 export { WorkspaceInvitesTable } from './WorkspaceInvitesTable';
 export { WorkspaceMembersTable } from './WorkspaceMembersTable';
+export { WorkspacePageHeading } from './WorkspacePageHeading';
 export { WorkspaceSwitcher } from './WorkspaceSwitcher';

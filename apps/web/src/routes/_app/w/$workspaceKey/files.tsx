@@ -24,7 +24,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/components/ui/dialog';
-import { isWorkspaceReady, useWorkspace } from '@/features/workspaces';
+import { isWorkspaceReady, useWorkspace, WorkspacePageHeading } from '@/features/workspaces';
 import { useConvexAction, useConvexMutation, useConvexQuery } from '@/hooks';
 import { cn } from '@/lib/utils';
 
@@ -307,12 +307,10 @@ function WorkspaceFilesPageContent({ workspaceId }: { workspaceId: string }) {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <div>
-        <h1 className="text-xl font-semibold">Files</h1>
-        <p className="text-muted-foreground text-sm">
-          Upload and manage files shared with your workspace.
-        </p>
-      </div>
+      <WorkspacePageHeading
+        title="Files"
+        description="Upload and manage files shared with your workspace."
+      />
 
       <Card>
         <CardHeader>

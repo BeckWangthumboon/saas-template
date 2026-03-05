@@ -6,6 +6,7 @@ import {
   isWorkspaceEntitlementsReady,
   useWorkspace,
   useWorkspaceEntitlements,
+  WorkspacePageHeading,
 } from '@/features/workspaces';
 
 export const Route = createFileRoute('/_app/w/$workspaceKey/')({
@@ -72,12 +73,10 @@ function OverviewPage() {
 
   return (
     <div className="max-w-4xl space-y-6">
-      <div className="space-y-3">
-        <h1 className="text-2xl font-semibold">Overview</h1>
-        <p className="text-muted-foreground">
-          Welcome to your dashboard. Explore the available pages below.
-        </p>
-      </div>
+      <WorkspacePageHeading
+        title="Overview"
+        description="Welcome to your dashboard. Explore the available pages below."
+      />
 
       <OverviewVersionOne pageLinks={pageLinks} />
     </div>

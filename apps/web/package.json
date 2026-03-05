@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "vite --open",
+    "dev": "vite",
     "preview": "vite preview",
     "lint": "eslint src --fix --cache --cache-location ../../.eslintcache",
     "typecheck": "tsc -b",

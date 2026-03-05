@@ -237,7 +237,7 @@ function NoWorkspacesView({
             className="text-muted-foreground hover:text-foreground inline-flex items-center gap-2 text-sm underline-offset-4 hover:underline"
           >
             <SettingsIcon className="h-4 w-4" />
-            Account settings
+            Profile
           </Link>
         </div>
       </div>
