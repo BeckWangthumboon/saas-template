@@ -50,7 +50,7 @@ export const getR2SignedUrl = async (key: string, expiresIn: number) => {
     .catch((error: unknown) => throwR2OperationError('getUrl', error));
 };
 
-export const deleteR2Object = async (ctx: MutationCtx, key: string): Promise<void> => {
+export const deleteR2Object = async (ctx: MutationCtx, key: string) => {
   await r2
     .deleteObject(ctx, key)
     .catch((error: unknown) => throwR2OperationError('deleteObject', error));

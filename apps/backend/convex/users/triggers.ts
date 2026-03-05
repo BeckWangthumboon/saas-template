@@ -33,7 +33,10 @@ triggers.register('users', async (ctx, change) => {
       user.email !== undefined ||
       user.firstName !== undefined ||
       user.lastName !== undefined ||
-      user.profilePictureUrl !== undefined)
+      user.profilePictureUrl !== undefined ||
+      user.workosProfilePictureUrl !== undefined ||
+      user.avatarSource !== undefined ||
+      user.avatarKey !== undefined)
   ) {
     return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
       details: 'Deleted users cannot retain PII',

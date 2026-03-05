@@ -238,6 +238,10 @@ const ensureDemoUser = async (
       email: normalizedEmail,
       firstName: spec.firstName,
       lastName: spec.lastName,
+      profilePictureUrl: undefined,
+      workosProfilePictureUrl: undefined,
+      avatarSource: 'workos',
+      avatarKey: undefined,
       onboardingStatus: 'completed',
       updatedAt: now,
     });
@@ -250,7 +254,11 @@ const ensureDemoUser = async (
     existingUser.email !== normalizedEmail ||
     existingUser.firstName !== spec.firstName ||
     existingUser.lastName !== spec.lastName ||
-    existingUser.onboardingStatus !== 'completed';
+    existingUser.onboardingStatus !== 'completed' ||
+    existingUser.avatarSource !== 'workos' ||
+    existingUser.avatarKey !== undefined ||
+    existingUser.profilePictureUrl !== undefined ||
+    existingUser.workosProfilePictureUrl !== undefined;
 
   if (!shouldPatch) {
     return { userId: existingUser._id, changed: false };
@@ -265,6 +273,9 @@ const ensureDemoUser = async (
     onboardingStatus: 'completed',
     updatedAt: now,
     profilePictureUrl: undefined,
+    workosProfilePictureUrl: undefined,
+    avatarSource: 'workos',
+    avatarKey: undefined,
   });
 
   return { userId: existingUser._id, changed: true };
@@ -823,6 +834,8 @@ export const resetDevData = internalMutation({
       'workspaceInvites',
       'workspaceMembers',
       'contacts',
+      'workspaceFiles',
+      'uploads',
       'workspaceBillingState',
       'workspaces',
       ...(includeUsers ? (['users'] as const) : []),

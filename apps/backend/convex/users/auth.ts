@@ -30,7 +30,14 @@ export const { authKitEvent } = authKit.events({
       if (!existingUser.lastName && event.data.lastName) {
         updates.lastName = event.data.lastName;
       }
-      if (!existingUser.profilePictureUrl && event.data.profilePictureUrl) {
+      if (!existingUser.workosProfilePictureUrl && event.data.profilePictureUrl) {
+        updates.workosProfilePictureUrl = event.data.profilePictureUrl;
+      }
+      if (
+        existingUser.avatarSource !== 'custom' &&
+        !existingUser.profilePictureUrl &&
+        event.data.profilePictureUrl
+      ) {
         updates.profilePictureUrl = event.data.profilePictureUrl;
       }
       if (Object.keys(updates).length > 0) {
@@ -57,6 +64,9 @@ export const { authKitEvent } = authKit.events({
       firstName: event.data.firstName ?? undefined,
       lastName: event.data.lastName ?? undefined,
       profilePictureUrl: event.data.profilePictureUrl ?? undefined,
+      workosProfilePictureUrl: event.data.profilePictureUrl ?? undefined,
+      avatarSource: 'workos',
+      avatarKey: undefined,
       onboardingStatus: 'not_started',
       updatedAt: Date.now(),
       status: 'active',
@@ -82,10 +92,16 @@ export const { authKitEvent } = authKit.events({
     if (!user) {
       return;
     }
+    const now = Date.now();
+
     await ctx.db.patch('users', user._id, {
       email: event.data.email,
-      profilePictureUrl: event.data.profilePictureUrl ?? undefined,
-      updatedAt: Date.now(),
+      workosProfilePictureUrl: event.data.profilePictureUrl ?? undefined,
+      profilePictureUrl:
+        user.avatarSource === 'custom'
+          ? user.profilePictureUrl
+          : (event.data.profilePictureUrl ?? undefined),
+      updatedAt: now,
     });
 
     logger.info({

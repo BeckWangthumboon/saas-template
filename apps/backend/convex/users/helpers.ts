@@ -5,7 +5,9 @@ import type { Infer } from 'convex/values';
 import type { Doc, Id } from '../_generated/dataModel';
 import { throwAppErrorForConvex } from '../errors';
 import type { ActionCtx, MutationCtx, QueryCtx } from '../functions';
+import { logger } from '../logging';
 import type { userDeleteInfo } from '../schema';
+import { deleteR2Object } from '../storage/r2';
 import { workosActionRetrier, type WorkosUserFetchResult } from './workos';
 
 export const PURGE_DELAY_MS = 30 * 24 * 60 * 60 * 1000; // 30 days
@@ -90,6 +92,7 @@ export const assertActiveUser = (
       details: 'User authId or email is missing',
     });
   }
+
   return user;
 };
 
@@ -355,6 +358,30 @@ export async function cleanupUserForDeletion(
  * @param userId - The ID of the user to mark as deleted
  */
 export async function markUserAsDeleted(ctx: MutationCtx, userId: Id<'users'>) {
+  const user = await ctx.db.get('users', userId);
+  const customAvatarKey =
+    user?.status === 'active' || user?.status === 'deleting' || user?.status === 'deletion_failed'
+      ? user.avatarSource === 'custom'
+        ? user.avatarKey
+        : undefined
+      : undefined;
+
+  if (customAvatarKey) {
+    try {
+      await deleteR2Object(ctx, customAvatarKey);
+    } catch (error: unknown) {
+      logger.warn({
+        event: 'auth.avatar.user_delete_cleanup_failed',
+        category: 'AUTH',
+        context: {
+          userId,
+          key: customAvatarKey,
+        },
+        error,
+      });
+    }
+  }
+
   const now = Date.now();
   await ctx.db.patch('users', userId, {
     status: 'deleted',
@@ -365,6 +392,9 @@ export async function markUserAsDeleted(ctx: MutationCtx, userId: Id<'users'>) {
     firstName: undefined,
     lastName: undefined,
     profilePictureUrl: undefined,
+    workosProfilePictureUrl: undefined,
+    avatarSource: undefined,
+    avatarKey: undefined,
   });
 }
 

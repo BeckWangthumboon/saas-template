@@ -14,6 +14,20 @@ const userBaseFields = {
   updatedAt: v.number(),
 };
 
+const userAvatarFields = {
+  profilePictureUrl: v.optional(v.string()),
+  workosProfilePictureUrl: v.optional(v.string()),
+  avatarSource: v.union(v.literal('workos'), v.literal('custom')),
+  avatarKey: v.optional(v.string()),
+};
+
+const deletedUserAvatarFields = {
+  profilePictureUrl: v.optional(v.string()),
+  workosProfilePictureUrl: v.optional(v.string()),
+  avatarSource: v.optional(v.union(v.literal('workos'), v.literal('custom'))),
+  avatarKey: v.optional(v.string()),
+};
+
 const activeUser = v.object({
   ...userBaseFields,
   status: v.literal('active'),
@@ -21,7 +35,7 @@ const activeUser = v.object({
   email: v.string(),
   firstName: v.optional(v.string()),
   lastName: v.optional(v.string()),
-  profilePictureUrl: v.optional(v.string()),
+  ...userAvatarFields,
 });
 
 const deletingUser = v.object({
@@ -33,7 +47,7 @@ const deletingUser = v.object({
   email: v.optional(v.string()),
   firstName: v.optional(v.string()),
   lastName: v.optional(v.string()),
-  profilePictureUrl: v.optional(v.string()),
+  ...userAvatarFields,
 });
 
 const deletionFailedUser = v.object({
@@ -45,7 +59,7 @@ const deletionFailedUser = v.object({
   email: v.optional(v.string()),
   firstName: v.optional(v.string()),
   lastName: v.optional(v.string()),
-  profilePictureUrl: v.optional(v.string()),
+  ...userAvatarFields,
 });
 
 const deletedUser = v.object({
@@ -57,7 +71,7 @@ const deletedUser = v.object({
   email: v.optional(v.string()),
   firstName: v.optional(v.string()),
   lastName: v.optional(v.string()),
-  profilePictureUrl: v.optional(v.string()),
+  ...deletedUserAvatarFields,
 });
 
 const workspaceBaseFields = {

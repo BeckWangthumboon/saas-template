@@ -6,6 +6,7 @@ import type { Doc } from '../_generated/dataModel';
 import { throwAppErrorForConvex } from '../errors';
 import { internalMutation, internalQuery } from '../functions';
 import { logger } from '../logging';
+import { deleteR2Object } from '../storage/r2';
 import {
   DELETE_MAX_ATTEMPTS,
   getActiveUserById,
@@ -31,6 +32,22 @@ export const deleteAccountOnComplete = workosWorkpool.defineOnComplete({
       return;
     }
     if (result.kind === 'success') {
+      if (user.avatarSource === 'custom' && user.avatarKey) {
+        try {
+          await deleteR2Object(ctx, user.avatarKey);
+        } catch (error: unknown) {
+          logger.warn({
+            event: 'auth.avatar.user_delete_cleanup_failed',
+            category: 'AUTH',
+            context: {
+              userId,
+              key: user.avatarKey,
+            },
+            error,
+          });
+        }
+      }
+
       const now = Date.now();
       await ctx.db.patch('users', userId, {
         status: 'deleted',
@@ -41,6 +58,9 @@ export const deleteAccountOnComplete = workosWorkpool.defineOnComplete({
         firstName: undefined,
         lastName: undefined,
         profilePictureUrl: undefined,
+        workosProfilePictureUrl: undefined,
+        avatarSource: undefined,
+        avatarKey: undefined,
         deletingAt: undefined,
         delete: undefined,
       });
@@ -290,14 +310,19 @@ export const getUserOrUpsertInternal = internalMutation({
       return existingUser;
     }
 
+    const now = Date.now();
+
     const userId = await ctx.db.insert('users', {
       authId: args.authId,
       email: args.userData.email,
       firstName: args.userData.firstName ?? undefined,
       lastName: args.userData.lastName ?? undefined,
       profilePictureUrl: args.userData.profilePictureUrl ?? undefined,
+      workosProfilePictureUrl: args.userData.profilePictureUrl ?? undefined,
+      avatarSource: 'workos',
+      avatarKey: undefined,
       onboardingStatus: 'not_started',
-      updatedAt: Date.now(),
+      updatedAt: now,
       status: 'active',
     });
 
