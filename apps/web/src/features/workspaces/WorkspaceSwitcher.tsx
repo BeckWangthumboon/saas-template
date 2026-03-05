@@ -60,12 +60,7 @@ export function WorkspaceSwitcher({
           </div>
           <ChevronDownIcon className="size-4 shrink-0 opacity-50" />
         </DropdownMenuTrigger>
-        <DropdownMenuContent
-          side="top"
-          align="start"
-          sideOffset={8}
-          className="w-52 ring-2 ring-border shadow-lg"
-        >
+        <DropdownMenuContent side="top" align="start" sideOffset={8} className="shadow-lg">
           <DropdownMenuGroup>
             <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
             <DropdownMenuRadioGroup
@@ -74,7 +69,9 @@ export function WorkspaceSwitcher({
             >
               {workspaces.map((ws) => (
                 <DropdownMenuRadioItem key={ws.id} value={ws.id}>
-                  {ws.name}
+                  <span className="line-clamp-2 block" title={ws.name}>
+                    {ws.name}
+                  </span>
                 </DropdownMenuRadioItem>
               ))}
             </DropdownMenuRadioGroup>
