@@ -146,7 +146,7 @@ function WorkspaceLayoutReadyContent({
         <SidebarContent>
           <SidebarGroup>
             <SidebarGroupLabel>Workspace</SidebarGroupLabel>
-            <SidebarGroupContent>
+            <SidebarGroupContent className="pt-2">
               <SidebarMenu>
                 {appPages.map((page) => (
                   <SidebarMenuItem key={page.href}>

@@ -1,5 +1,13 @@
 import type { useNavigate } from '@tanstack/react-router';
-import { ChevronDownIcon, LogOutIcon, PlusIcon, SettingsIcon } from 'lucide-react';
+import {
+  ChevronDownIcon,
+  LogOutIcon,
+  MoonIcon,
+  PlusIcon,
+  SettingsIcon,
+  SunIcon,
+} from 'lucide-react';
+import { useTheme } from 'next-themes';
 import { useState } from 'react';
 
 import {
@@ -37,9 +45,15 @@ export function WorkspaceSwitcher({
   onSignOut,
 }: WorkspaceSwitcherProps) {
   const [dialogOpen, setDialogOpen] = useState(false);
+  const { resolvedTheme, setTheme } = useTheme();
+  const isDarkMode = resolvedTheme === 'dark';
 
   const handleWorkspaceChange = (workspaceId: string) => {
     void onNavigate({ to: `/workspaces/${workspaceId}` });
+  };
+
+  const handleThemeToggle = () => {
+    setTheme(isDarkMode ? 'light' : 'dark');
   };
 
   return (
@@ -88,6 +102,14 @@ export function WorkspaceSwitcher({
           <DropdownMenuItem onClick={() => onNavigate({ to: '/settings' })}>
             <SettingsIcon className="mr-2 h-4 w-4" />
             Account Settings
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={handleThemeToggle}>
+            {isDarkMode ? (
+              <SunIcon className="mr-2 h-4 w-4" />
+            ) : (
+              <MoonIcon className="mr-2 h-4 w-4" />
+            )}
+            Switch to {isDarkMode ? 'light' : 'dark'} mode
           </DropdownMenuItem>
           {onSignOut && (
             <>
