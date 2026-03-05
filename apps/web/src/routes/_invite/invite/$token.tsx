@@ -31,13 +31,13 @@ function InvitePage() {
     const result = await acceptInvite({ token });
 
     if (result.isOk()) {
-      defaultWorkspaceStorage.set(result.value.workspaceId);
+      defaultWorkspaceStorage.set(result.value.workspaceKey);
       toast.success('Invite accepted', {
         description: `You joined ${result.value.workspaceName} as a ${result.value.role}.`,
       });
       void navigate({
-        to: '/workspaces/$workspaceId',
-        params: { workspaceId: result.value.workspaceId },
+        to: '/w/$workspaceKey',
+        params: { workspaceKey: result.value.workspaceKey },
       });
     } else {
       if (result.error.code === ErrorCode.INVITE_ACCEPT_RATE_LIMITED) {
@@ -120,13 +120,14 @@ function InviteErrorBoundary({ error }: { error: Error }) {
     inviteEmail?: string;
     userEmail?: string;
     workspaceId?: string;
+    workspaceKey?: string;
     hasNewerInvite?: boolean;
   } | null;
 
   let title = 'Invite unavailable';
   let description = 'This invite link is no longer valid.';
   let showSignOut = false;
-  let workspaceId: string | null = null;
+  let workspaceKey: string | null = null;
 
   if (appError) {
     switch (appError.code) {
@@ -155,7 +156,7 @@ function InviteErrorBoundary({ error }: { error: Error }) {
       case ErrorCode.INVITE_ALREADY_MEMBER:
         title = 'Already a member';
         description = 'You are already a member of this workspace.';
-        workspaceId = context?.workspaceId ?? null;
+        workspaceKey = context?.workspaceKey ?? null;
         break;
       case ErrorCode.INVITE_EMAIL_MISMATCH:
         title = 'Wrong account';
@@ -209,11 +210,11 @@ function InviteErrorBoundary({ error }: { error: Error }) {
           <Link className={buttonVariants({ variant: 'outline' })} to="/">
             Go home
           </Link>
-          {workspaceId && (
+          {workspaceKey && (
             <Link
               className={buttonVariants({ variant: 'default' })}
-              to="/workspaces/$workspaceId"
-              params={{ workspaceId }}
+              to="/w/$workspaceKey"
+              params={{ workspaceKey }}
             >
               Go to workspace
             </Link>

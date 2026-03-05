@@ -30,7 +30,7 @@ interface WorkspaceCreatorProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   defaultName?: string;
-  onSuccess: (workspaceId: string) => void;
+  onSuccess: (workspaceKey: string) => void;
   trigger?: React.ReactElement;
 }
 
@@ -59,7 +59,7 @@ export function WorkspaceCreator({
         });
         onOpenChange(false);
         form.reset();
-        onSuccess(result.value);
+        onSuccess(result.value.workspaceKey);
       } else {
         if (result.error.code === ErrorCode.WORKSPACE_CREATE_RATE_LIMITED) {
           toast.error('Too many workspace requests', {

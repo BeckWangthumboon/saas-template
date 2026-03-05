@@ -16,7 +16,7 @@ import {
 } from '@/features/workspaces';
 import { useConvexQuery } from '@/hooks';
 
-export const Route = createFileRoute('/_app/workspaces/$workspaceId/members')({
+export const Route = createFileRoute('/_app/w/$workspaceKey/members')({
   component: MembersPage,
 });
 
@@ -38,7 +38,7 @@ function MembersPage() {
   }
 
   if (entitlementsContext.isSoloWorkspace) {
-    return <SoloMembersRedirect workspaceId={workspaceContext.workspaceId} />;
+    return <SoloMembersRedirect workspaceKey={workspaceContext.workspaceKey} />;
   }
 
   return (
@@ -50,16 +50,16 @@ function MembersPage() {
   );
 }
 
-function SoloMembersRedirect({ workspaceId }: { workspaceId: string }) {
+function SoloMembersRedirect({ workspaceKey }: { workspaceKey: string }) {
   const navigate = Route.useNavigate();
 
   useEffect(() => {
     void navigate({
-      to: '/workspaces/$workspaceId',
-      params: { workspaceId },
+      to: '/w/$workspaceKey',
+      params: { workspaceKey },
       replace: true,
     });
-  }, [navigate, workspaceId]);
+  }, [navigate, workspaceKey]);
 
   return (
     <div className="flex h-full items-center justify-center">

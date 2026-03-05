@@ -20,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { isWorkspaceReady, useWorkspace } from '@/features/workspaces';
 import { useConvexMutation, useConvexQuery } from '@/hooks';
 
-export const Route = createFileRoute('/_app/workspaces/$workspaceId/contacts')({
+export const Route = createFileRoute('/_app/w/$workspaceKey/contacts')({
   component: ContactsPage,
 });
 

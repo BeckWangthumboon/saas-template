@@ -3,7 +3,7 @@ import { createFileRoute, Outlet, useLocation } from '@tanstack/react-router';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { useWorkspace } from '@/features/workspaces';
 
-export const Route = createFileRoute('/_app/workspaces/$workspaceId/settings')({
+export const Route = createFileRoute('/_app/w/$workspaceKey/settings')({
   component: SettingsLayout,
 });
 

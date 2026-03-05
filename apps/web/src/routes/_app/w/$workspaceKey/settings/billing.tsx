@@ -15,7 +15,7 @@ import {
 } from '@/features/workspaces';
 import { cn } from '@/lib/utils';
 
-export const Route = createFileRoute('/_app/workspaces/$workspaceId/settings/billing')({
+export const Route = createFileRoute('/_app/w/$workspaceKey/settings/billing')({
   component: BillingSettingsPage,
 });
 

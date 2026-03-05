@@ -37,15 +37,15 @@ interface AppPage {
   match?: (path: string) => boolean;
 }
 
-export const Route = createFileRoute('/_app/workspaces/$workspaceId')({
+export const Route = createFileRoute('/_app/w/$workspaceKey')({
   component: WorkspaceLayout,
 });
 
 function WorkspaceLayout() {
-  const { workspaceId } = Route.useParams();
+  const { workspaceKey } = Route.useParams();
 
   return (
-    <WorkspaceProvider key={workspaceId} workspaceId={workspaceId}>
+    <WorkspaceProvider key={workspaceKey} workspaceKey={workspaceKey}>
       <WorkspaceLayoutContent />
     </WorkspaceProvider>
   );

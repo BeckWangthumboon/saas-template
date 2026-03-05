@@ -28,7 +28,7 @@ import { isWorkspaceReady, useWorkspace } from '@/features/workspaces';
 import { useConvexAction, useConvexMutation, useConvexQuery } from '@/hooks';
 import { cn } from '@/lib/utils';
 
-export const Route = createFileRoute('/_app/workspaces/$workspaceId/files')({
+export const Route = createFileRoute('/_app/w/$workspaceKey/files')({
   component: WorkspaceFilesPage,
 });
 

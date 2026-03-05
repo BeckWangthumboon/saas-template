@@ -27,6 +27,7 @@ import { WorkspaceCreator } from './WorkspaceCreator';
 
 interface Workspace {
   id: string;
+  workspaceKey: string;
   name: string;
   role: 'owner' | 'admin' | 'member';
 }
@@ -48,8 +49,8 @@ export function WorkspaceSwitcher({
   const { resolvedTheme, setTheme } = useTheme();
   const isDarkMode = resolvedTheme === 'dark';
 
-  const handleWorkspaceChange = (workspaceId: string) => {
-    void onNavigate({ to: `/workspaces/${workspaceId}` });
+  const handleWorkspaceChange = (workspaceKey: string) => {
+    void onNavigate({ to: `/w/${workspaceKey}` });
   };
 
   const handleThemeToggle = () => {
@@ -78,11 +79,11 @@ export function WorkspaceSwitcher({
           <DropdownMenuGroup>
             <DropdownMenuLabel>Workspaces</DropdownMenuLabel>
             <DropdownMenuRadioGroup
-              value={currentWorkspace.id}
+              value={currentWorkspace.workspaceKey}
               onValueChange={handleWorkspaceChange}
             >
               {workspaces.map((ws) => (
-                <DropdownMenuRadioItem key={ws.id} value={ws.id}>
+                <DropdownMenuRadioItem key={ws.id} value={ws.workspaceKey}>
                   <span className="line-clamp-2 block" title={ws.name}>
                     {ws.name}
                   </span>
@@ -125,8 +126,8 @@ export function WorkspaceSwitcher({
       <WorkspaceCreator
         open={dialogOpen}
         onOpenChange={setDialogOpen}
-        onSuccess={(workspaceId) => {
-          void onNavigate({ to: `/workspaces/${workspaceId}` });
+        onSuccess={(workspaceKey) => {
+          void onNavigate({ to: `/w/${workspaceKey}` });
         }}
       />
     </>

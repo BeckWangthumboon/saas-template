@@ -1,7 +1,22 @@
 import './triggers';
 
-import { internalMutation } from '../functions';
+import { v } from 'convex/values';
+
+import { internalMutation, internalQuery } from '../functions';
 import { logger } from '../logging';
+
+export const getWorkspaceKeyById = internalQuery({
+  args: { workspaceId: v.id('workspaces') },
+  handler: async (ctx, args) => {
+    const workspace = await ctx.db.get('workspaces', args.workspaceId);
+
+    if (!workspace) {
+      throw new Error('Workspace not found');
+    }
+
+    return workspace.workspaceKey;
+  },
+});
 
 /**
  * Purges workspace tombstones whose purgeAt has passed.

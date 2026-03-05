@@ -20,7 +20,7 @@ function AppLayout() {
 function AuthenticatedLayout() {
   const { signOut } = useAuth();
   const { pathname } = useLocation();
-  const isWorkspaceRoute = pathname.startsWith('/workspaces/');
+  const isWorkspaceRoute = pathname.startsWith('/w/');
 
   if (isWorkspaceRoute) {
     return (

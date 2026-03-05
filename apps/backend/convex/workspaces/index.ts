@@ -16,6 +16,7 @@ import {
   getWorkspaceMembership,
   requireWorkspaceAdminOrOwner,
 } from './utils';
+import { generateWorkspaceKey } from './workspaceKey';
 
 const DEFAULT_SOLO_WORKSPACE_NAME = 'My Workspace';
 
@@ -29,8 +30,10 @@ async function createWorkspaceWithOwner(
 ) {
   const now = Date.now();
   const trimmedName = name.trim();
+  const workspaceKey = await generateWorkspaceKey(ctx);
   const workspaceId = await ctx.db.insert('workspaces', {
     name: trimmedName,
+    workspaceKey,
     createdByUserId: user._id,
     creatorDisplayNameSnapshot:
       [user.firstName, user.lastName].filter(Boolean).join(' ') || undefined,
@@ -57,7 +60,7 @@ async function createWorkspaceWithOwner(
     },
   });
 
-  return workspaceId;
+  return { workspaceId, workspaceKey };
 }
 
 /**
@@ -81,7 +84,14 @@ export const getUserWorkspaces = query({
     return memberships.flatMap((membership, i) => {
       const workspace = workspaces[i];
       return workspace && isActiveWorkspace(workspace)
-        ? [{ id: workspace._id, name: workspace.name, role: membership.role }]
+        ? [
+            {
+              id: workspace._id,
+              workspaceKey: workspace.workspaceKey,
+              name: workspace.name,
+              role: membership.role,
+            },
+          ]
         : [];
     });
   },
@@ -162,22 +172,36 @@ export const ensureDefaultWorkspaceForCurrentUser = mutation({
           },
         });
 
-        return activeMembership.workspaceId;
+        const workspace = workspaces.find(
+          (candidate) =>
+            candidate?._id === activeMembership.workspaceId && isActiveWorkspace(candidate),
+        );
+
+        if (!workspace) {
+          return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+            details: 'Active workspace membership missing workspace document',
+          });
+        }
+
+        return {
+          workspaceId: activeMembership.workspaceId,
+          workspaceKey: workspace.workspaceKey,
+        };
       }
     }
 
-    const workspaceId = await createWorkspaceWithOwner(ctx, user, DEFAULT_SOLO_WORKSPACE_NAME);
+    const workspace = await createWorkspaceWithOwner(ctx, user, DEFAULT_SOLO_WORKSPACE_NAME);
 
     logger.info({
       event: 'workspace.default_created',
       category: 'WORKSPACE',
       context: {
-        workspaceId,
+        workspaceId: workspace.workspaceId,
         userId: user._id,
       },
     });
 
-    return workspaceId;
+    return workspace;
   },
 });
 

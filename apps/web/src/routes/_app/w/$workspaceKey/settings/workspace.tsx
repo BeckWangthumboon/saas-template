@@ -24,7 +24,7 @@ import { isWorkspaceReady, useWorkspace } from '@/features/workspaces';
 import { useConvexMutation } from '@/hooks';
 import { defaultWorkspaceStorage } from '@/lib/storage';
 
-export const Route = createFileRoute('/_app/workspaces/$workspaceId/settings/workspace')({
+export const Route = createFileRoute('/_app/w/$workspaceKey/settings/workspace')({
   component: WorkspaceSettingsPage,
 });
 
@@ -117,10 +117,10 @@ function WorkspaceSettingsPage() {
     });
 
     const nextWorkspace = workspaces.find((item) => item.id !== workspaceId);
-    defaultWorkspaceStorage.set(nextWorkspace?.id ?? null);
+    defaultWorkspaceStorage.set(nextWorkspace?.workspaceKey ?? null);
 
     if (nextWorkspace) {
-      void navigate({ to: `/workspaces/${nextWorkspace.id}` });
+      void navigate({ to: `/w/${nextWorkspace.workspaceKey}` });
     } else {
       void navigate({ to: '/' });
     }
@@ -155,10 +155,10 @@ function WorkspaceSettingsPage() {
     });
 
     const nextWorkspace = workspaces.find((item) => item.id !== workspaceId);
-    defaultWorkspaceStorage.set(nextWorkspace?.id ?? null);
+    defaultWorkspaceStorage.set(nextWorkspace?.workspaceKey ?? null);
 
     if (nextWorkspace) {
-      void navigate({ to: `/workspaces/${nextWorkspace.id}` });
+      void navigate({ to: `/w/${nextWorkspace.workspaceKey}` });
     } else {
       void navigate({ to: '/' });
     }

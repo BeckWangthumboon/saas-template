@@ -454,6 +454,7 @@ function throwInviteAcceptanceValidationError(
       return throwAppErrorForConvex(ErrorCode.INVITE_ALREADY_MEMBER, {
         email: result.data.user.email,
         workspaceId: result.data.invite.workspaceId as string,
+        workspaceKey: result.data.workspace.workspaceKey,
       });
   }
 }
@@ -739,10 +740,7 @@ export const getInviteForAcceptance = query({
  */
 export const acceptInvite = mutation({
   args: { token: v.string() },
-  handler: async (
-    ctx,
-    args,
-  ): Promise<{ workspaceId: Id<'workspaces'>; workspaceName: string; role: InviteRole }> => {
+  handler: async (ctx, args) => {
     const validation = await validateInviteForAcceptance(ctx, args.token);
 
     if (validation.status === 'already_accepted') {
@@ -795,6 +793,7 @@ export const acceptInvite = mutation({
 
       return {
         workspaceId: invite.workspaceId,
+        workspaceKey: workspace.workspaceKey,
         workspaceName: workspace.name,
         role: invite.role,
       };
@@ -815,6 +814,7 @@ export const acceptInvite = mutation({
 
       return {
         workspaceId: invite.workspaceId,
+        workspaceKey: workspace.workspaceKey,
         workspaceName: workspace.name,
         role: invite.role,
       };
@@ -878,6 +878,7 @@ export const acceptInvite = mutation({
 
     return {
       workspaceId: invite.workspaceId,
+      workspaceKey: workspace.workspaceKey,
       workspaceName: workspace.name,
       role: invite.role,
     };

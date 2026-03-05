@@ -23,16 +23,16 @@ function OverviewPage() {
     api.workspaces.index.ensureDefaultWorkspaceForCurrentUser,
   );
   const workspaces = useMemo(() => data ?? [], [data]);
-  const defaultWorkspaceId = useMemo(() => defaultWorkspaceStorage.get(), []);
+  const defaultWorkspaceKey = useMemo(() => defaultWorkspaceStorage.get(), []);
 
   useEffect(() => {
     if (status !== 'success') return;
     if (workspaces.length === 0) return;
 
-    const matched = workspaces.find((workspace) => workspace.id === defaultWorkspaceId);
+    const matched = workspaces.find((workspace) => workspace.workspaceKey === defaultWorkspaceKey);
     const target = matched ?? workspaces[0];
-    void navigate({ to: `/workspaces/${target.id}` });
-  }, [defaultWorkspaceId, navigate, status, workspaces]);
+    void navigate({ to: `/w/${target.workspaceKey}` });
+  }, [defaultWorkspaceKey, navigate, status, workspaces]);
 
   if (status !== 'success') {
     return (
@@ -58,8 +58,8 @@ function OverviewPage() {
         return;
       }
 
-      defaultWorkspaceStorage.set(result.value);
-      void navigate({ to: `/workspaces/${result.value}`, replace: true });
+      defaultWorkspaceStorage.set(result.value.workspaceKey);
+      void navigate({ to: `/w/${result.value.workspaceKey}`, replace: true });
     });
   };
 

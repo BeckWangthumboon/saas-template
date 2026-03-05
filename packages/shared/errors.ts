@@ -229,7 +229,11 @@ export interface ErrorContextMap {
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: { token?: string; hasNewerInvite?: boolean };
   [ErrorCode.INVITE_ALREADY_REVOKED]: { token?: string; hasNewerInvite?: boolean };
   [ErrorCode.INVITE_EMAIL_MISMATCH]: { inviteEmail?: string; userEmail?: string };
-  [ErrorCode.INVITE_ALREADY_MEMBER]: { email?: string; workspaceId?: string };
+  [ErrorCode.INVITE_ALREADY_MEMBER]: {
+    email?: string;
+    workspaceId?: string;
+    workspaceKey?: string;
+  };
   [ErrorCode.INVITE_SELF_INVITE]: Record<string, never>;
   [ErrorCode.INVITE_CANNOT_ASSIGN_OWNER]: Record<string, never>;
   [ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN]: Record<string, never>;

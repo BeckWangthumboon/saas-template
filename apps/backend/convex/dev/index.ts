@@ -6,6 +6,7 @@ import { convexEnv } from '../env';
 import { throwAppErrorForConvex } from '../errors';
 import { internalMutation, type MutationCtx } from '../functions';
 import { logger } from '../logging';
+import { generateWorkspaceKey } from '../workspaces/workspaceKey';
 
 const RESET_CONFIRMATION_TOKEN = 'RESET_DEV_DATA';
 const DAY_MS = 24 * 60 * 60 * 1000;
@@ -300,6 +301,7 @@ const ensureWorkspace = async (
   if (matches.length === 0) {
     const workspaceId = await ctx.db.insert('workspaces', {
       name: input.name,
+      workspaceKey: await generateWorkspaceKey(ctx),
       createdByUserId: input.owner._id,
       creatorDisplayEmailSnapshot: input.owner.email,
       creatorDisplayNameSnapshot: getUserDisplayName(input.owner),
@@ -318,6 +320,7 @@ const ensureWorkspace = async (
 
   const nextFields = {
     name: input.name,
+    workspaceKey: existingWorkspace.workspaceKey,
     createdByUserId: input.owner._id,
     creatorDisplayEmailSnapshot: input.owner.email,
     creatorDisplayNameSnapshot: getUserDisplayName(input.owner),
@@ -330,6 +333,7 @@ const ensureWorkspace = async (
 
   const shouldPatch =
     existingWorkspace.status === 'deleted' ||
+    existingWorkspace.workspaceKey !== nextFields.workspaceKey ||
     existingWorkspace.createdByUserId !== input.owner._id ||
     existingWorkspace.creatorDisplayEmailSnapshot !== input.owner.email ||
     existingWorkspace.creatorDisplayNameSnapshot !== getUserDisplayName(input.owner);

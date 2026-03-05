@@ -8,7 +8,7 @@ import {
   useWorkspaceEntitlements,
 } from '@/features/workspaces';
 
-export const Route = createFileRoute('/_app/workspaces/$workspaceId/')({
+export const Route = createFileRoute('/_app/w/$workspaceKey/')({
   component: OverviewPage,
 });
 

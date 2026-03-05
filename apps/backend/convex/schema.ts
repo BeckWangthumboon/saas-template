@@ -76,6 +76,7 @@ const deletedUser = v.object({
 
 const workspaceBaseFields = {
   name: v.string(),
+  workspaceKey: v.string(),
   createdByUserId: v.id('users'),
   updatedAt: v.number(),
   creatorDisplayNameSnapshot: v.optional(v.string()),
@@ -106,6 +107,7 @@ export default defineSchema({
 
   workspaces: defineTable(v.union(activeWorkspace, deletedWorkspace))
     .index('by_name', ['name'])
+    .index('by_workspaceKey', ['workspaceKey'])
     .index('by_status', ['status']),
 
   workspaceMembers: defineTable({

@@ -15,17 +15,17 @@ import { billingSummaryValidator, paidPlanKeyValidator } from './types';
 
 const ORIGIN = convexEnv.appOrigin;
 
-const getWorkspaceBillingSettingsPath = (workspaceId: string) =>
-  `/workspaces/${workspaceId}/settings/billing`;
+const getWorkspaceBillingSettingsPath = (workspaceKey: string) =>
+  `/w/${workspaceKey}/settings/billing`;
 
-const getCheckoutSuccessUrl = (workspaceId: string) =>
-  `${ORIGIN}${getWorkspaceBillingSettingsPath(workspaceId)}?checkout=success`;
+const getCheckoutSuccessUrl = (workspaceKey: string) =>
+  `${ORIGIN}${getWorkspaceBillingSettingsPath(workspaceKey)}?checkout=success`;
 
-const getCheckoutReturnUrl = (workspaceId: string) =>
-  `${ORIGIN}${getWorkspaceBillingSettingsPath(workspaceId)}`;
+const getCheckoutReturnUrl = (workspaceKey: string) =>
+  `${ORIGIN}${getWorkspaceBillingSettingsPath(workspaceKey)}`;
 
-const getPortalReturnUrl = (workspaceId: string) =>
-  `${ORIGIN}${getWorkspaceBillingSettingsPath(workspaceId)}`;
+const getPortalReturnUrl = (workspaceKey: string) =>
+  `${ORIGIN}${getWorkspaceBillingSettingsPath(workspaceKey)}`;
 
 const assertBillingState = (
   value: unknown,
@@ -144,10 +144,14 @@ export const startCheckout = action({
       });
     }
 
+    const workspaceKey = await ctx.runQuery(internal.workspaces.internal.getWorkspaceKeyById, {
+      workspaceId: args.workspaceId,
+    });
+
     const checkoutRequest: Parameters<typeof polar.checkouts.create>[0] = {
       products: [productId],
-      successUrl: getCheckoutSuccessUrl(args.workspaceId),
-      returnUrl: getCheckoutReturnUrl(args.workspaceId),
+      successUrl: getCheckoutSuccessUrl(workspaceKey),
+      returnUrl: getCheckoutReturnUrl(workspaceKey),
       metadata: { workspaceId: args.workspaceId },
     };
 
@@ -268,9 +272,13 @@ export const createBillingPortalSession = action({
     });
 
     try {
+      const workspaceKey = await ctx.runQuery(internal.workspaces.internal.getWorkspaceKeyById, {
+        workspaceId: args.workspaceId,
+      });
+
       const session = await polar.customerSessions.create({
         customerId,
-        returnUrl: getPortalReturnUrl(args.workspaceId),
+        returnUrl: getPortalReturnUrl(workspaceKey),
       });
 
       return { url: session.customerPortalUrl };

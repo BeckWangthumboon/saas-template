@@ -105,7 +105,7 @@ export function defineStorageKey<T>(config: StorageConfig<T>) {
 }
 
 export const defaultWorkspaceStorage = defineStorageKey({
-  key: 'defaultWorkspaceId',
+  key: 'defaultWorkspaceKey',
   schema: z.string().nullable(),
   default: null,
   version: 1,
