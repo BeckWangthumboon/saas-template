@@ -1,4 +1,4 @@
-import { CameraIcon, Trash2Icon } from 'lucide-react';
+import { CameraIcon, CheckIcon, Loader2Icon, Trash2Icon, XIcon } from 'lucide-react';
 import { type ChangeEvent, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
@@ -34,6 +34,7 @@ function getAvatarValidationError(file: File) {
 export function AvatarSettingsCard({ user }: { user: User }) {
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [pendingFile, setPendingFile] = useState<File | null>(null);
   const {
     finalizeUploadState,
     removeAvatar,
@@ -58,66 +59,56 @@ export function AvatarSettingsCard({ user }: { user: User }) {
   }, [previewUrl]);
 
   const handleUploadClick = () => {
-    if (isBusy) {
-      return;
-    }
-
+    if (isBusy || pendingFile) return;
     fileInputRef.current?.click();
-  };
-
-  const handleFileSelected = async (file: File) => {
-    const validationError = getAvatarValidationError(file);
-    if (validationError) {
-      toast.error('Invalid avatar', {
-        description: validationError,
-      });
-      return;
-    }
-
-    setPreviewUrl(URL.createObjectURL(file));
-
-    const result = await uploadAvatar(file);
-
-    if (result.isErr()) {
-      setPreviewUrl(null);
-      toast.error('Failed to upload avatar', {
-        description: result.error.message,
-      });
-      return;
-    }
-
-    setPreviewUrl(null);
-    toast.success('Avatar updated', {
-      description: 'Your profile photo has been updated.',
-    });
   };
 
   const handleFileInputChange = (event: ChangeEvent<HTMLInputElement>) => {
     const file = event.target.files?.[0];
     event.target.value = '';
 
-    if (!file || isBusy) {
+    if (!file || isBusy) return;
+
+    const validationError = getAvatarValidationError(file);
+    if (validationError) {
+      toast.error('Invalid avatar', { description: validationError });
       return;
     }
 
-    void handleFileSelected(file);
+    setPreviewUrl(URL.createObjectURL(file));
+    setPendingFile(file);
+  };
+
+  const handleConfirm = async () => {
+    if (!pendingFile) return;
+
+    const result = await uploadAvatar(pendingFile);
+
+    setPreviewUrl(null);
+    setPendingFile(null);
+
+    if (result.isErr()) {
+      toast.error('Failed to upload avatar', { description: result.error.message });
+      return;
+    }
+
+    toast.success('Avatar updated', { description: 'Your profile photo has been updated.' });
+  };
+
+  const handleCancel = () => {
+    setPreviewUrl(null);
+    setPendingFile(null);
   };
 
   const handleRemoveAvatar = async () => {
     const result = await removeAvatar();
 
     if (result.isErr()) {
-      toast.error('Failed to remove avatar', {
-        description: result.error.message,
-      });
+      toast.error('Failed to remove avatar', { description: result.error.message });
       return;
     }
 
-    setPreviewUrl(null);
-
-    toast.success('Avatar removed', {
-      description: 'Your profile photo has been removed.',
-    });
+    toast.success('Avatar removed', { description: 'Your profile photo has been removed.' });
   };
 
   const displayAvatarUrl = previewUrl ?? user.profilePictureUrl;
@@ -128,54 +119,88 @@ export function AvatarSettingsCard({ user }: { user: User }) {
       : 'No name set';
 
   return (
-    <section className="space-y-4 rounded-lg border p-4">
-      <div>
-        <h2 className="text-base font-medium">Avatar</h2>
-        <p className="text-muted-foreground text-sm">Upload a profile photo for your account.</p>
+    <div className="flex items-center gap-4">
+      <div
+        className="group relative cursor-pointer"
+        onClick={handleUploadClick}
+        role="button"
+        tabIndex={isBusy || pendingFile ? -1 : 0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') handleUploadClick();
+        }}
+        aria-label="Change avatar"
+      >
+        <Avatar className="h-20 w-20 text-xl">
+          <AvatarImage src={displayAvatarUrl} alt={user.firstName ?? user.email} />
+          <AvatarFallback>{initials}</AvatarFallback>
+        </Avatar>
+
+        {!isBusy && !pendingFile && (
+          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
+            <CameraIcon className="size-6 text-white" />
+          </div>
+        )}
+
+        {isBusy && (
+          <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50">
+            <Loader2Icon className="size-6 animate-spin text-white" />
+          </div>
+        )}
       </div>
 
-      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-        <div className="flex items-center gap-4">
-          <Avatar className="h-20 w-20 text-xl">
-            <AvatarImage src={displayAvatarUrl} alt={user.firstName ?? user.email} />
-            <AvatarFallback>{initials}</AvatarFallback>
-          </Avatar>
-          <div className="space-y-1">
-            <p className="font-medium">{displayName}</p>
-            <p className="text-muted-foreground text-sm">{user.email}</p>
-            <p className="text-muted-foreground text-xs">JPG, PNG, WebP, or GIF up to 5 MB.</p>
-          </div>
-        </div>
+      <div className="space-y-1">
+        <p className="font-medium">{displayName}</p>
+        <p className="text-muted-foreground text-sm">{user.email}</p>
 
-        <div className="flex flex-wrap gap-2">
-          <input
-            ref={fileInputRef}
-            type="file"
-            accept={AVATAR_INPUT_ACCEPT}
-            className="sr-only"
-            onChange={handleFileInputChange}
-            tabIndex={-1}
-            aria-hidden
-          />
-
-          <Button type="button" onClick={handleUploadClick} disabled={isBusy}>
-            <CameraIcon className="size-4" />
-            {isUploading ? 'Uploading...' : 'Upload new photo'}
-          </Button>
-
-          {user.avatarSource === 'custom' && (
+        {pendingFile ? (
+          <div className="flex gap-2 pt-1">
+            <Button type="button" size="sm" onClick={() => void handleConfirm()} disabled={isBusy}>
+              {isUploading ? (
+                <Loader2Icon className="size-3 animate-spin" />
+              ) : (
+                <CheckIcon className="size-3" />
+              )}
+              Confirm
+            </Button>
             <Button
               type="button"
+              size="sm"
               variant="outline"
-              onClick={() => void handleRemoveAvatar()}
+              onClick={handleCancel}
               disabled={isBusy}
             >
-              <Trash2Icon className="size-4" />
-              {isRemoving ? 'Removing...' : 'Remove photo'}
+              <XIcon className="size-3" />
+              Cancel
             </Button>
-          )}
-        </div>
+          </div>
+        ) : (
+          <>
+            {user.avatarSource === 'custom' && (
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="h-auto px-0 py-0 text-xs text-destructive hover:bg-transparent hover:text-destructive/80"
+                onClick={() => void handleRemoveAvatar()}
+                disabled={isBusy}
+              >
+                <Trash2Icon className="size-3" />
+                {isRemoving ? 'Removing...' : 'Remove photo'}
+              </Button>
+            )}
+          </>
+        )}
       </div>
-    </section>
+
+      <input
+        ref={fileInputRef}
+        type="file"
+        accept={AVATAR_INPUT_ACCEPT}
+        className="sr-only"
+        onChange={handleFileInputChange}
+        tabIndex={-1}
+        aria-hidden
+      />
+    </div>
   );
 }

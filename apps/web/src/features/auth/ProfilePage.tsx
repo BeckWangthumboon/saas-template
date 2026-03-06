@@ -136,7 +136,7 @@ export function ProfilePage() {
   }
 
   return (
-    <div className="mx-auto max-w-xl space-y-8">
+    <div className="space-y-8">
       <WorkspacePageHeading
         title="Profile"
         description="Manage your personal account details and preferences."
@@ -144,10 +144,9 @@ export function ProfilePage() {
 
       <AvatarSettingsCard user={user} />
 
-      <section className="space-y-4 rounded-lg border p-4">
+      <section className="space-y-4">
         <div>
           <h2 className="text-base font-medium">Personal Information</h2>
-          <p className="text-muted-foreground text-sm">Update your name and account details.</p>
         </div>
 
         <form
@@ -217,7 +216,7 @@ export function ProfilePage() {
         </form>
       </section>
 
-      <section className="space-y-4 rounded-lg border border-destructive/50 p-4">
+      <section className="space-y-4 border-t pt-8">
         <div>
           <h2 className="text-base font-medium text-destructive">Danger Zone</h2>
           <p className="text-muted-foreground text-sm">Irreversible and destructive actions.</p>
