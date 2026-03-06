@@ -15,12 +15,13 @@ function Tabs({ className, orientation = 'horizontal', ...props }: TabsPrimitive
 }
 
 const tabsListVariants = cva(
-  'rounded-lg p-[3px] group-data-horizontal/tabs:h-9 data-[variant=line]:rounded-none group/tabs-list text-muted-foreground inline-flex w-fit items-center justify-center group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col',
+  'rounded-lg p-[3px] group-data-horizontal/tabs:h-9 data-[variant=line]:rounded-none data-[variant=card]:rounded-lg group/tabs-list text-muted-foreground inline-flex w-fit items-center justify-center group-data-[orientation=vertical]/tabs:h-fit group-data-[orientation=vertical]/tabs:flex-col',
   {
     variants: {
       variant: {
         default: 'bg-muted',
         line: 'gap-1 bg-transparent',
+        card: 'border border-border bg-card/50 p-1 gap-1',
       },
     },
     defaultVariants: {
@@ -53,6 +54,7 @@ function TabsTrigger({ className, ...props }: TabsPrimitive.Tab.Props) {
         'group-data-[variant=line]/tabs-list:bg-transparent group-data-[variant=line]/tabs-list:data-active:bg-transparent dark:group-data-[variant=line]/tabs-list:data-active:border-transparent dark:group-data-[variant=line]/tabs-list:data-active:bg-transparent',
         'data-active:bg-background dark:data-active:text-foreground dark:data-active:border-input dark:data-active:bg-input/30 data-active:text-foreground',
         'after:bg-foreground after:absolute after:opacity-0 after:transition-opacity group-data-[orientation=horizontal]/tabs:after:inset-x-0 group-data-[orientation=horizontal]/tabs:after:bottom-[-5px] group-data-[orientation=horizontal]/tabs:after:h-0.5 group-data-[orientation=vertical]/tabs:after:inset-y-0 group-data-[orientation=vertical]/tabs:after:-right-1 group-data-[orientation=vertical]/tabs:after:w-0.5 group-data-[variant=line]/tabs-list:data-active:after:opacity-100',
+        'group-data-[variant=card]/tabs-list:bg-muted/30 group-data-[variant=card]/tabs-list:px-3 group-data-[variant=card]/tabs-list:py-1.5 group-data-[variant=card]/tabs-list:data-active:bg-background group-data-[variant=card]/tabs-list:data-active:border-transparent group-data-[variant=card]/tabs-list:data-active:shadow-sm group-data-[variant=card]/tabs-list:hover:bg-muted/50 group-data-[variant=card]/tabs-list:hover:border-border/50',
         className,
       )}
       {...props}
