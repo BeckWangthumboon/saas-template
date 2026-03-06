@@ -9,6 +9,7 @@ export { InviteMemberDialog } from './InviteMemberDialog';
 export { MemberRoleChangeDialog } from './MemberRoleChangeDialog';
 export { RemoveMemberDialog } from './RemoveMemberDialog';
 export type { Invite, Member, Role } from './types';
+export { UserActionsMenu } from './UserActionsMenu';
 export { formatDate, formatName, getInitials, getRoleBadgeVariant } from './utils';
 export {
   isWorkspaceReady,

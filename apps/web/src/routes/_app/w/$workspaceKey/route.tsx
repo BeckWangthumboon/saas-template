@@ -11,7 +11,7 @@ import {
   SidebarFooter,
   SidebarGroup,
   SidebarGroupContent,
-  SidebarGroupLabel,
+  SidebarHeader,
   SidebarInset,
   SidebarMenu,
   SidebarMenuButton,
@@ -22,6 +22,7 @@ import {
 import {
   isWorkspaceEntitlementsReady,
   isWorkspaceReady,
+  UserActionsMenu,
   useWorkspace,
   useWorkspaceEntitlements,
   WorkspaceEntitlementsProvider,
@@ -143,9 +144,15 @@ function WorkspaceLayoutReadyContent({
   return (
     <SidebarProvider className="h-full min-h-0">
       <Sidebar collapsible="none" className="border-r border-sidebar-border">
+        <SidebarHeader>
+          <WorkspaceSwitcher
+            workspaces={workspaces}
+            currentWorkspace={workspace}
+            onNavigate={navigate}
+          />
+        </SidebarHeader>
         <SidebarContent>
           <SidebarGroup>
-            <SidebarGroupLabel>Workspace</SidebarGroupLabel>
             <SidebarGroupContent className="pt-2">
               <SidebarMenu>
                 {appPages.map((page) => (
@@ -172,8 +179,7 @@ function WorkspaceLayoutReadyContent({
         <SidebarSeparator />
 
         <SidebarFooter>
-          <WorkspaceSwitcher
-            workspaces={workspaces}
+          <UserActionsMenu
             currentWorkspace={workspace}
             onNavigate={navigate}
             onSignOut={() => {
