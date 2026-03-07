@@ -35,7 +35,8 @@
     "check:web": "bun run --cwd apps/web check",
     "check:backend": "bun run --cwd apps/backend check",
     "check:shared": "bun run --cwd packages/shared check",
-    "convex": "bun run --cwd apps/backend bunx convex"
+    "convex": "bun run --cwd apps/backend bunx convex",
+    "atmn": "bunx atmn --config=./packages/shared/billing/autumn.config.ts"
   },
   "dependencies": {
     "convex": "^1.32.0"

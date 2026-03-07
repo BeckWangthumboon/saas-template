@@ -15,6 +15,7 @@
     "zod": "^4.3.6"
   },
   "exports": {
-    "./errors": "./errors.ts"
+    "./errors": "./errors.ts",
+    "./billing": "./billing/index.ts"
   }
 }
