@@ -12,6 +12,9 @@ An opiniated SaaS starter with auth, workspace/orgs, billing, emails, etc. Perfe
 - **Polar billing** - Subscription webhooks, plan management
 - **Resend emails** - Transactional invites, bounce handling, suppression
 - **Entitlement model** - Plan/features/limits with backend + UI gating
+- **Cloudflare R2 storage** - Workspace file upload/download with presigned URLs and deletion reconciliation
+- **User avatar uploads** - Profile picture management backed by R2 with WorkOS fallback
+- **Onboarding flow** - Welcome dialog for first-time users
 
 This template is intentionally opinionated. The goal is to give you a reliable starting point with clear backend rules, consistent deletion behavior, and predictable feature-gating patterns.
 
@@ -34,7 +37,8 @@ bun run dev
 
 - React 19, Vite, TanStack Router, TanStack Form
 - Tailwind CSS v4, shadcn/ui components
-
+- `next-themes` for dark/light theme management
+- `@base-ui/react` for headless UI primitives
 **Backend**
 
 - Convex (DB + server functions + HTTP routes + cron jobs)
@@ -44,6 +48,7 @@ bun run dev
 - Auth: WorkOS + `@convex-dev/workos-authkit`
 - Billing: Polar (`@polar-sh/sdk`)
 - Email: Resend (transactional emails + invite flows)
+- File Storage: Cloudflare R2 
 
 ## Project layout
 
@@ -94,6 +99,13 @@ bun install
 - `RESEND_API_KEY` (required for sending invites)
 - `RESEND_WEBHOOK_SECRET` (required for webhook verification)
 - `RESEND_FROM_EMAIL` (required, e.g. `Acme <invites@acme.com>`)
+
+**Cloudflare R2** (for file storage and avatar uploads):
+
+- `R2_BUCKET`
+- `R2_ENDPOINT`
+- `R2_ACCESS_KEY_ID`
+- `R2_SECRET_ACCESS_KEY`
 
 ### 3. Start local development (from workspace root)
 
@@ -266,16 +278,51 @@ Notes:
 - Convex dashboard logs are a realtime/short-history view.
 - For long-term retention and bulk export, configure Convex log streams.
 
+### 11. File Storage (Cloudflare R2)
+
+- `workspaceFiles` is the source of truth for stored files.
+- Files are stored in R2 with presigned upload and download URLs.
+- Upload records are tracked with expiration; incomplete uploads are cleaned up via cron.
+- Failed R2 deletions are queued in `r2DeleteQueue` for reconciliation.
+- See section 13 for the related cron schedule.
+
+Why this choice: R2 provides cost-effective object storage without egress fees. Presigned URLs keep credentials server-side while giving the client direct upload/download access.
+
+### 12. Rate Limiting
+
+Distributed rate limiting is applied via `@convex-dev/rate-limiter` to protect write paths:
+
+- `createWorkspaceByUser` — workspace creation
+- `createInviteByUser` — invite creation
+- `acceptInviteByUser` — invite acceptance
+- `mutateContactsByActor` — contact mutations
+
+Why this choice: Convex mutations run on a shared runtime, so server-side rate limits prevent abuse without requiring a separate infrastructure layer.
+
+### 13. Cron Jobs
+
+The following scheduled jobs run automatically. Operators should be aware of what runs and when:
+
+| Job | Schedule (UTC) |
+|-----|----------------|
+| Reconcile stuck user deletions | Daily 2:30 AM |
+| Purge deleted user tombstones | Daily 3:00 AM |
+| Purge deleted workspace tombstones | Daily 3:30 AM |
+| Cleanup Resend email component data | Daily 4:00 AM |
+| Cleanup expired workspace file uploads | Daily 4:00 AM |
+| Cleanup expired avatar uploads | Daily 4:30 AM |
+| Reconcile failed R2 deletes | Daily 5:00 AM |
+
 ## Starter Packs
 
 ### Contacts Starter Pack (Included)
 
 This template includes a minimal Contacts CRUD example you can keep or delete per project.
 
-- Route: `/workspaces/$workspaceId/contacts`
+- Route: `/w/$workspaceKey/contacts`
 - Backend: `convex/contacts/index.ts`
 - Table: `contacts` in `convex/schema.ts`
-- UI page: `src/routes/_app/workspaces/$workspaceId/contacts.tsx`
+- UI page: `src/routes/_app/w/$workspaceKey/contacts.tsx`
 
 What it demonstrates:
 
@@ -283,5 +330,23 @@ What it demonstrates:
 - Convex CRUD flow (`listContacts`, `createContact`, `updateContact`, `deleteContact`)
 - Workspace membership checks in backend handlers
 - Data cleanup when a workspace is tombstoned or purged
+
+If you do not need this starter pack in a new project, remove the route file, backend module, schema table, and navigation links.
+
+### Files Starter Pack (Included)
+
+This template includes a workspace file manager example you can keep or delete per project.
+
+- Route: `/w/$workspaceKey/files`
+- Backend: `convex/workspaceFiles/index.ts`
+- Table: `workspaceFiles` in `convex/schema.ts`
+- UI page: `src/routes/_app/w/$workspaceKey/files.tsx`
+
+What it demonstrates:
+
+- Drag-and-drop file upload (max 50MB) with presigned R2 URLs
+- Signed download URLs with File System Access API save picker
+- Per-workspace file listing and deletion
+- R2 cleanup on workspace tombstone/purge
 
 If you do not need this starter pack in a new project, remove the route file, backend module, schema table, and navigation links.
