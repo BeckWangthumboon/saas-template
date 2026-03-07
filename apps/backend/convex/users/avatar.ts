@@ -5,6 +5,7 @@ import { internal } from '../_generated/api';
 import { throwAppErrorForConvex } from '../errors';
 import { action, internalMutation, mutation } from '../functions';
 import { logger } from '../logging';
+import { rateLimiter } from '../rateLimiter';
 import { deleteR2ObjectOrDefer } from '../storage/deletes';
 import { generateR2UploadUrlForKey, getR2Metadata, syncR2Metadata } from '../storage/r2Client';
 import {
@@ -48,14 +49,33 @@ export const requestAvatarUploadUrl = mutation({
     assertAvatarFileSize(args.size);
     assertAvatarContentType(args.contentType);
 
+    const rateLimitStatus = await rateLimiter.limit(ctx, 'requestAvatarUploadUrlByUser', {
+      key: user._id,
+    });
+    if (!rateLimitStatus.ok) {
+      logger.warn({
+        event: 'auth.avatar.upload_url_rate_limited',
+        category: 'AUTH',
+        context: {
+          userId: user._id,
+          retryAfter: rateLimitStatus.retryAfter,
+        },
+      });
+
+      return throwAppErrorForConvex(ErrorCode.AVATAR_UPLOAD_RATE_LIMITED, {
+        retryAfter: rateLimitStatus.retryAfter,
+      });
+    }
+
     const key = buildAvatarObjectKey(user._id, sanitizedFileName);
     const { url } = await generateR2UploadUrlForKey(key);
+    const now = Date.now();
 
     await createPendingUpload(ctx, {
       key,
       kind: AVATAR_UPLOAD_KIND,
       requestedByUserId: user._id,
-      expiresAt: Date.now() + AVATAR_UPLOAD_TTL_MS,
+      expiresAt: now + AVATAR_UPLOAD_TTL_MS,
     });
 
     return {

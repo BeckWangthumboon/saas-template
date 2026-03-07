@@ -7,6 +7,7 @@ import { assertWorkspaceUnlockedForWrites } from '../entitlements/service';
 import { throwAppErrorForConvex } from '../errors';
 import { action, internalMutation, mutation } from '../functions';
 import { logger } from '../logging';
+import { rateLimiter } from '../rateLimiter';
 import { deleteR2ObjectOrDefer } from '../storage/deletes';
 import { generateR2UploadUrlForKey, getR2Metadata, syncR2Metadata } from '../storage/r2Client';
 import {
@@ -52,6 +53,26 @@ export const requestWorkspaceFileUploadUrl = mutation({
       return throwAppErrorForConvex(ErrorCode.WORKSPACE_FILE_NAME_EMPTY);
     }
     assertWorkspaceFileSize(args.size);
+
+    const rateLimitStatus = await rateLimiter.limit(ctx, 'requestWorkspaceUploadUrlByActor', {
+      key: `${args.workspaceId}:${user._id}`,
+    });
+    if (!rateLimitStatus.ok) {
+      logger.warn({
+        event: 'workspace.file.upload_url_rate_limited',
+        category: 'WORKSPACE',
+        context: {
+          workspaceId: args.workspaceId,
+          userId: user._id,
+          retryAfter: rateLimitStatus.retryAfter,
+        },
+      });
+
+      return throwAppErrorForConvex(ErrorCode.WORKSPACE_FILE_UPLOAD_RATE_LIMITED, {
+        workspaceId: args.workspaceId as string,
+        retryAfter: rateLimitStatus.retryAfter,
+      });
+    }
 
     const key = buildWorkspaceFileObjectKey(args.workspaceId, sanitizedFileName);
     const { url } = await generateR2UploadUrlForKey(key);

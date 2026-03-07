@@ -3,6 +3,18 @@ import { HOUR, MINUTE, RateLimiter } from '@convex-dev/rate-limiter';
 import { components } from './_generated/api';
 
 const rateLimits = {
+  requestAvatarUploadUrlByUser: {
+    kind: 'token bucket',
+    rate: 10,
+    period: HOUR,
+    capacity: 3,
+  },
+  requestWorkspaceUploadUrlByActor: {
+    kind: 'token bucket',
+    rate: 120,
+    period: HOUR,
+    capacity: 10,
+  },
   createWorkspaceByUser: {
     kind: 'token bucket',
     rate: 10,
