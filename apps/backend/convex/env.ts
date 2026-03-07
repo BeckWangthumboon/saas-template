@@ -172,6 +172,7 @@ export const convexEnv = {
   appEnv,
   workosClientId: requireEnv('WORKOS_CLIENT_ID'),
   workosApiKey: requireEnv('WORKOS_API_KEY'),
+  autumnApiKey: requireEnv('AUTUMN_API_KEY'),
   polarOrganizationToken: requireEnv('POLAR_ORGANIZATION_TOKEN'),
   polarWebhookSecret: requireEnv('POLAR_WEBHOOK_SECRET'),
   polarProMonthlyProductId: productIds.proMonthlyProductId,
