@@ -1,7 +1,7 @@
 import { api } from '@saas/convex-api';
 import { useForm } from '@tanstack/react-form';
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
-import { MailIcon, SettingsIcon, UserIcon } from 'lucide-react';
+import { createFileRoute, useNavigate } from '@tanstack/react-router';
+import { MailIcon, UserIcon } from 'lucide-react';
 import { useEffect, useMemo } from 'react';
 import { z } from 'zod';
 
@@ -229,16 +229,6 @@ function NoWorkspacesView({
             isCreatingSolo={isCreatingSolo}
           />
           <InviteLinkCard />
-        </div>
-
-        <div className="text-center">
-          <Link
-            to="/settings"
-            className="text-muted-foreground hover:text-foreground inline-flex items-center gap-2 text-sm underline-offset-4 hover:underline"
-          >
-            <SettingsIcon className="h-4 w-4" />
-            Profile
-          </Link>
         </div>
       </div>
     </div>

@@ -15,7 +15,6 @@ import { Route as AppRouteRouteImport } from './routes/_app/route'
 import { Route as AppIndexRouteImport } from './routes/_app/index'
 import { Route as AuthSignInRouteImport } from './routes/_auth/sign-in'
 import { Route as AuthCallbackRouteImport } from './routes/_auth/callback'
-import { Route as AppSettingsRouteImport } from './routes/_app/settings'
 import { Route as InviteInviteTokenRouteImport } from './routes/_invite/invite/$token'
 import { Route as AppWWorkspaceKeyRouteRouteImport } from './routes/_app/w/$workspaceKey/route'
 import { Route as AppWWorkspaceKeyIndexRouteImport } from './routes/_app/w/$workspaceKey/index'
@@ -54,11 +53,6 @@ const AuthCallbackRoute = AuthCallbackRouteImport.update({
   id: '/callback',
   path: '/callback',
   getParentRoute: () => AuthRouteRoute,
-} as any)
-const AppSettingsRoute = AppSettingsRouteImport.update({
-  id: '/settings',
-  path: '/settings',
-  getParentRoute: () => AppRouteRoute,
 } as any)
 const InviteInviteTokenRoute = InviteInviteTokenRouteImport.update({
   id: '/invite/$token',
@@ -123,7 +117,6 @@ const AppWWorkspaceKeySettingsBillingRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof AppIndexRoute
-  '/settings': typeof AppSettingsRoute
   '/callback': typeof AuthCallbackRoute
   '/sign-in': typeof AuthSignInRoute
   '/w/$workspaceKey': typeof AppWWorkspaceKeyRouteRouteWithChildren
@@ -140,7 +133,6 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof AppIndexRoute
-  '/settings': typeof AppSettingsRoute
   '/callback': typeof AuthCallbackRoute
   '/sign-in': typeof AuthSignInRoute
   '/invite/$token': typeof InviteInviteTokenRoute
@@ -158,7 +150,6 @@ export interface FileRoutesById {
   '/_app': typeof AppRouteRouteWithChildren
   '/_auth': typeof AuthRouteRouteWithChildren
   '/_invite': typeof InviteRouteRouteWithChildren
-  '/_app/settings': typeof AppSettingsRoute
   '/_auth/callback': typeof AuthCallbackRoute
   '/_auth/sign-in': typeof AuthSignInRoute
   '/_app/': typeof AppIndexRoute
@@ -178,7 +169,6 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/settings'
     | '/callback'
     | '/sign-in'
     | '/w/$workspaceKey'
@@ -195,7 +185,6 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/settings'
     | '/callback'
     | '/sign-in'
     | '/invite/$token'
@@ -212,7 +201,6 @@ export interface FileRouteTypes {
     | '/_app'
     | '/_auth'
     | '/_invite'
-    | '/_app/settings'
     | '/_auth/callback'
     | '/_auth/sign-in'
     | '/_app/'
@@ -278,13 +266,6 @@ declare module '@tanstack/react-router' {
       fullPath: '/callback'
       preLoaderRoute: typeof AuthCallbackRouteImport
       parentRoute: typeof AuthRouteRoute
-    }
-    '/_app/settings': {
-      id: '/_app/settings'
-      path: '/settings'
-      fullPath: '/settings'
-      preLoaderRoute: typeof AppSettingsRouteImport
-      parentRoute: typeof AppRouteRoute
     }
     '/_invite/invite/$token': {
       id: '/_invite/invite/$token'
@@ -410,13 +391,11 @@ const AppWWorkspaceKeyRouteRouteWithChildren =
   )
 
 interface AppRouteRouteChildren {
-  AppSettingsRoute: typeof AppSettingsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppWWorkspaceKeyRouteRoute: typeof AppWWorkspaceKeyRouteRouteWithChildren
 }
 
 const AppRouteRouteChildren: AppRouteRouteChildren = {
-  AppSettingsRoute: AppSettingsRoute,
   AppIndexRoute: AppIndexRoute,
   AppWWorkspaceKeyRouteRoute: AppWWorkspaceKeyRouteRouteWithChildren,
 }

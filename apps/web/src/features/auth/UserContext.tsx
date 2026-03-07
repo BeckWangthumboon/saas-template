@@ -4,7 +4,7 @@ import { useNavigate } from '@tanstack/react-router';
 import { useAuth } from '@workos-inc/authkit-react';
 import { Authenticated, Unauthenticated, useConvex } from 'convex/react';
 import type { FunctionReturnType } from 'convex/server';
-import { createContext, type ReactNode, useCallback, useContext, useEffect } from 'react';
+import { createContext, type ReactNode, useCallback, useContext, useEffect, useRef } from 'react';
 
 import { OnboardingDialog } from '@/features/onboarding/OnboardingDialog';
 import { useConvexAction, useConvexMutation, useConvexQuery } from '@/hooks';
@@ -61,7 +61,8 @@ function UserProviderInternal({ children }: { children: ReactNode }) {
   const { execute: ensureUser, state: ensureUserState } = useConvexAction(
     api.users.index.ensureUser,
   );
-  const { data: userData } = useConvexQuery(api.users.index.getUserOrNull);
+  const attemptedEnsureUserRef = useRef(false);
+  const { status: userStatus, data: userData } = useConvexQuery(api.users.index.getUserOrNull);
 
   const handleAuthFailure = useCallback(
     async (error: AppErrorData) => {
@@ -78,14 +79,26 @@ function UserProviderInternal({ children }: { children: ReactNode }) {
   );
 
   useEffect(() => {
+    if (userStatus !== 'success') {
+      return;
+    }
+    if (userData !== null) {
+      return;
+    }
+    if (attemptedEnsureUserRef.current) {
+      return;
+    }
+
+    attemptedEnsureUserRef.current = true;
+
     void ensureUser().then((result) => {
       if (result.isErr()) {
         void handleAuthFailure(result.error);
       }
     });
-  }, [ensureUser, handleAuthFailure]);
+  }, [ensureUser, handleAuthFailure, userData, userStatus]);
 
-  if (ensureUserState.status !== 'success') {
+  if (userStatus !== 'success' || userData === null || ensureUserState.status === 'loading') {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-muted-foreground">
@@ -95,8 +108,7 @@ function UserProviderInternal({ children }: { children: ReactNode }) {
     );
   }
 
-  const resolvedUser = userData ?? ensureUserState.data;
-  const value: UserContextValue = { status: 'ready', user: resolvedUser };
+  const value: UserContextValue = { status: 'ready', user: userData };
 
   return (
     <UserContext.Provider value={value}>

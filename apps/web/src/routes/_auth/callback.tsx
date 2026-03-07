@@ -1,20 +1,52 @@
+import { api } from '@saas/convex-api';
 import { createFileRoute, useNavigate } from '@tanstack/react-router';
 import { useAuth } from '@workos-inc/authkit-react';
-import { useEffect } from 'react';
+import { useConvex } from 'convex/react';
+import { useEffect, useRef } from 'react';
+
+import { useConvexAction } from '@/hooks';
 
 export const Route = createFileRoute('/_auth/callback')({
   component: CallbackPage,
 });
 
 function CallbackPage() {
-  const { isLoading, user } = useAuth();
+  const { isLoading, signOut, user } = useAuth();
+  const convex = useConvex();
   const navigate = useNavigate();
+  const { execute: ensureUser } = useConvexAction(api.users.index.ensureUser);
+  const hasHandledCallbackRef = useRef(false);
 
   useEffect(() => {
-    if (!isLoading) {
-      void navigate({ to: user ? '/' : '/sign-in' });
+    if (isLoading || hasHandledCallbackRef.current) {
+      return;
     }
-  }, [isLoading, user, navigate]);
+
+    hasHandledCallbackRef.current = true;
+
+    if (!user) {
+      void navigate({ to: '/sign-in' });
+      return;
+    }
+
+    void ensureUser().then(async (result) => {
+      if (result.isOk()) {
+        await navigate({ to: '/' });
+        return;
+      }
+
+      console.error(`Auth failure [${result.error.code}]: ${result.error.message}`);
+
+      try {
+        await signOut({ navigate: false });
+      } catch (signOutError) {
+        console.error(signOutError);
+      }
+
+      convex.clearAuth();
+      window.location.href = '/sign-in';
+    });
+  }, [convex, ensureUser, isLoading, navigate, signOut, user]);
 
   return (
     <main className="min-h-screen flex items-center justify-center">
