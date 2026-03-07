@@ -1,5 +1,6 @@
 import type { Id } from '@saas/convex-api';
 import { api } from '@saas/convex-api';
+import { ErrorCode } from '@saas/shared/errors';
 import { createFileRoute } from '@tanstack/react-router';
 import type { FunctionReturnType } from 'convex/server';
 import { DownloadIcon, FileIcon, Trash2Icon, UploadIcon } from 'lucide-react';
@@ -26,6 +27,7 @@ import {
 } from '@/components/ui/dialog';
 import { isWorkspaceReady, useWorkspace, WorkspacePageHeading } from '@/features/workspaces';
 import { useConvexAction, useConvexMutation, useConvexQuery } from '@/hooks';
+import { formatRetryAfterDescription, getRetryAfterSeconds } from '@/lib/appErrors';
 import { cn } from '@/lib/utils';
 
 export const Route = createFileRoute('/_app/w/$workspaceKey/files')({
@@ -172,6 +174,16 @@ function WorkspaceFilesPageContent({ workspaceId }: { workspaceId: string }) {
     });
 
     if (uploadUrlResult.isErr()) {
+      if (uploadUrlResult.error.code === ErrorCode.WORKSPACE_FILE_UPLOAD_RATE_LIMITED) {
+        toast.error('Too many file upload attempts', {
+          description: formatRetryAfterDescription(
+            getRetryAfterSeconds(uploadUrlResult.error),
+            'Please wait before uploading another file.',
+          ),
+        });
+        return;
+      }
+
       toast.error('Failed to upload file', {
         description: uploadUrlResult.error.message,
       });

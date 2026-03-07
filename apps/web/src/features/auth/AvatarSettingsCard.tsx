@@ -1,9 +1,11 @@
+import { ErrorCode } from '@saas/shared/errors';
 import { CameraIcon, CheckIcon, Loader2Icon, Trash2Icon, XIcon } from 'lucide-react';
 import { type ChangeEvent, useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar';
 import { Button } from '@/components/ui/button';
+import { formatRetryAfterDescription, getRetryAfterSeconds } from '@/lib/appErrors';
 
 import { useAvatarUpload } from './useAvatarUpload';
 import type { User } from './UserContext';
@@ -88,6 +90,16 @@ export function AvatarSettingsCard({ user }: { user: User }) {
     setPendingFile(null);
 
     if (result.isErr()) {
+      if (result.error.code === ErrorCode.AVATAR_UPLOAD_RATE_LIMITED) {
+        toast.error('Too many avatar upload attempts', {
+          description: formatRetryAfterDescription(
+            getRetryAfterSeconds(result.error),
+            'Please wait before trying another avatar upload.',
+          ),
+        });
+        return;
+      }
+
       toast.error('Failed to upload avatar', { description: result.error.message });
       return;
     }
