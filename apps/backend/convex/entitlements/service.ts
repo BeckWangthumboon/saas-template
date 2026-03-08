@@ -1,41 +1,7 @@
-import { ErrorCode } from '@saas/shared/errors';
-
 import type { Id } from '../_generated/dataModel';
-import { throwAppErrorForConvex } from '../errors';
 import type { MutationCtx, QueryCtx } from '../functions';
 import { logger } from '../logging';
-import type {
-  BillingStatus,
-  PlanFeatures,
-  PlanKey,
-  PlanLimits,
-  PlanTier,
-  WorkspaceUsage,
-} from './types';
-
-export type FeatureKey = keyof PlanFeatures;
-export type LimitKey = keyof PlanLimits;
-export type BillingInterval = 'month' | 'year';
-
-export interface PlanDefinition {
-  features: PlanFeatures;
-  limits: PlanLimits;
-  billingInterval: BillingInterval | null;
-}
-
-export interface WorkspaceEntitlementsSnapshot {
-  effectivePlanKey: PlanKey;
-  features: PlanFeatures;
-  limits: PlanLimits;
-  usage: WorkspaceUsage;
-  isSoloWorkspace: boolean;
-}
-
-interface ResolveWorkspaceEntitlementsInput {
-  planKey: PlanKey;
-  status: BillingStatus;
-  usage: WorkspaceUsage;
-}
+import type { BillingStatus, PlanKey, PlanTier, WorkspaceUsage } from './types';
 
 export interface WorkspaceAccountDeletionEligibility {
   isSingleOwnerSingleMember: boolean;
@@ -43,73 +9,15 @@ export interface WorkspaceAccountDeletionEligibility {
   canAutoDeleteOnAccountDeletion: boolean;
 }
 
-const PRO_FEATURES = {
-  team_members: true,
-} as const satisfies PlanFeatures;
-
-const PRO_LIMITS = {
-  members: 50,
-  invites: null,
-} as const satisfies PlanLimits;
-
-export const PLAN_CATALOG = {
-  free: {
-    features: {
-      team_members: false,
-    },
-    limits: {
-      members: 1,
-      invites: 0,
-    },
-    billingInterval: null,
-  },
-  pro_monthly: {
-    features: PRO_FEATURES,
-    limits: PRO_LIMITS,
-    billingInterval: 'month',
-  },
-  pro_yearly: {
-    features: PRO_FEATURES,
-    limits: PRO_LIMITS,
-    billingInterval: 'year',
-  },
-} as const satisfies Record<PlanKey, PlanDefinition>;
-
 export const DEFAULT_PLAN_KEY: PlanKey = 'free';
 
 const BILLABLE_LIFECYCLE_STATUSES = new Set<BillingStatus>(['trialing', 'active', 'past_due']);
-
-/**
- * Returns the catalog entry for a given plan key.
- */
-export const getPlanDefinition = (planKey: PlanKey): PlanDefinition => {
-  return PLAN_CATALOG[planKey];
-};
 
 /**
  * Resolves plan tier from plan key.
  */
 export const getPlanTier = (planKey: PlanKey): PlanTier => {
   return planKey === 'free' ? 'free' : 'pro';
-};
-
-/**
- * Returns plan features and limits from the plan catalog.
- */
-export const getPlanEntitlements = (planKey: PlanKey) => {
-  const { features, limits, billingInterval } = getPlanDefinition(planKey);
-  return { features, limits, billingInterval };
-};
-
-/**
- * Resolves the effective plan key used for entitlement enforcement.
- * Persisted billing status remains unchanged for audit purposes.
- */
-export const resolveEffectivePlanKey = (planKey: PlanKey, status: BillingStatus): PlanKey => {
-  if (status === 'canceled') {
-    return 'free';
-  }
-  return planKey;
 };
 
 /**
@@ -122,14 +30,9 @@ export const isBillableLifecycleStatus = (
 };
 
 /**
- * Computes current workspace usage counters used by entitlement enforcement.
+ * Computes current workspace usage counters from Convex data.
  *
  * The snapshot includes active members, active owners, and pending non-expired invites.
- *
- * @param ctx - Convex query or mutation context used for database reads.
- * @param workspaceId - Workspace identifier to compute usage for.
- * @param now - Current timestamp in milliseconds used to filter expired invites.
- * @returns Usage snapshot for current workspace membership and invite state.
  */
 export async function getWorkspaceUsageSnapshot(
   ctx: QueryCtx | MutationCtx,
@@ -188,27 +91,6 @@ export async function getWorkspaceUsageSnapshot(
 }
 
 /**
- * Resolves a workspace entitlement snapshot from billing state and usage metrics.
- */
-export const resolveWorkspaceEntitlements = (
-  input: ResolveWorkspaceEntitlementsInput,
-): WorkspaceEntitlementsSnapshot => {
-  const effectivePlanKey = resolveEffectivePlanKey(input.planKey, input.status);
-  const { features, limits } = getPlanEntitlements(effectivePlanKey);
-
-  const isSoloWorkspace =
-    effectivePlanKey === 'free' && input.usage.memberCount === 1 && input.usage.ownerCount === 1;
-
-  return {
-    effectivePlanKey,
-    features,
-    limits,
-    usage: input.usage,
-    isSoloWorkspace,
-  };
-};
-
-/**
  * Resolves whether a workspace can be auto-deleted as part of account deletion.
  *
  * Auto-delete is only allowed when exactly one active owner/member remains and
@@ -227,52 +109,3 @@ export const resolveWorkspaceAccountDeletionEligibility = (input: {
     canAutoDeleteOnAccountDeletion: isSingleOwnerSingleMember && !hasBillableLifecycle,
   };
 };
-
-/**
- * Loads workspace billing state and resolves the current entitlement snapshot.
- *
- * @param ctx - Convex query or mutation context used for database access.
- * @param workspaceId - Workspace identifier to resolve entitlements for.
- * @param now - Current timestamp in milliseconds for grace and expiration checks.
- * @returns Current billing state plus resolved workspace entitlement snapshot.
- * @throws BILLING_WORKSPACE_STATE_MISSING when no billing state exists for the workspace.
- */
-export async function getWorkspaceEntitlementsSnapshot(
-  ctx: QueryCtx | MutationCtx,
-  workspaceId: Id<'workspaces'>,
-  now = Date.now(),
-) {
-  const state = await ctx.db
-    .query('workspaceBillingState')
-    .withIndex('by_workspaceId', (q) => q.eq('workspaceId', workspaceId))
-    .unique();
-
-  if (!state) {
-    return throwAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_STATE_MISSING, {
-      workspaceId,
-    });
-  }
-
-  const usage = await getWorkspaceUsageSnapshot(ctx, workspaceId, now);
-  const entitlements = resolveWorkspaceEntitlements({
-    planKey: state.planKey,
-    status: state.status,
-    usage,
-  });
-
-  logger.debug({
-    event: 'billing.entitlements.resolved',
-    category: 'BILLING',
-    context: {
-      workspaceId,
-      planKey: state.planKey,
-      status: state.status,
-      effectivePlanKey: entitlements.effectivePlanKey,
-    },
-  });
-
-  return {
-    state,
-    entitlements,
-  };
-}

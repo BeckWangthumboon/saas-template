@@ -191,8 +191,7 @@ function BillingSettingsContent({ workspaceId }: BillingSettingsContentProps) {
     return <p className="text-muted-foreground">Loading billing...</p>;
   }
 
-  const entitlements = entitlementsContext.entitlements;
-  const displayPlanKey = entitlements.plan.key;
+  const displayPlanKey = billing.planKey;
   const displayTier = getPlanTier(displayPlanKey);
   const displayStatus = billing.status === 'canceled' ? 'none' : billing.status;
   const statusClassName = getStatusClassName(displayStatus);
@@ -202,8 +201,9 @@ function BillingSettingsContent({ workspaceId }: BillingSettingsContentProps) {
     : billing.cancelAtPeriodEnd
       ? `Ends ${formatTimestamp(billing.periodEnd)}`
       : `Renews ${formatTimestamp(billing.periodEnd)}`;
-  const membersLimitText =
-    entitlements.limits.members === null ? 'Unlimited' : String(entitlements.limits.members);
+  const {
+    entitlements: { usage },
+  } = entitlementsContext;
 
   return (
     <div className="max-w-2xl space-y-8">
@@ -232,8 +232,7 @@ function BillingSettingsContent({ workspaceId }: BillingSettingsContentProps) {
               <span className="text-muted-foreground">Billing cycle:</span> {billingCycleText}
             </p>
             <p>
-              <span className="text-muted-foreground">Members:</span>{' '}
-              {entitlements.usage.memberCount} / {membersLimitText}
+              <span className="text-muted-foreground">Active members:</span> {usage.memberCount}
             </p>
           </div>
         </div>

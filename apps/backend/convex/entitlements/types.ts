@@ -17,43 +17,19 @@ export const billingStatusValidator = v.union(
 
 export const planTierValidator = v.union(v.literal('free'), v.literal('pro'));
 
-export const planFeaturesValidator = v.object({
-  team_members: v.boolean(),
-});
-
-export const planLimitsValidator = v.object({
-  members: v.union(v.number(), v.null()),
-  invites: v.union(v.number(), v.null()),
-});
-
 export const workspaceUsageValidator = v.object({
   memberCount: v.number(),
   ownerCount: v.number(),
   pendingInviteCount: v.number(),
 });
 
-export const entitlementPlanValidator = v.object({
-  key: planKeyValidator,
-});
-
-export const entitlementCapabilitiesValidator = v.object({
-  isSoloWorkspace: v.boolean(),
-});
-
 export const workspaceEntitlementsSummaryValidator = v.object({
   workspaceId: v.id('workspaces'),
-  plan: entitlementPlanValidator,
-  limits: planLimitsValidator,
   usage: workspaceUsageValidator,
-  capabilities: entitlementCapabilitiesValidator,
 });
 
 export type PlanKey = Infer<typeof planKeyValidator>;
 export type BillingStatus = Infer<typeof billingStatusValidator>;
 export type PlanTier = Infer<typeof planTierValidator>;
-export type PlanFeatures = Infer<typeof planFeaturesValidator>;
-export type PlanLimits = Infer<typeof planLimitsValidator>;
 export type WorkspaceUsage = Infer<typeof workspaceUsageValidator>;
-export type EntitlementPlan = Infer<typeof entitlementPlanValidator>;
-export type EntitlementCapabilities = Infer<typeof entitlementCapabilitiesValidator>;
 export type WorkspaceEntitlementsSummary = Infer<typeof workspaceEntitlementsSummaryValidator>;

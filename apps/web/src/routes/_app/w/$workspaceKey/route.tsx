@@ -19,11 +19,9 @@ import {
   SidebarSeparator,
 } from '@/components/ui/sidebar';
 import {
-  isWorkspaceEntitlementsReady,
   isWorkspaceReady,
   UserActionsMenu,
   useWorkspace,
-  useWorkspaceEntitlements,
   WorkspaceEntitlementsProvider,
   WorkspaceProvider,
   type WorkspaceReadyContext,
@@ -77,22 +75,12 @@ function WorkspaceLayoutReadyContent({
 }) {
   const { signOut } = useAuth();
   const navigate = Route.useNavigate();
-  const entitlementsContext = useWorkspaceEntitlements();
   const location = useLocation();
-  const isEntitlementsReady = isWorkspaceEntitlementsReady(entitlementsContext);
   const { workspaces, getWorkspacePath, workspace } = workspaceContext;
 
   const membersPath = getWorkspacePath('/members');
   const contactsPath = getWorkspacePath('/contacts');
   const filesPath = getWorkspacePath('/files');
-
-  if (!isEntitlementsReady) {
-    return (
-      <div className="flex h-full items-center justify-center">
-        <p className="text-muted-foreground">Loading workspace...</p>
-      </div>
-    );
-  }
 
   const appPages: AppPage[] = [];
 
@@ -114,13 +102,11 @@ function WorkspaceLayoutReadyContent({
     icon: FilesIcon,
   });
 
-  if (entitlementsContext.canAccessMembersPage) {
-    appPages.push({
-      label: 'Members',
-      href: membersPath,
-      icon: UsersIcon,
-    });
-  }
+  appPages.push({
+    label: 'Members',
+    href: membersPath,
+    icon: UsersIcon,
+  });
 
   appPages.push({
     label: 'Settings',

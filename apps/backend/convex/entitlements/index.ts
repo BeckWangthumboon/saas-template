@@ -2,35 +2,26 @@ import { v } from 'convex/values';
 
 import { query } from '../functions';
 import { getWorkspaceMembership } from '../workspaces/utils';
-import { getWorkspaceEntitlementsSnapshot } from './service';
+import { getWorkspaceUsageSnapshot } from './service';
 import { workspaceEntitlementsSummaryValidator } from './types';
 
 /**
- * Returns derived workspace entitlements for UI gating and server-side checks.
+ * Returns local workspace usage for UI display and app-side decisions.
  *
  * @param workspaceId - The workspace to read entitlement data for.
- * @returns Workspace entitlement snapshot including capabilities, lock/grace flags, and usage.
+ * @returns Workspace usage snapshot derived from Convex data.
  * @throws WORKSPACE_ACCESS_DENIED if the caller is not a workspace member.
- * @throws BILLING_WORKSPACE_STATE_MISSING if billing state does not exist.
  */
 export const getWorkspaceEntitlements = query({
   args: { workspaceId: v.id('workspaces') },
   returns: workspaceEntitlementsSummaryValidator,
   handler: async (ctx, args) => {
     await getWorkspaceMembership(ctx, args.workspaceId);
-
-    const { entitlements } = await getWorkspaceEntitlementsSnapshot(ctx, args.workspaceId);
+    const usage = await getWorkspaceUsageSnapshot(ctx, args.workspaceId);
 
     return {
       workspaceId: args.workspaceId,
-      plan: {
-        key: entitlements.effectivePlanKey,
-      },
-      limits: entitlements.limits,
-      usage: entitlements.usage,
-      capabilities: {
-        isSoloWorkspace: entitlements.isSoloWorkspace,
-      },
+      usage,
     };
   },
 });

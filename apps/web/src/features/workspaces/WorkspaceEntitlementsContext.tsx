@@ -14,8 +14,6 @@ export type WorkspaceEntitlementsContextValue =
   | {
       status: 'ready';
       entitlements: WorkspaceEntitlementsSummary;
-      isSoloWorkspace: boolean;
-      canAccessMembersPage: boolean;
     };
 
 const WorkspaceEntitlementsContext = createContext<WorkspaceEntitlementsContextValue | null>(null);
@@ -47,7 +45,7 @@ interface WorkspaceEntitlementsProviderProps {
 }
 
 /**
- * Provides derived workspace entitlement flags for UI gating.
+ * Provides local workspace usage derived from Convex data.
  */
 export function WorkspaceEntitlementsProvider({
   children,
@@ -62,13 +60,9 @@ export function WorkspaceEntitlementsProvider({
       return { status: 'loading' };
     }
 
-    const isSoloWorkspace = data.capabilities.isSoloWorkspace;
-
     return {
       status: 'ready',
       entitlements: data,
-      isSoloWorkspace,
-      canAccessMembersPage: !isSoloWorkspace,
     };
   }, [data, status]);
 
