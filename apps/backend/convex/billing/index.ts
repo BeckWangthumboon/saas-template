@@ -1,4 +1,4 @@
-import { AUTUMN_FEATURE_IDS } from '@saas/shared/billing/ids';
+import { AUTUMN_PLAN_IDS } from '@saas/shared/billing/ids';
 import { ErrorCode } from '@saas/shared/errors';
 import { v } from 'convex/values';
 
@@ -10,10 +10,14 @@ import { throwAppErrorForConvex } from '../errors';
 import { action, query, type QueryCtx } from '../functions';
 import { logger } from '../logging';
 import { getWorkspaceMembership } from '../workspaces/utils';
-import { autumn, toWorkspaceEntityArgs } from './autumn';
-import { polar } from './polarClient';
-import { PLAN_KEY_TO_PRODUCT_ID } from './products';
-import { billingSummaryValidator, paidPlanKeyValidator } from './types';
+import {
+  billingPortal as autumnBillingPortal,
+  check as autumnCheck,
+  checkout as autumnCheckout,
+  track as autumnTrack,
+  type WorkspaceBillingCustomer,
+} from './autumn';
+import { billingSummaryValidator, paidPlanKeyValidator, workspaceLookupArgFields } from './types';
 
 const ORIGIN = convexEnv.appOrigin;
 
@@ -23,28 +27,22 @@ const getWorkspaceBillingSettingsPath = (workspaceKey: string) =>
 const getCheckoutSuccessUrl = (workspaceKey: string) =>
   `${ORIGIN}${getWorkspaceBillingSettingsPath(workspaceKey)}?checkout=success`;
 
-const getCheckoutReturnUrl = (workspaceKey: string) =>
-  `${ORIGIN}${getWorkspaceBillingSettingsPath(workspaceKey)}`;
-
 const getPortalReturnUrl = (workspaceKey: string) =>
   `${ORIGIN}${getWorkspaceBillingSettingsPath(workspaceKey)}`;
 
-const assertBillingState = (
-  value: unknown,
-): value is { providerCustomerId?: string; providerSubscriptionId?: string } => {
-  if (!value || typeof value !== 'object') {
-    return false;
-  }
+const workspaceFeatureCheckResultValidator = v.object({
+  allowed: v.boolean(),
+  customerId: v.string(),
+  featureId: v.string(),
+});
 
-  const maybeState = value as { providerCustomerId?: unknown; providerSubscriptionId?: unknown };
-
-  return (
-    (maybeState.providerCustomerId === undefined ||
-      typeof maybeState.providerCustomerId === 'string') &&
-    (maybeState.providerSubscriptionId === undefined ||
-      typeof maybeState.providerSubscriptionId === 'string')
-  );
-};
+const workspaceFeatureTrackResultValidator = v.object({
+  id: v.string(),
+  code: v.string(),
+  customerId: v.string(),
+  featureId: v.optional(v.string()),
+  eventName: v.optional(v.string()),
+});
 
 /**
  * Fetches workspace billing state for a member.
@@ -98,248 +96,232 @@ export const getWorkspaceBillingSummary = query({
   },
 });
 
-/**
- * Ensures the workspace billing entity exists in Autumn before checkout.
- *
- * Autumn auto-creates non-billable entities during feature checks, so we
- * reuse an existing workspace-scoped feature to provision the entity.
- */
-export const ensureWorkspaceBillingEntity = action({
-  args: { workspaceId: v.id('workspaces') },
-  returns: v.null(),
+export const check = action({
+  args: {
+    ...workspaceLookupArgFields,
+    featureId: v.string(),
+    requiredBalance: v.optional(v.number()),
+    sendEvent: v.optional(v.boolean()),
+    withPreview: v.optional(v.boolean()),
+  },
+  returns: workspaceFeatureCheckResultValidator,
   handler: async (ctx, args) => {
-    await ctx.runQuery(internal.billing.internal.getWorkspaceBillingState, {
-      workspaceId: args.workspaceId,
-    });
-
-    const workspace = await ctx.runQuery(
-      internal.workspaces.internal.getWorkspaceBillingEntityInfo,
+    const workspace: WorkspaceBillingCustomer = await ctx.runQuery(
+      internal.billing.internal.getCustomerForMember,
       {
         workspaceId: args.workspaceId,
+        workspaceKey: args.workspaceKey,
       },
     );
 
-    const result = await autumn.check(ctx, {
-      featureId: AUTUMN_FEATURE_IDS.teamMembers,
-      ...toWorkspaceEntityArgs({
-        workspaceId: args.workspaceId,
-        workspaceKey: workspace.workspaceKey,
-        workspaceName: workspace.workspaceName,
-      }),
+    const result = await autumnCheck({
+      workspace,
+      featureId: args.featureId,
+      requiredBalance: args.requiredBalance,
+      sendEvent: args.sendEvent,
+      withPreview: args.withPreview,
     });
 
     if (result.error) {
       logger.error({
-        event: 'billing.entity.ensure_failed',
+        event: 'billing.feature_check.failed',
         category: 'BILLING',
         context: {
-          workspaceId: args.workspaceId,
+          workspaceId: workspace.workspaceId,
+          featureId: args.featureId,
           errorCode: result.error.code,
         },
         error: result.error,
       });
 
       return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
-        details: 'Autumn workspace entity provisioning failed',
+        details: 'Autumn workspace feature access check failed',
       });
     }
 
-    return null;
+    return {
+      allowed: result.data.allowed,
+      customerId: result.data.customer_id,
+      featureId: result.data.feature_id,
+    };
+  },
+});
+
+export const track = action({
+  args: {
+    ...workspaceLookupArgFields,
+    featureId: v.optional(v.string()),
+    value: v.optional(v.number()),
+    eventName: v.optional(v.string()),
+    idempotencyKey: v.optional(v.string()),
+    properties: v.optional(v.record(v.string(), v.any())),
+  },
+  returns: workspaceFeatureTrackResultValidator,
+  handler: async (ctx, args) => {
+    const workspace: WorkspaceBillingCustomer = await ctx.runQuery(
+      internal.billing.internal.getCustomerForManager,
+      {
+        workspaceId: args.workspaceId,
+        workspaceKey: args.workspaceKey,
+      },
+    );
+
+    const result = await autumnTrack({
+      workspace,
+      featureId: args.featureId,
+      value: args.value,
+      eventName: args.eventName,
+      idempotencyKey: args.idempotencyKey,
+      properties: args.properties,
+    });
+
+    if (result.error) {
+      logger.error({
+        event: 'billing.feature_track.failed',
+        category: 'BILLING',
+        context: {
+          workspaceId: workspace.workspaceId,
+          featureId: args.featureId,
+          eventName: args.eventName,
+          errorCode: result.error.code,
+        },
+        error: result.error,
+      });
+
+      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+        details: 'Autumn workspace feature tracking failed',
+      });
+    }
+
+    return {
+      id: result.data.id,
+      code: result.data.code,
+      customerId: result.data.customer_id,
+      featureId: result.data.feature_id,
+      eventName: result.data.event_name,
+    };
   },
 });
 
 /**
- * Starts a Polar checkout session for a paid plan.
+ * Starts an Autumn checkout session for a paid workspace plan.
  *
  * @param workspaceId - The workspace to start checkout for.
  * @param planKey - The paid plan to purchase.
  * @returns The checkout URL to redirect the user to.
  * @throws WORKSPACE_ACCESS_DENIED if the caller is not a workspace member.
  * @throws WORKSPACE_INSUFFICIENT_ROLE if the caller is not an admin or owner.
- * @throws BILLING_PLAN_PRODUCT_MAPPING_MISSING if the plan has no Polar product mapping.
  */
-export const startCheckout = action({
+export const checkout = action({
   args: {
-    workspaceId: v.id('workspaces'),
+    ...workspaceLookupArgFields,
     planKey: paidPlanKeyValidator,
   },
   returns: v.object({ url: v.string() }),
   handler: async (ctx, args) => {
-    const billingStateResult: unknown = await ctx.runQuery(
-      internal.billing.internal.getWorkspaceBillingState,
+    const workspace: WorkspaceBillingCustomer = await ctx.runQuery(
+      internal.billing.internal.getCustomerForManager,
       {
         workspaceId: args.workspaceId,
+        workspaceKey: args.workspaceKey,
       },
     );
 
-    if (billingStateResult !== null && !assertBillingState(billingStateResult)) {
-      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
-        details: 'Invalid billing state payload from internal billing query',
-      });
-    }
-
-    const billingState = billingStateResult;
-
-    const productId = PLAN_KEY_TO_PRODUCT_ID[args.planKey];
-    if (!productId) {
-      return throwAppErrorForConvex(ErrorCode.BILLING_PLAN_PRODUCT_MAPPING_MISSING, {
-        planKey: args.planKey,
-      });
-    }
-
-    const workspaceKey = await ctx.runQuery(internal.workspaces.internal.getWorkspaceKeyById, {
-      workspaceId: args.workspaceId,
-    });
-
-    const checkoutRequest: Parameters<typeof polar.checkouts.create>[0] = {
-      products: [productId],
-      successUrl: getCheckoutSuccessUrl(workspaceKey),
-      returnUrl: getCheckoutReturnUrl(workspaceKey),
-      metadata: { workspaceId: args.workspaceId },
-    };
-
-    if (billingState?.providerCustomerId) {
-      checkoutRequest.customerId = billingState.providerCustomerId;
-    }
+    const productId =
+      args.planKey === 'pro_monthly' ? AUTUMN_PLAN_IDS.proMonthly : AUTUMN_PLAN_IDS.proYearly;
 
     logger.info({
       event: 'billing.checkout.started',
       category: 'BILLING',
       context: {
-        workspaceId: args.workspaceId,
+        workspaceId: workspace.workspaceId,
         planKey: args.planKey,
-        hasExistingCustomerId: Boolean(billingState?.providerCustomerId),
+        autumnProductId: productId,
       },
     });
 
-    try {
-      const checkout = await polar.checkouts.create(checkoutRequest);
-      return { url: checkout.url };
-    } catch (error) {
+    const result = await autumnCheckout({
+      workspace,
+      productId,
+      successUrl: getCheckoutSuccessUrl(workspace.workspaceKey),
+    });
+
+    if (result.error) {
       logger.error({
         event: 'billing.checkout.failed',
         category: 'BILLING',
         context: {
-          workspaceId: args.workspaceId,
+          workspaceId: workspace.workspaceId,
           planKey: args.planKey,
+          autumnProductId: productId,
+          errorCode: result.error.code,
         },
-        error,
+        error: result.error,
       });
 
       return throwAppErrorForConvex(ErrorCode.BILLING_CHECKOUT_CREATE_FAILED, {
-        message: error instanceof Error ? error.message : String(error),
+        message: result.error.message,
       });
     }
+
+    return {
+      url: result.data.url ?? getCheckoutSuccessUrl(workspace.workspaceKey),
+    };
   },
 });
 
 /**
- * Creates a Polar customer portal session for managing billing.
+ * Creates an Autumn customer portal session for managing billing.
  *
  * @param workspaceId - The workspace to manage billing for.
  * @returns The customer portal URL to redirect the user to.
  * @throws WORKSPACE_ACCESS_DENIED if the caller is not a workspace member.
  * @throws WORKSPACE_INSUFFICIENT_ROLE if the caller is not an admin or owner.
- * @throws BILLING_CUSTOMER_ID_MISSING if no Polar customer ID can be resolved.
  */
-export const createBillingPortalSession = action({
-  args: { workspaceId: v.id('workspaces') },
+export const billingPortal = action({
+  args: workspaceLookupArgFields,
   returns: v.object({ url: v.string() }),
   handler: async (ctx, args) => {
-    const billingStateResult: unknown = await ctx.runQuery(
-      internal.billing.internal.getWorkspaceBillingState,
+    const workspace: WorkspaceBillingCustomer = await ctx.runQuery(
+      internal.billing.internal.getCustomerForManager,
       {
         workspaceId: args.workspaceId,
+        workspaceKey: args.workspaceKey,
       },
     );
-
-    if (billingStateResult !== null && !assertBillingState(billingStateResult)) {
-      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
-        details: 'Invalid billing state payload from internal billing query',
-      });
-    }
-
-    const billingState = billingStateResult;
-
-    let customerId = billingState?.providerCustomerId ?? undefined;
-    let customerIdSource: 'billing_state' | 'subscription_fetch' | 'none' = 'none';
-    if (customerId) {
-      customerIdSource = 'billing_state';
-    }
-
-    if (!customerId && billingState?.providerSubscriptionId) {
-      try {
-        const subscription = await polar.subscriptions.get({
-          id: billingState.providerSubscriptionId,
-        });
-        customerId = subscription.customerId;
-        customerIdSource = 'subscription_fetch';
-      } catch (error) {
-        logger.error({
-          event: 'billing.portal.subscription_fetch_failed',
-          category: 'BILLING',
-          context: {
-            workspaceId: args.workspaceId,
-          },
-          error,
-        });
-
-        return throwAppErrorForConvex(ErrorCode.BILLING_SUBSCRIPTION_FETCH_FAILED, {
-          subscriptionId: billingState.providerSubscriptionId,
-          message: error instanceof Error ? error.message : String(error),
-        });
-      }
-    }
-
-    if (!customerId) {
-      logger.warn({
-        event: 'billing.portal.customer_id_missing',
-        category: 'BILLING',
-        context: {
-          workspaceId: args.workspaceId,
-        },
-      });
-
-      return throwAppErrorForConvex(ErrorCode.BILLING_CUSTOMER_ID_MISSING, {
-        workspaceId: args.workspaceId,
-      });
-    }
 
     logger.info({
       event: 'billing.portal.started',
       category: 'BILLING',
       context: {
-        workspaceId: args.workspaceId,
-        customerIdSource,
+        workspaceId: workspace.workspaceId,
+        customerId: workspace.workspaceId,
       },
     });
 
-    try {
-      const workspaceKey = await ctx.runQuery(internal.workspaces.internal.getWorkspaceKeyById, {
-        workspaceId: args.workspaceId,
-      });
+    const result = await autumnBillingPortal({
+      workspace,
+      returnUrl: getPortalReturnUrl(workspace.workspaceKey),
+    });
 
-      const session = await polar.customerSessions.create({
-        customerId,
-        returnUrl: getPortalReturnUrl(workspaceKey),
-      });
-
-      return { url: session.customerPortalUrl };
-    } catch (error) {
+    if (result.error) {
       logger.error({
         event: 'billing.portal.failed',
         category: 'BILLING',
         context: {
-          workspaceId: args.workspaceId,
-          customerIdSource,
+          workspaceId: workspace.workspaceId,
+          customerId: workspace.workspaceId,
+          errorCode: result.error.code,
         },
-        error,
+        error: result.error,
       });
 
       return throwAppErrorForConvex(ErrorCode.BILLING_PORTAL_SESSION_CREATE_FAILED, {
-        customerId,
-        message: error instanceof Error ? error.message : String(error),
+        customerId: workspace.workspaceId,
+        message: result.error.message,
       });
     }
+
+    return { url: result.data.url };
   },
 });

@@ -12,6 +12,11 @@ import {
 
 export const paidPlanKeyValidator = v.union(v.literal('pro_monthly'), v.literal('pro_yearly'));
 
+export const workspaceLookupArgFields = {
+  workspaceId: v.optional(v.id('workspaces')),
+  workspaceKey: v.optional(v.string()),
+} as const;
+
 export const billingStateValidator = v.object({
   workspaceId: v.id('workspaces'),
   planKey: planKeyValidator,
@@ -31,6 +36,12 @@ export const billingSummaryValidator = v.object({
   periodEnd: v.optional(v.number()),
   cancelAtPeriodEnd: v.optional(v.boolean()),
   updatedAt: v.number(),
+});
+
+export const workspaceBillingCustomerValidator = v.object({
+  workspaceId: v.id('workspaces'),
+  workspaceKey: v.string(),
+  workspaceName: v.string(),
 });
 
 export type BillingState = Infer<typeof billingStateValidator>;

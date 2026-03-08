@@ -1,79 +1,69 @@
-import { AUTUMN_FEATURE_IDS } from '@saas/shared/billing/ids';
-import { Autumn } from '@useautumn/convex';
+import { Autumn as AutumnSdk } from 'autumn-js';
 
-import { components } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import { convexEnv } from '../env';
 
-interface AutumnIdentity {
-  subject: string;
-  name?: string | null;
-  email?: string | null;
-}
-
-interface AutumnIdentifyCtx {
-  auth: {
-    getUserIdentity: () => Promise<AutumnIdentity | null>;
-  };
-}
-
-interface WorkspaceEntityInput {
+export interface WorkspaceBillingCustomer {
   workspaceId: Id<'workspaces'>;
   workspaceKey: string;
   workspaceName: string;
 }
 
-const toOptionalString = (value: string | null | undefined) => {
-  if (typeof value !== 'string') {
-    return undefined;
-  }
-
-  const trimmed = value.trim();
-  return trimmed.length > 0 ? trimmed : undefined;
-};
-
-export const autumn = new Autumn(components.autumn, {
+const autumnSdk = new AutumnSdk({
   secretKey: convexEnv.autumnApiKey,
-  identify: async (ctx: AutumnIdentifyCtx) => {
-    const identity = await ctx.auth.getUserIdentity();
-    if (!identity) {
-      return null;
-    }
-
-    return {
-      customerId: identity.subject,
-      customerData: {
-        name: toOptionalString(identity.name),
-        email: toOptionalString(identity.email),
-      },
-    };
-  },
 });
 
-export const toWorkspaceEntityArgs = (workspace: WorkspaceEntityInput) => ({
-  entityId: workspace.workspaceId,
-  entityData: {
-    // Workspace entities are non-billable, so Autumn can auto-create them
-    // during check/track calls when we provide the backing feature id.
-    featureId: AUTUMN_FEATURE_IDS.teamMembers,
-    name: workspace.workspaceName,
-  },
+const toWorkspaceCustomerData = (workspace: WorkspaceBillingCustomer) => ({
+  name: workspace.workspaceName,
 });
 
-export const {
-  track,
-  cancel,
-  query: autumnQuery,
-  attach,
-  check,
-  checkout,
-  usage,
-  setupPayment,
-  createCustomer,
-  listProducts,
-  billingPortal,
-  createReferralCode,
-  redeemReferralCode,
-  createEntity,
-  getEntity,
-} = autumn.api();
+export const check = (args: {
+  workspace: WorkspaceBillingCustomer;
+  featureId: string;
+  requiredBalance?: number;
+  sendEvent?: boolean;
+  withPreview?: boolean;
+}) =>
+  autumnSdk.check({
+    customer_id: args.workspace.workspaceId,
+    customer_data: toWorkspaceCustomerData(args.workspace),
+    feature_id: args.featureId,
+    required_balance: args.requiredBalance,
+    send_event: args.sendEvent,
+    with_preview: args.withPreview,
+  });
+
+export const track = (args: {
+  workspace: WorkspaceBillingCustomer;
+  featureId?: string;
+  value?: number;
+  eventName?: string;
+  idempotencyKey?: string;
+  properties?: Record<string, unknown>;
+}) =>
+  autumnSdk.track({
+    customer_id: args.workspace.workspaceId,
+    customer_data: toWorkspaceCustomerData(args.workspace),
+    feature_id: args.featureId,
+    value: args.value,
+    event_name: args.eventName,
+    idempotency_key: args.idempotencyKey,
+    properties: args.properties,
+  });
+
+export const checkout = (args: {
+  workspace: WorkspaceBillingCustomer;
+  productId: string;
+  successUrl?: string;
+}) =>
+  autumnSdk.checkout({
+    customer_id: args.workspace.workspaceId,
+    customer_data: toWorkspaceCustomerData(args.workspace),
+    product_id: args.productId,
+    success_url: args.successUrl,
+  });
+
+export const billingPortal = (args: { workspace: WorkspaceBillingCustomer; returnUrl?: string }) =>
+  autumnSdk.customers.billingPortal(args.workspace.workspaceId, {
+    return_url: args.returnUrl,
+  });

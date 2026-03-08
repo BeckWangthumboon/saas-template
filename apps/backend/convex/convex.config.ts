@@ -4,7 +4,6 @@ import rateLimiter from '@convex-dev/rate-limiter/convex.config.js';
 import resend from '@convex-dev/resend/convex.config.js';
 import workOSAuthKit from '@convex-dev/workos-authkit/convex.config';
 import workpool from '@convex-dev/workpool/convex.config.js';
-import autumn from '@useautumn/convex/convex.config';
 import { defineApp } from 'convex/server';
 
 const app = defineApp();
@@ -15,5 +14,4 @@ app.use(resend);
 app.use(workpool, { name: 'workosWorkpool' });
 app.use(workpool, { name: 'r2CleanupWorkpool' });
 app.use(workOSAuthKit);
-app.use(autumn);
 export default app;

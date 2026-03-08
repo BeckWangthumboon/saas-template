@@ -1,7 +1,5 @@
 import { api, type Id } from '@saas/convex-api';
-import { AUTUMN_PLAN_IDS } from '@saas/shared/billing/ids';
 import { createFileRoute } from '@tanstack/react-router';
-import { useCustomer } from 'autumn-js/react';
 import { format } from 'date-fns';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
@@ -84,25 +82,19 @@ function BillingSettingsPage() {
       workspaceId={workspaceContext.workspaceId as Id<'workspaces'>}
       role={workspaceContext.role}
     >
-      <BillingSettingsContent
-        workspaceId={workspaceContext.workspaceId as Id<'workspaces'>}
-        billingPath={workspaceContext.getWorkspacePath('/settings/billing')}
-      />
+      <BillingSettingsContent workspaceId={workspaceContext.workspaceId as Id<'workspaces'>} />
     </BillingProvider>
   );
 }
 
 interface BillingSettingsContentProps {
   workspaceId: Id<'workspaces'>;
-  billingPath: string;
 }
 
-function BillingSettingsContent({ workspaceId, billingPath }: BillingSettingsContentProps) {
+function BillingSettingsContent({ workspaceId }: BillingSettingsContentProps) {
   const entitlementsContext = useWorkspaceEntitlements();
-  const { checkout, openBillingPortal } = useCustomer();
-  const { execute: ensureWorkspaceBillingEntity } = useConvexAction(
-    api.billing.index.ensureWorkspaceBillingEntity,
-  );
+  const { execute: checkout } = useConvexAction(api.billing.index.checkout);
+  const { execute: billingPortal } = useConvexAction(api.billing.index.billingPortal);
   const { status, billing, canManageBilling } = useBilling();
   const hasShownCheckoutSuccessRef = useRef(false);
   const [pendingAction, setPendingAction] = useState<
@@ -141,29 +133,19 @@ function BillingSettingsContent({ workspaceId, billingPath }: BillingSettingsCon
     setPendingAction(planKey === 'pro_monthly' ? 'checkout_monthly' : 'checkout_yearly');
 
     try {
-      const ensureResult = await ensureWorkspaceBillingEntity({ workspaceId });
-      if (ensureResult.isErr()) {
-        toast.error('Failed to prepare checkout', {
-          description: ensureResult.error.message,
+      const result = await checkout({
+        workspaceId,
+        planKey,
+      });
+
+      if (result.isErr()) {
+        toast.error('Failed to start checkout', {
+          description: result.error.message,
         });
         return;
       }
 
-      const autumnPlanId =
-        planKey === 'pro_monthly' ? AUTUMN_PLAN_IDS.proMonthly : AUTUMN_PLAN_IDS.proYearly;
-
-      const result = await checkout({
-        productId: autumnPlanId,
-        entityId: workspaceId,
-        successUrl: `${window.location.origin}${billingPath}?checkout=success`,
-        openInNewTab: true,
-      });
-
-      if (result.error) {
-        toast.error('Failed to start checkout', {
-          description: result.error.message,
-        });
-      }
+      window.location.assign(result.value.url);
     } catch (error) {
       toast.error('Failed to start checkout', {
         description: error instanceof Error ? error.message : 'Unexpected checkout error',
@@ -184,16 +166,18 @@ function BillingSettingsContent({ workspaceId, billingPath }: BillingSettingsCon
     setPendingAction('portal');
 
     try {
-      const result = await openBillingPortal({
-        returnUrl: `${window.location.origin}${billingPath}`,
-        openInNewTab: true,
+      const result = await billingPortal({
+        workspaceId,
       });
 
-      if (result.error) {
+      if (result.isErr()) {
         toast.error('Failed to open billing portal', {
           description: result.error.message,
         });
+        return;
       }
+
+      window.location.assign(result.value.url);
     } catch (error) {
       toast.error('Failed to open billing portal', {
         description: error instanceof Error ? error.message : 'Unexpected billing portal error',

@@ -1,11 +1,9 @@
 import './index.css';
 
 import { ConvexProviderWithAuthKit } from '@convex-dev/workos';
-import { api } from '@saas/convex-api';
 import { createRouter, RouterProvider } from '@tanstack/react-router';
 import { AuthKitProvider } from '@workos-inc/authkit-react';
 import { useAuth } from '@workos-inc/authkit-react';
-import { AutumnProvider } from 'autumn-js/react';
 import { ConvexReactClient } from 'convex/react';
 import { ThemeProvider } from 'next-themes';
 import { StrictMode } from 'react';
@@ -34,14 +32,9 @@ createRoot(root).render(
       redirectUri={env.VITE_WORKOS_REDIRECT_URI}
     >
       <ConvexProviderWithAuthKit client={convex} useAuth={useAuth}>
-        <AutumnProvider
-          convex={convex}
-          convexApi={(api as unknown as Record<'billing/autumn', unknown>)['billing/autumn']}
-        >
-          <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
-            <RouterProvider router={router} />
-          </ThemeProvider>
-        </AutumnProvider>
+        <ThemeProvider attribute="class" defaultTheme="system" enableSystem>
+          <RouterProvider router={router} />
+        </ThemeProvider>
       </ConvexProviderWithAuthKit>
     </AuthKitProvider>
   </StrictMode>,

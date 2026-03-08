@@ -6,20 +6,14 @@ import { v } from 'convex/values';
 
 import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
-import { autumn, toWorkspaceEntityArgs } from '../billing/autumn';
+import { check } from '../billing/autumn';
 import { throwAppErrorForConvex } from '../errors';
 import { internalAction } from '../functions';
 import { logger } from '../logging';
 
-interface CreateInviteAutumnContext {
-  workspaceId: Id<'workspaces'>;
-  workspaceKey: string;
-  workspaceName: string;
-}
-
 function assertAutumnInviteAccess(
   workspaceId: Id<'workspaces'>,
-  checkResult: Awaited<ReturnType<typeof autumn.check>>,
+  checkResult: Awaited<ReturnType<typeof check>>,
 ) {
   if (checkResult.error) {
     logger.error({
@@ -37,7 +31,7 @@ function assertAutumnInviteAccess(
     });
   }
 
-  if (!checkResult.data?.allowed) {
+  if (!checkResult.data.allowed) {
     return throwAppErrorForConvex(ErrorCode.BILLING_PLAN_REQUIRED, {
       workspaceId: workspaceId as string,
       feature: 'invites',
@@ -56,13 +50,13 @@ export const processCreateInviteRequest = internalAction({
   },
   handler: async (ctx, args) => {
     try {
-      const access = await autumn.check(ctx, {
-        featureId: AUTUMN_FEATURE_IDS.invites,
-        ...toWorkspaceEntityArgs({
+      const access = await check({
+        workspace: {
           workspaceId: args.workspaceId,
           workspaceKey: args.workspaceKey,
           workspaceName: args.workspaceName,
-        } satisfies CreateInviteAutumnContext),
+        },
+        featureId: AUTUMN_FEATURE_IDS.invites,
       });
 
       assertAutumnInviteAccess(args.workspaceId, access);
