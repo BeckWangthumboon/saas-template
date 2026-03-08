@@ -3,7 +3,6 @@ import { createFileRoute, Outlet, useLocation } from '@tanstack/react-router';
 import { useAuth } from '@workos-inc/authkit-react';
 import { FilesIcon, LayoutDashboardIcon, SettingsIcon, UsersIcon } from 'lucide-react';
 
-import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import {
   Sidebar,
@@ -83,20 +82,9 @@ function WorkspaceLayoutReadyContent({
   const isEntitlementsReady = isWorkspaceEntitlementsReady(entitlementsContext);
   const { workspaces, getWorkspacePath, workspace } = workspaceContext;
 
-  const workspaceBasePath = getWorkspacePath();
-  const settingsPath = getWorkspacePath('/settings');
   const membersPath = getWorkspacePath('/members');
   const contactsPath = getWorkspacePath('/contacts');
   const filesPath = getWorkspacePath('/files');
-  const billingPath = getWorkspacePath('/settings/billing');
-  const isWorkspaceScopedPath =
-    location.pathname === workspaceBasePath ||
-    location.pathname.startsWith(`${workspaceBasePath}/`);
-  const isLockedWorkspace =
-    isEntitlementsReady && entitlementsContext.entitlements.lifecycle.isLocked;
-  const isPathAllowedWhenLocked =
-    location.pathname === membersPath || location.pathname.startsWith(settingsPath);
-  const isBlockedByLock = isLockedWorkspace && isWorkspaceScopedPath && !isPathAllowedWhenLocked;
 
   if (!isEntitlementsReady) {
     return (
@@ -212,44 +200,11 @@ function WorkspaceLayoutReadyContent({
         <div className="min-h-0 flex-1 overflow-hidden">
           <ScrollArea className="h-full w-full">
             <div className="p-6">
-              {isBlockedByLock ? (
-                <div className="flex min-h-[70vh] items-center justify-center">
-                  <LockedWorkspaceAccessPanel
-                    onGoToBilling={() => {
-                      void navigate({ to: billingPath });
-                    }}
-                  />
-                </div>
-              ) : (
-                <Outlet />
-              )}
+              <Outlet />
             </div>
           </ScrollArea>
         </div>
       </SidebarInset>
     </SidebarProvider>
-  );
-}
-
-function LockedWorkspaceAccessPanel({ onGoToBilling }: { onGoToBilling: () => void }) {
-  return (
-    <div className="mx-auto max-w-2xl rounded-xl border bg-card p-6">
-      <div className="space-y-2">
-        <h1 className="text-xl font-semibold">Workspace access limited</h1>
-        <p className="text-muted-foreground text-sm">
-          This workspace is locked due to a billing issue. Resolve billing to restore full access.
-        </p>
-      </div>
-
-      <div className="mt-5 flex items-center gap-2">
-        <Button
-          onClick={() => {
-            onGoToBilling();
-          }}
-        >
-          Go to billing
-        </Button>
-      </div>
-    </div>
   );
 }

@@ -112,8 +112,6 @@ interface BillingSeedInput {
   cancelAtPeriodEnd?: boolean;
   providerCustomerId?: string;
   providerSubscriptionId?: string;
-  providerSubscriptionUpdatedAt?: number;
-  pastDueAt?: number;
 }
 
 interface ContactSeedInput {
@@ -415,8 +413,6 @@ const ensureWorkspaceBillingState = async (
     cancelAtPeriodEnd: input.cancelAtPeriodEnd,
     providerCustomerId: input.providerCustomerId,
     providerSubscriptionId: input.providerSubscriptionId,
-    providerSubscriptionUpdatedAt: input.providerSubscriptionUpdatedAt,
-    pastDueAt: input.pastDueAt,
     updatedAt: input.now,
   };
 
@@ -728,7 +724,6 @@ export const seedDemoData = internalMutation({
         cancelAtPeriodEnd: false,
         providerCustomerId: 'demo_customer_pro_team',
         providerSubscriptionId: 'demo_subscription_pro_team',
-        providerSubscriptionUpdatedAt: now,
         now,
       }),
       ensureWorkspaceBillingState(ctx, {
@@ -739,8 +734,6 @@ export const seedDemoData = internalMutation({
         cancelAtPeriodEnd: false,
         providerCustomerId: 'demo_customer_past_due',
         providerSubscriptionId: 'demo_subscription_past_due',
-        providerSubscriptionUpdatedAt: now,
-        pastDueAt: now - 2 * DAY_MS,
         now,
       }),
     ]);
@@ -834,7 +827,6 @@ export const resetDevData = internalMutation({
 
     const includeUsers = args.includeUsers ?? false;
     const tableOrder: TableName[] = [
-      'billingEvents',
       'workspaceInvites',
       'workspaceMembers',
       'contacts',

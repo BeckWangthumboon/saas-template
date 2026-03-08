@@ -243,28 +243,6 @@ export default defineSchema({
     cancelAtPeriodEnd: v.optional(v.boolean()),
     providerCustomerId: v.optional(v.string()),
     providerSubscriptionId: v.optional(v.string()),
-    providerSubscriptionUpdatedAt: v.optional(v.number()),
-    pastDueAt: v.optional(v.number()),
     updatedAt: v.number(),
-  })
-    .index('by_workspaceId', ['workspaceId'])
-    .index('by_providerSubscriptionId', ['providerSubscriptionId']),
-
-  billingEvents: defineTable({
-    providerEventId: v.string(),
-    type: v.string(),
-    receivedAt: v.number(),
-    handledAt: v.optional(v.number()),
-    workspaceId: v.optional(v.id('workspaces')),
-    status: v.union(
-      v.literal('received'),
-      v.literal('handled'),
-      v.literal('error'),
-      v.literal('unresolved'),
-    ),
-    error: v.optional(v.string()),
-  })
-    .index('by_providerEventId', ['providerEventId'])
-    .index('by_workspaceId', ['workspaceId'])
-    .index('by_status', ['status']),
+  }).index('by_workspaceId', ['workspaceId']),
 });

@@ -28,12 +28,6 @@ export const getWorkspaceEntitlements = query({
       },
       limits: entitlements.limits,
       usage: entitlements.usage,
-      lifecycle: {
-        status: entitlements.effectiveStatus,
-        isLocked: entitlements.isLocked,
-        isInGrace: entitlements.isInGrace,
-        graceEndsAt: entitlements.graceEndsAt,
-      },
       capabilities: {
         isSoloWorkspace: entitlements.isSoloWorkspace,
       },

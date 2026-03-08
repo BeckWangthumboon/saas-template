@@ -28,32 +28,13 @@ export interface WorkspaceEntitlementsSnapshot {
   features: PlanFeatures;
   limits: PlanLimits;
   usage: WorkspaceUsage;
-  effectiveStatus: BillingStatus;
-  isLocked: boolean;
-  isInGrace: boolean;
-  graceEndsAt: number | undefined;
   isSoloWorkspace: boolean;
 }
 
 interface ResolveWorkspaceEntitlementsInput {
   planKey: PlanKey;
   status: BillingStatus;
-  pastDueAt: number | undefined;
   usage: WorkspaceUsage;
-  now: number;
-}
-
-interface ResolveBillingLifecycleInput {
-  status: BillingStatus;
-  pastDueAt: number | undefined;
-  now: number;
-}
-
-export interface BillingLifecycle {
-  effectiveStatus: BillingStatus;
-  isLocked: boolean;
-  isInGrace: boolean;
-  graceEndsAt: number | undefined;
 }
 
 export interface WorkspaceAccountDeletionEligibility {
@@ -95,7 +76,6 @@ export const PLAN_CATALOG = {
 } as const satisfies Record<PlanKey, PlanDefinition>;
 
 export const DEFAULT_PLAN_KEY: PlanKey = 'free';
-export const PAST_DUE_GRACE_PERIOD_MS = 7 * 24 * 60 * 60 * 1000;
 
 const BILLABLE_LIFECYCLE_STATUSES = new Set<BillingStatus>(['trialing', 'active', 'past_due']);
 
@@ -130,24 +110,6 @@ export const resolveEffectivePlanKey = (planKey: PlanKey, status: BillingStatus)
     return 'free';
   }
   return planKey;
-};
-
-/**
- * Resolves billing lifecycle flags from raw provider status.
- */
-export const resolveBillingLifecycle = (input: ResolveBillingLifecycleInput) => {
-  const graceEndsAt = input.pastDueAt ? input.pastDueAt + PAST_DUE_GRACE_PERIOD_MS : undefined;
-  const isInGrace =
-    input.status === 'past_due' && graceEndsAt !== undefined && input.now < graceEndsAt;
-  const effectiveStatus = input.status === 'past_due' && isInGrace ? 'active' : input.status;
-  const isLocked = input.status === 'past_due' && !isInGrace;
-
-  return {
-    effectiveStatus,
-    isLocked,
-    isInGrace,
-    graceEndsAt,
-  };
 };
 
 /**
@@ -231,12 +193,6 @@ export async function getWorkspaceUsageSnapshot(
 export const resolveWorkspaceEntitlements = (
   input: ResolveWorkspaceEntitlementsInput,
 ): WorkspaceEntitlementsSnapshot => {
-  const lifecycle = resolveBillingLifecycle({
-    status: input.status,
-    pastDueAt: input.pastDueAt,
-    now: input.now,
-  });
-
   const effectivePlanKey = resolveEffectivePlanKey(input.planKey, input.status);
   const { features, limits } = getPlanEntitlements(effectivePlanKey);
 
@@ -248,10 +204,6 @@ export const resolveWorkspaceEntitlements = (
     features,
     limits,
     usage: input.usage,
-    effectiveStatus: lifecycle.effectiveStatus,
-    isLocked: lifecycle.isLocked,
-    isInGrace: lifecycle.isInGrace,
-    graceEndsAt: lifecycle.graceEndsAt,
     isSoloWorkspace,
   };
 };
@@ -305,9 +257,7 @@ export async function getWorkspaceEntitlementsSnapshot(
   const entitlements = resolveWorkspaceEntitlements({
     planKey: state.planKey,
     status: state.status,
-    pastDueAt: state.pastDueAt,
     usage,
-    now,
   });
 
   logger.debug({
@@ -318,10 +268,6 @@ export async function getWorkspaceEntitlementsSnapshot(
       planKey: state.planKey,
       status: state.status,
       effectivePlanKey: entitlements.effectivePlanKey,
-      effectiveStatus: entitlements.effectiveStatus,
-      isLocked: entitlements.isLocked,
-      isInGrace: entitlements.isInGrace,
-      graceEndsAt: entitlements.graceEndsAt,
     },
   });
 
@@ -329,46 +275,4 @@ export async function getWorkspaceEntitlementsSnapshot(
     state,
     entitlements,
   };
-}
-
-/**
- * Ensures a workspace is not billing-locked for write operations.
- *
- * This check intentionally avoids usage computation because write gating only
- * depends on raw billing lifecycle status and grace window.
- *
- * @param ctx - Convex query or mutation context used for billing state reads.
- * @param workspaceId - Workspace identifier to validate.
- * @param now - Current timestamp in milliseconds for grace window checks.
- * @throws BILLING_WORKSPACE_STATE_MISSING when no billing state exists.
- * @throws BILLING_WORKSPACE_LOCKED when workspace is past due and out of grace.
- */
-export async function assertWorkspaceUnlockedForWrites(
-  ctx: QueryCtx | MutationCtx,
-  workspaceId: Id<'workspaces'>,
-  now = Date.now(),
-) {
-  const state = await ctx.db
-    .query('workspaceBillingState')
-    .withIndex('by_workspaceId', (q) => q.eq('workspaceId', workspaceId))
-    .unique();
-
-  if (!state) {
-    return throwAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_STATE_MISSING, {
-      workspaceId: workspaceId as string,
-    });
-  }
-
-  const lifecycle = resolveBillingLifecycle({
-    status: state.status,
-    pastDueAt: state.pastDueAt,
-    now,
-  });
-
-  if (lifecycle.isLocked) {
-    return throwAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_LOCKED, {
-      workspaceId: workspaceId as string,
-      graceEndsAt: lifecycle.graceEndsAt,
-    });
-  }
 }

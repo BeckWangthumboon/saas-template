@@ -36,13 +36,6 @@ export const entitlementPlanValidator = v.object({
   key: planKeyValidator,
 });
 
-export const entitlementLifecycleValidator = v.object({
-  status: billingStatusValidator,
-  isLocked: v.boolean(),
-  isInGrace: v.boolean(),
-  graceEndsAt: v.optional(v.number()),
-});
-
 export const entitlementCapabilitiesValidator = v.object({
   isSoloWorkspace: v.boolean(),
 });
@@ -52,7 +45,6 @@ export const workspaceEntitlementsSummaryValidator = v.object({
   plan: entitlementPlanValidator,
   limits: planLimitsValidator,
   usage: workspaceUsageValidator,
-  lifecycle: entitlementLifecycleValidator,
   capabilities: entitlementCapabilitiesValidator,
 });
 
@@ -63,6 +55,5 @@ export type PlanFeatures = Infer<typeof planFeaturesValidator>;
 export type PlanLimits = Infer<typeof planLimitsValidator>;
 export type WorkspaceUsage = Infer<typeof workspaceUsageValidator>;
 export type EntitlementPlan = Infer<typeof entitlementPlanValidator>;
-export type EntitlementLifecycle = Infer<typeof entitlementLifecycleValidator>;
 export type EntitlementCapabilities = Infer<typeof entitlementCapabilitiesValidator>;
 export type WorkspaceEntitlementsSummary = Infer<typeof workspaceEntitlementsSummaryValidator>;

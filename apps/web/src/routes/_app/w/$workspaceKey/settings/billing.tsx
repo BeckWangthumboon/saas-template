@@ -184,7 +184,7 @@ function BillingSettingsContent() {
   const entitlements = entitlementsContext.entitlements;
   const displayPlanKey = entitlements.plan.key;
   const displayTier = getPlanTier(displayPlanKey);
-  const displayStatus = billing.status === 'canceled' ? 'none' : entitlements.lifecycle.status;
+  const displayStatus = billing.status === 'canceled' ? 'none' : billing.status;
   const statusClassName = getStatusClassName(displayStatus);
   const isFreeTier = displayTier === 'free';
   const billingCycleText = isFreeTier
@@ -226,13 +226,6 @@ function BillingSettingsContent() {
               {entitlements.usage.memberCount} / {membersLimitText}
             </p>
           </div>
-
-          {entitlements.lifecycle.isInGrace && (
-            <p className="text-muted-foreground text-sm">
-              Payment issue detected: Your access will be revoked at:{' '}
-              {formatTimestamp(entitlements.lifecycle.graceEndsAt)}.
-            </p>
-          )}
         </div>
 
         {canManageBilling && (

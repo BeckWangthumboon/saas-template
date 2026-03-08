@@ -35,8 +35,6 @@ export const getWorkspaceBillingState = internalQuery({
       cancelAtPeriodEnd: state.cancelAtPeriodEnd,
       providerCustomerId: state.providerCustomerId,
       providerSubscriptionId: state.providerSubscriptionId,
-      providerSubscriptionUpdatedAt: state.providerSubscriptionUpdatedAt,
-      pastDueAt: state.pastDueAt,
       updatedAt: state.updatedAt,
     };
   },

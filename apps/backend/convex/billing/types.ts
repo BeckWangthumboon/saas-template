@@ -20,8 +20,6 @@ export const billingStateValidator = v.object({
   cancelAtPeriodEnd: v.optional(v.boolean()),
   providerCustomerId: v.optional(v.string()),
   providerSubscriptionId: v.optional(v.string()),
-  providerSubscriptionUpdatedAt: v.optional(v.number()),
-  pastDueAt: v.optional(v.number()),
   updatedAt: v.number(),
 });
 
@@ -30,12 +28,8 @@ export const billingSummaryValidator = v.object({
   planKey: planKeyValidator,
   tier: planTierValidator,
   status: billingStatusValidator,
-  effectiveStatus: billingStatusValidator,
   periodEnd: v.optional(v.number()),
   cancelAtPeriodEnd: v.optional(v.boolean()),
-  pastDueAt: v.optional(v.number()),
-  graceEndsAt: v.optional(v.number()),
-  isInGrace: v.boolean(),
   updatedAt: v.number(),
 });
 

@@ -86,7 +86,6 @@ bun install
 - `WORKOS_CLIENT_ID`
 - `WORKOS_API_KEY`
 - `POLAR_ORGANIZATION_TOKEN`
-- `POLAR_WEBHOOK_SECRET`
 - `POLAR_PRO_MONTHLY_PRODUCT_ID`
 - `POLAR_PRO_YEARLY_PRODUCT_ID`
 - `POLAR_SERVER` (`sandbox` or `production`, defaults to `sandbox`)
@@ -184,19 +183,17 @@ Deletion is blocked if workspace billing is still billable (`trialing`/`active`/
 
 Why this choice: it matches the user lifecycle approach and gives safer operational behavior.
 
-### 4. Billing Model (Polar)
+### 4. Billing Model (Polar + Autumn)
 
 - `workspaceBillingState` is the source of truth for a workspace's billing state.
-- Polar webhook endpoint: `POST /billing/polar/events`.
-- All user billing changes are made through Polar's portal. It is synced with the app via webhooks.
-- Webhook handling is idempotent using `billingEvents.providerEventId`.
-- Out-of-order webhook updates are ignored using `providerSubscriptionUpdatedAt`.
+- Checkout and billing portal flows still use Polar.
+- Feature access checks are moving to Autumn.
 - Plan mapping is internalized through product IDs:
   - `free` (no Polar product)
   - `pro_monthly`
   - `pro_yearly`
 
-Why this choice: provider events are normalized first, so feature checks always run against internal state.
+Why this choice: provider-specific billing flows stay isolated while app-level access checks move toward Autumn.
 
 ### 5. Entitlement Model (Feature Primitive)
 
@@ -205,15 +202,8 @@ Entitlements are derived from billing state + usage:
 - plan key (`free` / `pro_monthly` / `pro_yearly`)
 - features (`team_members`)
 - limits (`members`, `invites`)
-- lifecycle (`status`, `isLocked`, grace period)
 
-Important behavior:
-
-- `past_due` has a grace period.
-- during grace, effective lifecycle stays usable.
-- after grace, workspace is locked for gated flows.
-
-Why this choice: feature logic should not depend directly on raw billing provider status. Everything goes through entitlements.
+Why this choice: app features should be expressed in app terms instead of leaking provider-specific behavior through the codebase.
 
 ### 6. Invite Model & Decisions
 

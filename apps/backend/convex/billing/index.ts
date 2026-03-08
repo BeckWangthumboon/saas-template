@@ -3,7 +3,7 @@ import { v } from 'convex/values';
 
 import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
-import { getPlanTier, resolveBillingLifecycle } from '../entitlements/service';
+import { getPlanTier } from '../entitlements/service';
 import { convexEnv } from '../env';
 import { throwAppErrorForConvex } from '../errors';
 import { action, query, type QueryCtx } from '../functions';
@@ -74,7 +74,7 @@ const getWorkspaceBillingStateForMember = async (ctx: QueryCtx, workspaceId: Id<
  * Returns billing projection for a workspace.
  *
  * @param workspaceId - The workspace to read billing data for.
- * @returns Billing summary including billing lifecycle state.
+ * @returns Billing summary including plan and provider billing status.
  * @throws WORKSPACE_ACCESS_DENIED if the caller is not a workspace member.
  * @throws BILLING_WORKSPACE_STATE_MISSING if billing state does not exist.
  */
@@ -83,23 +83,14 @@ export const getWorkspaceBillingSummary = query({
   returns: billingSummaryValidator,
   handler: async (ctx, args) => {
     const state = await getWorkspaceBillingStateForMember(ctx, args.workspaceId);
-    const lifecycle = resolveBillingLifecycle({
-      status: state.status,
-      pastDueAt: state.pastDueAt,
-      now: Date.now(),
-    });
 
     return {
       workspaceId: args.workspaceId,
       planKey: state.planKey,
       tier: getPlanTier(state.planKey),
       status: state.status,
-      effectiveStatus: lifecycle.effectiveStatus,
       periodEnd: state.periodEnd,
       cancelAtPeriodEnd: state.cancelAtPeriodEnd,
-      pastDueAt: state.pastDueAt,
-      graceEndsAt: lifecycle.graceEndsAt,
-      isInGrace: lifecycle.isInGrace,
       updatedAt: state.updatedAt,
     };
   },

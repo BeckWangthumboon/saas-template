@@ -3,7 +3,6 @@ import { v } from 'convex/values';
 
 import { internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
-import { assertWorkspaceUnlockedForWrites } from '../entitlements/service';
 import { throwAppErrorForConvex } from '../errors';
 import { action, internalMutation, mutation } from '../functions';
 import { logger } from '../logging';
@@ -46,7 +45,6 @@ export const requestWorkspaceFileUploadUrl = mutation({
   },
   handler: async (ctx, args) => {
     const { user } = await getWorkspaceMembership(ctx, args.workspaceId);
-    await assertWorkspaceUnlockedForWrites(ctx, args.workspaceId);
 
     const sanitizedFileName = sanitizeWorkspaceFileName(args.fileName);
     if (!sanitizedFileName) {
@@ -109,7 +107,6 @@ export const finalizeWorkspacePendingUpload = internalMutation({
   },
   handler: async (ctx, args) => {
     const { user } = await getWorkspaceMembership(ctx, args.workspaceId);
-    await assertWorkspaceUnlockedForWrites(ctx, args.workspaceId);
 
     if (!isWorkspaceObjectKeyForWorkspace(args.key, args.workspaceId)) {
       return throwAppErrorForConvex(ErrorCode.WORKSPACE_ACCESS_DENIED, {

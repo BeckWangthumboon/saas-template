@@ -4,7 +4,6 @@ import { ErrorCode } from '@saas/shared/errors';
 import { v } from 'convex/values';
 
 import { internal } from '../_generated/api';
-import { assertWorkspaceUnlockedForWrites } from '../entitlements/service';
 import { throwAppErrorForConvex } from '../errors';
 import { action, internalQuery, mutation, query } from '../functions';
 import { logger } from '../logging';
@@ -114,7 +113,6 @@ export const deleteWorkspaceFile = mutation({
   },
   handler: async (ctx, args) => {
     const { user } = await getWorkspaceMembership(ctx, args.workspaceId);
-    await assertWorkspaceUnlockedForWrites(ctx, args.workspaceId);
 
     const file = await ctx.db.get('workspaceFiles', args.fileId);
     if (file?.workspaceId !== args.workspaceId) {
