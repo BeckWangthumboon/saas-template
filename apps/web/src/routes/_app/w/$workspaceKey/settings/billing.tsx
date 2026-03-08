@@ -1,7 +1,9 @@
-import type { Id } from '@saas/convex-api';
+import { api, type Id } from '@saas/convex-api';
+import { AUTUMN_PLAN_IDS } from '@saas/shared/billing/ids';
 import { createFileRoute } from '@tanstack/react-router';
+import { useCustomer } from 'autumn-js/react';
 import { format } from 'date-fns';
-import { useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -13,6 +15,7 @@ import {
   useWorkspace,
   useWorkspaceEntitlements,
 } from '@/features/workspaces';
+import { useConvexAction } from '@/hooks';
 import { cn } from '@/lib/utils';
 
 export const Route = createFileRoute('/_app/w/$workspaceKey/settings/billing')({
@@ -81,23 +84,30 @@ function BillingSettingsPage() {
       workspaceId={workspaceContext.workspaceId as Id<'workspaces'>}
       role={workspaceContext.role}
     >
-      <BillingSettingsContent />
+      <BillingSettingsContent
+        workspaceId={workspaceContext.workspaceId as Id<'workspaces'>}
+        billingPath={workspaceContext.getWorkspacePath('/settings/billing')}
+      />
     </BillingProvider>
   );
 }
 
-function BillingSettingsContent() {
+interface BillingSettingsContentProps {
+  workspaceId: Id<'workspaces'>;
+  billingPath: string;
+}
+
+function BillingSettingsContent({ workspaceId, billingPath }: BillingSettingsContentProps) {
   const entitlementsContext = useWorkspaceEntitlements();
-  const {
-    status,
-    billing,
-    canManageBilling,
-    checkoutState,
-    portalState,
-    startCheckout,
-    createPortalSession,
-  } = useBilling();
+  const { checkout, openBillingPortal } = useCustomer();
+  const { execute: ensureWorkspaceBillingEntity } = useConvexAction(
+    api.billing.index.ensureWorkspaceBillingEntity,
+  );
+  const { status, billing, canManageBilling } = useBilling();
   const hasShownCheckoutSuccessRef = useRef(false);
+  const [pendingAction, setPendingAction] = useState<
+    'checkout_monthly' | 'checkout_yearly' | 'portal' | null
+  >(null);
 
   useEffect(() => {
     if (hasShownCheckoutSuccessRef.current) {
@@ -115,8 +125,9 @@ function BillingSettingsContent() {
     hasShownCheckoutSuccessRef.current = true;
   }, []);
 
-  const isCheckoutLoading = checkoutState.status === 'loading';
-  const isPortalLoading = portalState.status === 'loading';
+  const isCheckoutLoading =
+    pendingAction === 'checkout_monthly' || pendingAction === 'checkout_yearly';
+  const isPortalLoading = pendingAction === 'portal';
   const isEntitlementsReady = isWorkspaceEntitlementsReady(entitlementsContext);
 
   const handleStartCheckout = async (planKey: 'pro_monthly' | 'pro_yearly') => {
@@ -127,25 +138,39 @@ function BillingSettingsContent() {
       return;
     }
 
-    const checkoutWindow = window.open('', '_blank');
-    if (!checkoutWindow) {
-      toast.error('Popup blocked', {
-        description: 'Allow popups to open checkout in a new tab.',
-      });
-      return;
-    }
-    checkoutWindow.opener = null;
+    setPendingAction(planKey === 'pro_monthly' ? 'checkout_monthly' : 'checkout_yearly');
 
-    const result = await startCheckout(planKey);
-    if (!result.ok) {
-      checkoutWindow.close();
+    try {
+      const ensureResult = await ensureWorkspaceBillingEntity({ workspaceId });
+      if (ensureResult.isErr()) {
+        toast.error('Failed to prepare checkout', {
+          description: ensureResult.error.message,
+        });
+        return;
+      }
+
+      const autumnPlanId =
+        planKey === 'pro_monthly' ? AUTUMN_PLAN_IDS.proMonthly : AUTUMN_PLAN_IDS.proYearly;
+
+      const result = await checkout({
+        productId: autumnPlanId,
+        entityId: workspaceId,
+        successUrl: `${window.location.origin}${billingPath}?checkout=success`,
+        openInNewTab: true,
+      });
+
+      if (result.error) {
+        toast.error('Failed to start checkout', {
+          description: result.error.message,
+        });
+      }
+    } catch (error) {
       toast.error('Failed to start checkout', {
-        description: result.error.message,
+        description: error instanceof Error ? error.message : 'Unexpected checkout error',
       });
-      return;
+    } finally {
+      setPendingAction(null);
     }
-
-    checkoutWindow.location.href = result.data.url;
   };
 
   const handleOpenPortal = async () => {
@@ -156,25 +181,26 @@ function BillingSettingsContent() {
       return;
     }
 
-    const portalWindow = window.open('', '_blank');
-    if (!portalWindow) {
-      toast.error('Popup blocked', {
-        description: 'Allow popups to open billing in a new tab.',
-      });
-      return;
-    }
-    portalWindow.opener = null;
+    setPendingAction('portal');
 
-    const result = await createPortalSession();
-    if (!result.ok) {
-      portalWindow.close();
+    try {
+      const result = await openBillingPortal({
+        returnUrl: `${window.location.origin}${billingPath}`,
+        openInNewTab: true,
+      });
+
+      if (result.error) {
+        toast.error('Failed to open billing portal', {
+          description: result.error.message,
+        });
+      }
+    } catch (error) {
       toast.error('Failed to open billing portal', {
-        description: result.error.message,
+        description: error instanceof Error ? error.message : 'Unexpected billing portal error',
       });
-      return;
+    } finally {
+      setPendingAction(null);
     }
-
-    portalWindow.location.href = result.data.url;
   };
 
   if (status === 'loading' || !billing || !isEntitlementsReady) {

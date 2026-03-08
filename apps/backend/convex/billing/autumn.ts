@@ -1,3 +1,4 @@
+import { AUTUMN_FEATURE_IDS } from '@saas/shared/billing/ids';
 import { Autumn } from '@useautumn/convex';
 
 import { components } from '../_generated/api';
@@ -52,8 +53,10 @@ export const autumn = new Autumn(components.autumn, {
 export const toWorkspaceEntityArgs = (workspace: WorkspaceEntityInput) => ({
   entityId: workspace.workspaceId,
   entityData: {
-    workspaceKey: workspace.workspaceKey,
-    workspaceName: workspace.workspaceName,
+    // Workspace entities are non-billable, so Autumn can auto-create them
+    // during check/track calls when we provide the backing feature id.
+    featureId: AUTUMN_FEATURE_IDS.teamMembers,
+    name: workspace.workspaceName,
   },
 });
 

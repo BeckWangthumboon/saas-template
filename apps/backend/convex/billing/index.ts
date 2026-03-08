@@ -1,3 +1,4 @@
+import { AUTUMN_FEATURE_IDS } from '@saas/shared/billing/ids';
 import { ErrorCode } from '@saas/shared/errors';
 import { v } from 'convex/values';
 
@@ -9,6 +10,7 @@ import { throwAppErrorForConvex } from '../errors';
 import { action, query, type QueryCtx } from '../functions';
 import { logger } from '../logging';
 import { getWorkspaceMembership } from '../workspaces/utils';
+import { autumn, toWorkspaceEntityArgs } from './autumn';
 import { polar } from './polarClient';
 import { PLAN_KEY_TO_PRODUCT_ID } from './products';
 import { billingSummaryValidator, paidPlanKeyValidator } from './types';
@@ -93,6 +95,56 @@ export const getWorkspaceBillingSummary = query({
       cancelAtPeriodEnd: state.cancelAtPeriodEnd,
       updatedAt: state.updatedAt,
     };
+  },
+});
+
+/**
+ * Ensures the workspace billing entity exists in Autumn before checkout.
+ *
+ * Autumn auto-creates non-billable entities during feature checks, so we
+ * reuse an existing workspace-scoped feature to provision the entity.
+ */
+export const ensureWorkspaceBillingEntity = action({
+  args: { workspaceId: v.id('workspaces') },
+  returns: v.null(),
+  handler: async (ctx, args) => {
+    await ctx.runQuery(internal.billing.internal.getWorkspaceBillingState, {
+      workspaceId: args.workspaceId,
+    });
+
+    const workspace = await ctx.runQuery(
+      internal.workspaces.internal.getWorkspaceBillingEntityInfo,
+      {
+        workspaceId: args.workspaceId,
+      },
+    );
+
+    const result = await autumn.check(ctx, {
+      featureId: AUTUMN_FEATURE_IDS.teamMembers,
+      ...toWorkspaceEntityArgs({
+        workspaceId: args.workspaceId,
+        workspaceKey: workspace.workspaceKey,
+        workspaceName: workspace.workspaceName,
+      }),
+    });
+
+    if (result.error) {
+      logger.error({
+        event: 'billing.entity.ensure_failed',
+        category: 'BILLING',
+        context: {
+          workspaceId: args.workspaceId,
+          errorCode: result.error.code,
+        },
+        error: result.error,
+      });
+
+      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+        details: 'Autumn workspace entity provisioning failed',
+      });
+    }
+
+    return null;
   },
 });
 

@@ -1,6 +1,6 @@
 'use node';
 
-import { AUTUMN_FEATURE_IDS } from '@saas/shared/billing';
+import { AUTUMN_FEATURE_IDS } from '@saas/shared/billing/ids';
 import { ErrorCode, parseAppError } from '@saas/shared/errors';
 import { v } from 'convex/values';
 

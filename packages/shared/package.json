@@ -16,6 +16,7 @@
   },
   "exports": {
     "./errors": "./errors.ts",
-    "./billing": "./billing/index.ts"
+    "./billing": "./billing/index.ts",
+    "./billing/ids": "./billing/ids.ts"
   }
 }
