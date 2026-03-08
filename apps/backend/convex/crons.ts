@@ -47,6 +47,12 @@ crons.daily(
 );
 
 crons.daily(
+  'cleanup expired invite requests',
+  { hourUTC: 4, minuteUTC: 45 },
+  internal.workspaces.invites.cleanupExpiredInviteRequests,
+);
+
+crons.daily(
   'reconcile failed r2 deletes',
   { hourUTC: 5, minuteUTC: 0 },
   internal.storage.deletes.reconcileFailedR2Deletes,

@@ -156,6 +156,20 @@ export default defineSchema({
     .index('by_requestedByUserId', ['requestedByUserId'])
     .index('by_workspaceId', ['workspaceId']),
 
+  inviteRequests: defineTable({
+    workspaceId: v.id('workspaces'),
+    requestedByUserId: v.id('users'),
+    status: v.union(v.literal('pending'), v.literal('completed'), v.literal('failed')),
+    resultInviteId: v.optional(v.id('workspaceInvites')),
+    wasResent: v.optional(v.boolean()),
+    errorCode: v.optional(v.string()),
+    expiresAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_requestedByUserId', ['requestedByUserId'])
+    .index('by_workspaceId', ['workspaceId'])
+    .index('by_status_expiresAt', ['status', 'expiresAt']),
+
   r2DeleteQueue: defineTable({
     key: v.string(),
     reason: v.string(),

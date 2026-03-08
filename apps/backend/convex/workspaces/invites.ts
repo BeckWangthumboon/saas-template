@@ -6,7 +6,7 @@ import type { Doc, Id } from '../_generated/dataModel';
 import { getEmailSuppressionByEmail } from '../emails/suppressions';
 import { getWorkspaceEntitlementsSnapshot } from '../entitlements/service';
 import { throwAppErrorForConvex } from '../errors';
-import { mutation, type MutationCtx, query, type QueryCtx } from '../functions';
+import { internalMutation, mutation, type MutationCtx, query, type QueryCtx } from '../functions';
 import { logger } from '../logging';
 import { rateLimiter } from '../rateLimiter';
 import { getActiveUserByEmail, getActiveUserById, getAuthenticatedUser } from '../users/helpers';
@@ -15,8 +15,23 @@ import { requireWorkspaceAdminOrOwner, type WorkspaceMembership } from './utils'
 
 // 7 days
 const INVITE_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000;
+const INVITE_REQUEST_TTL_MS = 24 * 60 * 60 * 1000;
 
 type InviteRole = 'admin' | 'member';
+type InviteRequestStatus = 'pending' | 'completed' | 'failed';
+
+interface InviteCreationActor {
+  membership: Doc<'workspaceMembers'>;
+  user: Doc<'users'>;
+}
+
+interface PreparedInviteCreation {
+  normalizedEmail: string;
+  workspace: Doc<'workspaces'>;
+  inviteeUser: Doc<'users'> | null;
+  now: number;
+  inviterDisplayName: string | undefined;
+}
 
 function formatName(firstName: string | null, lastName: string | null): string | null {
   if (firstName || lastName) {
@@ -174,6 +189,290 @@ async function hasActiveInvite(
     .filter((q) => q.and(q.eq(q.field('status'), 'pending'), q.gt(q.field('expiresAt'), now)))
     .first();
   return activeInvite !== null;
+}
+
+async function getInviteCreationActor(
+  ctx: MutationCtx,
+  workspaceId: Id<'workspaces'>,
+  userId: Id<'users'>,
+) {
+  const user = await getActiveUserById(ctx, userId);
+  if (!user) {
+    return throwAppErrorForConvex(ErrorCode.WORKSPACE_ACCESS_DENIED, {
+      workspaceId: workspaceId as string,
+    });
+  }
+
+  const membership = await ctx.db
+    .query('workspaceMembers')
+    .withIndex('by_workspaceId_userId', (q) =>
+      q.eq('workspaceId', workspaceId).eq('userId', userId),
+    )
+    .unique();
+
+  if (!membership) {
+    return throwAppErrorForConvex(ErrorCode.WORKSPACE_ACCESS_DENIED, {
+      workspaceId: workspaceId as string,
+    });
+  }
+
+  if (membership.role === 'member') {
+    return throwAppErrorForConvex(ErrorCode.WORKSPACE_INSUFFICIENT_ROLE, {
+      workspaceId: workspaceId as string,
+      requiredRole: 'admin',
+      action: 'invite',
+    });
+  }
+
+  return { membership, user };
+}
+
+async function prepareInviteCreation(
+  ctx: MutationCtx,
+  args: {
+    workspaceId: Id<'workspaces'>;
+    email: string;
+    inviteeRole: InviteRole;
+  },
+  actor: InviteCreationActor,
+  options?: { enforceRateLimit?: boolean },
+) {
+  const inviterRole = actor.membership.role;
+  const inviterEmail = actor.user.email;
+  if (!inviterEmail) {
+    return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+      details: 'Invite requester missing email',
+    });
+  }
+
+  const normalizedEmail = args.email.toLowerCase().trim();
+
+  if (normalizedEmail === inviterEmail.toLowerCase()) {
+    logger.warn({
+      event: 'invite.create_blocked_self_invite',
+      category: 'INVITE',
+      context: {
+        workspaceId: args.workspaceId,
+        inviterUserId: actor.user._id,
+      },
+    });
+
+    return throwAppErrorForConvex(ErrorCode.INVITE_SELF_INVITE);
+  }
+
+  if (inviterRole === 'admin' && args.inviteeRole === 'admin') {
+    logger.warn({
+      event: 'invite.create_blocked_admin_role',
+      category: 'INVITE',
+      context: {
+        workspaceId: args.workspaceId,
+        inviterUserId: actor.user._id,
+        inviterRole,
+        inviteeRole: args.inviteeRole,
+      },
+    });
+
+    return throwAppErrorForConvex(ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN);
+  }
+
+  const activeSuppression = await getEmailSuppressionByEmail(ctx, normalizedEmail);
+  if (activeSuppression) {
+    logger.warn({
+      event: 'invite.create_blocked_suppressed_email',
+      category: 'INVITE',
+      context: {
+        workspaceId: args.workspaceId,
+        inviterUserId: actor.user._id,
+        inviteeEmail: normalizedEmail,
+        reason: activeSuppression.reason,
+      },
+    });
+
+    return throwAppErrorForConvex(ErrorCode.INVITE_EMAIL_SUPPRESSED, {
+      inviteeEmail: normalizedEmail,
+      reason: activeSuppression.reason,
+    });
+  }
+
+  if (options?.enforceRateLimit ?? false) {
+    const perUserStatus = await rateLimiter.limit(ctx, 'createInviteByUser', {
+      key: actor.user._id,
+    });
+    if (!perUserStatus.ok) {
+      logger.warn({
+        event: 'invite.create_rate_limited',
+        category: 'INVITE',
+        context: {
+          workspaceId: args.workspaceId,
+          inviterUserId: actor.user._id,
+          retryAfter: perUserStatus.retryAfter,
+        },
+      });
+
+      return throwAppErrorForConvex(ErrorCode.INVITE_CREATE_RATE_LIMITED, {
+        retryAfter: perUserStatus.retryAfter,
+      });
+    }
+  }
+
+  const now = Date.now();
+  const entitlements = await getWorkspaceInviteEntitlements(ctx, args.workspaceId, now);
+  assertCanCreateInvite(args.workspaceId, entitlements);
+
+  const workspace = await ctx.db.get('workspaces', args.workspaceId);
+  if (!workspace || !isActiveWorkspace(workspace)) {
+    return throwAppErrorForConvex(ErrorCode.WORKSPACE_ACCESS_DENIED, {
+      workspaceId: args.workspaceId as string,
+    });
+  }
+
+  const { user: inviteeUser, isAlreadyMember } = await lookupUserByEmail(
+    ctx,
+    args.workspaceId,
+    normalizedEmail,
+  );
+
+  if (isAlreadyMember) {
+    logger.warn({
+      event: 'invite.create_blocked_already_member',
+      category: 'INVITE',
+      context: {
+        workspaceId: args.workspaceId,
+        inviterUserId: actor.user._id,
+      },
+    });
+
+    return throwAppErrorForConvex(ErrorCode.INVITE_ALREADY_MEMBER, {
+      email: normalizedEmail,
+      workspaceId: args.workspaceId as string,
+    });
+  }
+
+  return {
+    normalizedEmail,
+    workspace,
+    inviteeUser,
+    now,
+    inviterDisplayName:
+      formatName(actor.user.firstName ?? null, actor.user.lastName ?? null) ?? undefined,
+  };
+}
+
+async function createOrResendInvite(
+  ctx: MutationCtx,
+  args: {
+    workspaceId: Id<'workspaces'>;
+    inviteeRole: InviteRole;
+  },
+  actor: InviteCreationActor,
+  prepared: PreparedInviteCreation,
+) {
+  const inviterEmail = actor.user.email;
+  if (!inviterEmail) {
+    return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+      details: 'Invite requester missing email',
+    });
+  }
+
+  const expiresAt = prepared.now + INVITE_EXPIRATION_MS;
+
+  const activeInvite = await ctx.db
+    .query('workspaceInvites')
+    .withIndex('by_workspaceId_email', (q) =>
+      q.eq('workspaceId', args.workspaceId).eq('email', prepared.normalizedEmail),
+    )
+    .filter((q) =>
+      q.and(q.eq(q.field('status'), 'pending'), q.gt(q.field('expiresAt'), prepared.now)),
+    )
+    .first();
+
+  if (activeInvite) {
+    await ctx.db.patch('workspaceInvites', activeInvite._id, {
+      expiresAt,
+      role: args.inviteeRole,
+      invitedUserId: prepared.inviteeUser?._id,
+      updatedAt: prepared.now,
+      inviterDisplayNameSnapshot: prepared.inviterDisplayName,
+      inviterDisplayEmailSnapshot: actor.user.email,
+    });
+
+    logger.info({
+      event: 'invite.resent',
+      category: 'INVITE',
+      context: {
+        inviteId: activeInvite._id,
+        workspaceId: args.workspaceId,
+        inviterUserId: actor.user._id,
+        inviteeRole: args.inviteeRole,
+        invitedUserId: prepared.inviteeUser?._id,
+      },
+    });
+
+    await scheduleWorkspaceInviteEmail(ctx, {
+      workspaceId: args.workspaceId,
+      workspaceName: prepared.workspace.name,
+      inviteToken: activeInvite.token,
+      inviteeEmail: prepared.normalizedEmail,
+      inviteeRole: args.inviteeRole,
+      inviterName: prepared.inviterDisplayName,
+      inviterEmail,
+      expiresAt,
+    });
+
+    return {
+      token: activeInvite.token,
+      inviteId: activeInvite._id,
+      wasResent: true,
+    };
+  }
+
+  const token = crypto.randomUUID();
+  const inviteId = await ctx.db.insert('workspaceInvites', {
+    workspaceId: args.workspaceId,
+    email: prepared.normalizedEmail,
+    role: args.inviteeRole,
+    token,
+    status: 'pending',
+    invitedByUserId: actor.user._id,
+    invitedUserId: prepared.inviteeUser?._id,
+    expiresAt,
+    updatedAt: prepared.now,
+    inviterDisplayNameSnapshot: prepared.inviterDisplayName,
+    inviterDisplayEmailSnapshot: inviterEmail,
+  });
+
+  logger.info({
+    event: 'invite.created',
+    category: 'INVITE',
+    context: {
+      inviteId,
+      workspaceId: args.workspaceId,
+      inviterUserId: actor.user._id,
+      inviteeRole: args.inviteeRole,
+      invitedUserId: prepared.inviteeUser?._id,
+    },
+  });
+
+  await scheduleWorkspaceInviteEmail(ctx, {
+    workspaceId: args.workspaceId,
+    workspaceName: prepared.workspace.name,
+    inviteToken: token,
+    inviteeEmail: prepared.normalizedEmail,
+    inviteeRole: args.inviteeRole,
+    inviterName: prepared.inviterDisplayName,
+    inviterEmail,
+    expiresAt,
+  });
+
+  return {
+    token,
+    inviteId,
+    wasResent: false,
+  };
+}
+
+async function getInviteRequest(ctx: QueryCtx | MutationCtx, requestId: Id<'inviteRequests'>) {
+  return ctx.db.get('inviteRequests', requestId);
 }
 
 type AuthenticatedUser = Awaited<ReturnType<typeof getAuthenticatedUser>>;
@@ -460,28 +759,7 @@ function throwInviteAcceptanceValidationError(
 }
 
 /**
- * Creates an invite to join a workspace.
- * Owners can invite with admin or member roles.
- * Admins can only invite with member role.
- *
- * **Invite behavior:**
- * - If an active invite exists (pending + not expired), refreshes its expiration and returns `wasResent: true`
- * - If no active invite exists (expired, accepted, revoked, or none), creates a new invite
- * - Old invite records are preserved for audit history (never deleted)
- * - When refreshing, the original `invitedByUserId` is preserved
- * - Invite creation fails if the invite email cannot be scheduled
- *
- * @param workspaceId - The workspace to invite to.
- * @param email - The email address to invite.
- * @param inviteeRole - The role to assign ('admin' | 'member').
- * @returns The invite token, ID, and resend flag.
- * @throws INVITE_SELF_INVITE if inviting yourself.
- * @throws INVITE_ADMIN_CANNOT_INVITE_ADMIN if admin tries to invite as admin.
- * @throws INVITE_ALREADY_MEMBER if invitee is already an active member.
- * @throws WORKSPACE_INSUFFICIENT_ROLE if caller is a regular member.
- * @throws INVITE_CREATE_RATE_LIMITED when invite creation limits are exceeded.
- * @throws INVITE_EMAIL_SUPPRESSED when invite email is blocked by suppression list.
- * @throws INVITE_EMAIL_SCHEDULE_FAILED when invite email scheduling fails.
+ * Creates an invite request and schedules the Autumn-gated invite creation action.
  */
 export const createInvite = mutation({
   args: {
@@ -490,206 +768,178 @@ export const createInvite = mutation({
     inviteeRole: v.union(v.literal('admin'), v.literal('member')),
   },
   handler: async (ctx, args) => {
-    const { membership, user } = await validateInvitePermission(ctx, args.workspaceId);
-    const inviterRole = membership.role;
-    const normalizedEmail = args.email.toLowerCase().trim();
-
-    const invitingYourself = normalizedEmail === user.email.toLowerCase();
-    if (invitingYourself) {
-      logger.warn({
-        event: 'invite.create_blocked_self_invite',
-        category: 'INVITE',
-        context: {
-          workspaceId: args.workspaceId,
-          inviterUserId: user._id,
-        },
-      });
-
-      return throwAppErrorForConvex(ErrorCode.INVITE_SELF_INVITE);
-    }
-
-    const invitingAdminAsAdmin = inviterRole === 'admin' && args.inviteeRole === 'admin';
-    if (invitingAdminAsAdmin) {
-      logger.warn({
-        event: 'invite.create_blocked_admin_role',
-        category: 'INVITE',
-        context: {
-          workspaceId: args.workspaceId,
-          inviterUserId: user._id,
-          inviterRole,
-          inviteeRole: args.inviteeRole,
-        },
-      });
-
-      return throwAppErrorForConvex(ErrorCode.INVITE_ADMIN_CANNOT_INVITE_ADMIN);
-    }
-
-    const activeSuppression = await getEmailSuppressionByEmail(ctx, normalizedEmail);
-    if (activeSuppression) {
-      logger.warn({
-        event: 'invite.create_blocked_suppressed_email',
-        category: 'INVITE',
-        context: {
-          workspaceId: args.workspaceId,
-          inviterUserId: user._id,
-          inviteeEmail: normalizedEmail,
-          reason: activeSuppression.reason,
-        },
-      });
-
-      return throwAppErrorForConvex(ErrorCode.INVITE_EMAIL_SUPPRESSED, {
-        inviteeEmail: normalizedEmail,
-        reason: activeSuppression.reason,
-      });
-    }
-
-    const perUserStatus = await rateLimiter.limit(ctx, 'createInviteByUser', {
-      key: user._id,
-    });
-    if (!perUserStatus.ok) {
-      logger.warn({
-        event: 'invite.create_rate_limited',
-        category: 'INVITE',
-        context: {
-          workspaceId: args.workspaceId,
-          inviterUserId: user._id,
-          retryAfter: perUserStatus.retryAfter,
-        },
-      });
-
-      return throwAppErrorForConvex(ErrorCode.INVITE_CREATE_RATE_LIMITED, {
-        retryAfter: perUserStatus.retryAfter,
-      });
-    }
+    const actor = await validateInvitePermission(ctx, args.workspaceId);
+    const prepared = await prepareInviteCreation(ctx, args, actor, { enforceRateLimit: true });
 
     const now = Date.now();
-    const entitlements = await getWorkspaceInviteEntitlements(ctx, args.workspaceId, now);
-    assertCanCreateInvite(args.workspaceId, entitlements);
-    const workspace = await ctx.db.get('workspaces', args.workspaceId);
-    if (!workspace || !isActiveWorkspace(workspace)) {
-      return throwAppErrorForConvex(ErrorCode.WORKSPACE_ACCESS_DENIED, {
-        workspaceId: args.workspaceId,
-      });
-    }
-    const inviterDisplayName =
-      formatName(user.firstName ?? null, user.lastName ?? null) ?? undefined;
+    const requestId = await ctx.db.insert('inviteRequests', {
+      workspaceId: args.workspaceId,
+      requestedByUserId: actor.user._id,
+      status: 'pending',
+      expiresAt: now + INVITE_REQUEST_TTL_MS,
+      updatedAt: now,
+    });
 
-    // Look up invitee by email to get their userId (if they exist)
-    const { user: inviteeUser, isAlreadyMember: inviteeIsAlreadyMember } = await lookupUserByEmail(
-      ctx,
-      args.workspaceId,
-      normalizedEmail,
-    );
+    await ctx.scheduler.runAfter(0, internal.workspaces.inviteCheck.processCreateInviteRequest, {
+      requestId,
+      workspaceId: args.workspaceId,
+      workspaceKey: prepared.workspace.workspaceKey,
+      workspaceName: prepared.workspace.name,
+      email: args.email,
+      inviteeRole: args.inviteeRole,
+    });
 
-    if (inviteeIsAlreadyMember) {
-      logger.warn({
-        event: 'invite.create_blocked_already_member',
-        category: 'INVITE',
-        context: {
-          workspaceId: args.workspaceId,
-          inviterUserId: user._id,
-        },
-      });
+    return { requestId };
+  },
+});
 
-      return throwAppErrorForConvex(ErrorCode.INVITE_ALREADY_MEMBER, {
-        email: normalizedEmail,
-        workspaceId: args.workspaceId as string,
-      });
+export const failCreateInviteRequest = internalMutation({
+  args: {
+    requestId: v.id('inviteRequests'),
+    errorCode: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const request = await getInviteRequest(ctx, args.requestId);
+    if (!request || request.status === 'completed') {
+      return null;
     }
 
-    const expiresAt = now + INVITE_EXPIRATION_MS;
+    await ctx.db.patch('inviteRequests', request._id, {
+      status: 'failed' satisfies InviteRequestStatus,
+      errorCode: args.errorCode,
+      updatedAt: Date.now(),
+    });
 
-    const activeInvite = await ctx.db
-      .query('workspaceInvites')
-      .withIndex('by_workspaceId_email', (q) =>
-        q.eq('workspaceId', args.workspaceId).eq('email', normalizedEmail),
-      )
-      .filter((q) => q.and(q.eq(q.field('status'), 'pending'), q.gt(q.field('expiresAt'), now)))
-      .first();
+    return null;
+  },
+});
 
-    if (activeInvite) {
-      await ctx.db.patch('workspaceInvites', activeInvite._id, {
-        expiresAt,
-        role: args.inviteeRole,
-        invitedUserId: inviteeUser?._id,
-        updatedAt: now,
-        inviterDisplayNameSnapshot: inviterDisplayName,
-        inviterDisplayEmailSnapshot: user.email,
+export const createInviteAfterAutumnCheck = internalMutation({
+  args: {
+    requestId: v.id('inviteRequests'),
+    workspaceId: v.id('workspaces'),
+    email: v.string(),
+    inviteeRole: v.union(v.literal('admin'), v.literal('member')),
+  },
+  handler: async (ctx, args) => {
+    const request = await getInviteRequest(ctx, args.requestId);
+    if (!request) {
+      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+        details: 'Invite request not found',
       });
-
-      logger.info({
-        event: 'invite.resent',
-        category: 'INVITE',
-        context: {
-          inviteId: activeInvite._id,
-          workspaceId: args.workspaceId,
-          inviterUserId: user._id,
-          inviteeRole: args.inviteeRole,
-          invitedUserId: inviteeUser?._id,
-        },
+    }
+    if (request.workspaceId !== args.workspaceId) {
+      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+        details: 'Invite request workspace mismatch',
       });
+    }
 
-      await scheduleWorkspaceInviteEmail(ctx, {
-        workspaceId: args.workspaceId,
-        workspaceName: workspace.name,
-        inviteToken: activeInvite.token,
-        inviteeEmail: normalizedEmail,
-        inviteeRole: args.inviteeRole,
-        inviterName: inviterDisplayName,
-        inviterEmail: user.email,
-        expiresAt,
-      });
+    if (request.status === 'completed' && request.resultInviteId) {
+      const invite = await ctx.db.get('workspaceInvites', request.resultInviteId);
+      if (!invite) {
+        return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+          details: 'Completed invite request missing invite',
+        });
+      }
 
       return {
-        token: activeInvite.token,
-        inviteId: activeInvite._id,
-        wasResent: true,
+        inviteId: invite._id,
+        token: invite.token,
+        wasResent: request.wasResent ?? false,
       };
     }
 
-    // If no active invite exists, generate new token and create invite
-    const token = crypto.randomUUID();
-    const inviteId = await ctx.db.insert('workspaceInvites', {
-      workspaceId: args.workspaceId,
-      email: normalizedEmail,
-      role: args.inviteeRole,
-      token,
-      status: 'pending',
-      invitedByUserId: user._id,
-      invitedUserId: inviteeUser?._id,
-      expiresAt,
-      updatedAt: now,
-      inviterDisplayNameSnapshot: inviterDisplayName,
-      inviterDisplayEmailSnapshot: user.email,
-    });
+    if (request.status === 'failed') {
+      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+        details: 'Invite request already failed',
+      });
+    }
 
-    logger.info({
-      event: 'invite.created',
-      category: 'INVITE',
-      context: {
-        inviteId,
+    const actor = await getInviteCreationActor(ctx, request.workspaceId, request.requestedByUserId);
+    const prepared = await prepareInviteCreation(
+      ctx,
+      {
         workspaceId: args.workspaceId,
-        inviterUserId: user._id,
+        email: args.email,
         inviteeRole: args.inviteeRole,
-        invitedUserId: inviteeUser?._id,
       },
-    });
+      actor,
+    );
+    const result = await createOrResendInvite(
+      ctx,
+      {
+        workspaceId: args.workspaceId,
+        inviteeRole: args.inviteeRole,
+      },
+      actor,
+      prepared,
+    );
 
-    await scheduleWorkspaceInviteEmail(ctx, {
-      workspaceId: args.workspaceId,
-      workspaceName: workspace.name,
-      inviteToken: token,
-      inviteeEmail: normalizedEmail,
-      inviteeRole: args.inviteeRole,
-      inviterName: inviterDisplayName,
-      inviterEmail: user.email,
-      expiresAt,
+    await ctx.db.patch('inviteRequests', request._id, {
+      status: 'completed' satisfies InviteRequestStatus,
+      resultInviteId: result.inviteId,
+      wasResent: result.wasResent,
+      errorCode: undefined,
+      updatedAt: Date.now(),
     });
+  },
+});
+
+export const getCreateInviteRequest = query({
+  args: {
+    requestId: v.id('inviteRequests'),
+  },
+  handler: async (ctx, args) => {
+    const user = await getAuthenticatedUser(ctx);
+    const request = await getInviteRequest(ctx, args.requestId);
+
+    if (!request) {
+      return {
+        status: 'failed' as const,
+        errorCode: ErrorCode.INTERNAL_ERROR,
+      };
+    }
+
+    if (request.requestedByUserId !== user._id) {
+      return throwAppErrorForConvex(ErrorCode.WORKSPACE_ACCESS_DENIED, {
+        workspaceId: request.workspaceId as string,
+      });
+    }
+
+    if (request.status === 'completed') {
+      if (!request.resultInviteId) {
+        return {
+          status: 'failed' as const,
+          errorCode: ErrorCode.INTERNAL_ERROR,
+        };
+      }
+
+      const invite = await ctx.db.get('workspaceInvites', request.resultInviteId);
+      if (!invite) {
+        return {
+          status: 'failed' as const,
+          errorCode: ErrorCode.INTERNAL_ERROR,
+        };
+      }
+
+      return {
+        status: 'completed' as const,
+        email: invite.email,
+        inviteId: invite._id,
+        token: invite.token,
+        wasResent: request.wasResent ?? false,
+      };
+    }
+
+    if (request.status === 'failed') {
+      return {
+        status: 'failed' as const,
+        errorCode: request.errorCode ?? ErrorCode.INTERNAL_ERROR,
+      };
+    }
 
     return {
-      token,
-      inviteId,
-      wasResent: false,
+      status: request.status,
     };
   },
 });
@@ -970,5 +1220,31 @@ export const getWorkspaceInvites = query({
     );
 
     return pendingInvites.sort((a, b) => b.invitedAt - a.invitedAt);
+  },
+});
+
+export const cleanupExpiredInviteRequests = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const now = Date.now();
+    const pending = await ctx.db
+      .query('inviteRequests')
+      .withIndex('by_status_expiresAt', (q) => q.eq('status', 'pending').lt('expiresAt', now))
+      .collect();
+    const completed = await ctx.db
+      .query('inviteRequests')
+      .withIndex('by_status_expiresAt', (q) => q.eq('status', 'completed').lt('expiresAt', now))
+      .collect();
+    const failed = await ctx.db
+      .query('inviteRequests')
+      .withIndex('by_status_expiresAt', (q) => q.eq('status', 'failed').lt('expiresAt', now))
+      .collect();
+
+    for (const request of [...pending, ...completed, ...failed]) {
+      await ctx.db.delete('inviteRequests', request._id);
+    }
+
+    return null;
   },
 });
