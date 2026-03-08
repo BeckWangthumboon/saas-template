@@ -53,6 +53,12 @@ crons.daily(
 );
 
 crons.daily(
+  'cleanup expired team member requests',
+  { hourUTC: 4, minuteUTC: 50 },
+  internal.workspaces.invites.cleanupExpiredTeamMemberRequests,
+);
+
+crons.daily(
   'reconcile failed r2 deletes',
   { hourUTC: 5, minuteUTC: 0 },
   internal.storage.deletes.reconcileFailedR2Deletes,

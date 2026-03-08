@@ -1,9 +1,10 @@
+import type { Id } from '@saas/convex-api';
 import { api } from '@saas/convex-api';
 import { ErrorCode, parseAppError } from '@saas/shared/errors';
 import { createFileRoute, Link, useNavigate } from '@tanstack/react-router';
 import { useAuth } from '@workos-inc/authkit-react';
 import { useConvex } from 'convex/react';
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
@@ -18,27 +19,144 @@ export const Route = createFileRoute('/_invite/invite/$token')({
   errorComponent: InviteErrorBoundary,
 });
 
+function showAcceptInviteErrorToast(errorCode: string) {
+  if (errorCode === ErrorCode.INVITE_ACCEPT_RATE_LIMITED) {
+    toast.error('Too many join attempts', {
+      description: 'Please wait a moment before trying to accept this invite again.',
+    });
+    return;
+  }
+
+  if (errorCode === ErrorCode.BILLING_PLAN_REQUIRED) {
+    toast.error('Upgrade required', {
+      description: 'This workspace is on a plan that does not allow adding members right now.',
+    });
+    return;
+  }
+
+  if (errorCode === ErrorCode.BILLING_ENTITLEMENT_LIMIT_REACHED) {
+    toast.error('Workspace limit reached', {
+      description: 'This workspace has reached its current member limit. Ask an admin to upgrade.',
+    });
+    return;
+  }
+
+  if (errorCode === ErrorCode.BILLING_WORKSPACE_LOCKED) {
+    toast.error('Workspace locked', {
+      description:
+        'This workspace is temporarily restricted due to a billing issue. Ask an admin to resolve billing.',
+    });
+    return;
+  }
+
+  if (errorCode === ErrorCode.INVITE_EXPIRED) {
+    toast.error('Invite expired', {
+      description: 'This invite has expired. Ask an admin to send a new link.',
+    });
+    return;
+  }
+
+  if (errorCode === ErrorCode.INVITE_ALREADY_REVOKED) {
+    toast.error('Invite revoked', {
+      description: 'This invite was revoked. Ask an admin to send a new link.',
+    });
+    return;
+  }
+
+  if (errorCode === ErrorCode.INVITE_NOT_FOUND) {
+    toast.error('Invite not found', {
+      description: 'This invite link is invalid. Ask an admin to send a new one.',
+    });
+    return;
+  }
+
+  toast.error('Failed to accept invite', {
+    description: 'Something went wrong while accepting this invite.',
+  });
+}
+
+interface InviteDetailsSnapshot {
+  workspaceName: string;
+  role: 'admin' | 'member';
+  inviterName: string | null;
+  inviterEmail: string;
+  expiresAt: number;
+}
+
 function InvitePage() {
   const navigate = useNavigate();
   const { token } = Route.useParams();
-  const inviteQuery = useConvexQuery(api.workspaces.invites.getInviteForAcceptance, { token });
+  const [inviteSnapshot, setInviteSnapshot] = useState<InviteDetailsSnapshot | null>(null);
+  const [pendingRequestId, setPendingRequestId] = useState<Id<'teamMemberRequests'> | null>(null);
+  const inviteQuery = useConvexQuery(
+    api.workspaces.invites.getInviteForAcceptance,
+    pendingRequestId === null ? { token } : 'skip',
+  );
+  const handledFailedRequestIdRef = useRef<Id<'teamMemberRequests'> | null>(null);
   const { mutate: acceptInvite, state: acceptState } = useConvexMutation(
     api.workspaces.invites.acceptInvite,
   );
-  const isAccepting = acceptState.status === 'loading';
+  const acceptInviteRequest = useConvexQuery(
+    api.workspaces.invites.getAcceptInviteRequest,
+    pendingRequestId ? { requestId: pendingRequestId } : 'skip',
+  );
+  const isProcessingAcceptRequest =
+    pendingRequestId !== null &&
+    (acceptInviteRequest.status === 'loading' ||
+      (acceptInviteRequest.status === 'success' && acceptInviteRequest.data.status === 'pending'));
+  const isAccepting = acceptState.status === 'loading' || isProcessingAcceptRequest;
+  const inviteDetails = inviteQuery.status === 'success' ? inviteQuery.data : inviteSnapshot;
+  const inviteRole = inviteDetails?.role;
 
-  const handleAcceptInvite = async () => {
-    const result = await acceptInvite({ token });
+  useEffect(() => {
+    if (pendingRequestId === null || acceptInviteRequest.status !== 'success') {
+      return;
+    }
 
-    if (result.isOk()) {
-      defaultWorkspaceStorage.set(result.value.workspaceKey);
+    if (acceptInviteRequest.data.status === 'completed') {
+      defaultWorkspaceStorage.set(acceptInviteRequest.data.workspaceKey);
       toast.success('Invite accepted', {
-        description: `You joined ${result.value.workspaceName} as a ${result.value.role}.`,
+        description: `You joined ${acceptInviteRequest.data.workspaceName} as a ${inviteRole}.`,
       });
       void navigate({
         to: '/w/$workspaceKey',
-        params: { workspaceKey: result.value.workspaceKey },
+        params: { workspaceKey: acceptInviteRequest.data.workspaceKey },
       });
+      return;
+    }
+
+    if (
+      acceptInviteRequest.data.status === 'failed' &&
+      handledFailedRequestIdRef.current !== pendingRequestId
+    ) {
+      showAcceptInviteErrorToast(acceptInviteRequest.data.errorCode);
+      handledFailedRequestIdRef.current = pendingRequestId;
+    }
+  }, [acceptInviteRequest, inviteRole, navigate, pendingRequestId]);
+
+  const handleAcceptInvite = async () => {
+    if (inviteQuery.status !== 'success') {
+      return;
+    }
+
+    const result = await acceptInvite({ token });
+
+    if (result.isOk()) {
+      if (result.value.status === 'completed') {
+        defaultWorkspaceStorage.set(result.value.workspaceKey);
+        toast.success('Invite accepted', {
+          description: `You joined ${result.value.workspaceName} as a ${inviteRole}.`,
+        });
+        void navigate({
+          to: '/w/$workspaceKey',
+          params: { workspaceKey: result.value.workspaceKey },
+        });
+        return;
+      }
+
+      handledFailedRequestIdRef.current = null;
+      setInviteSnapshot(inviteQuery.data);
+      setPendingRequestId(result.value.requestId);
     } else {
       if (result.error.code === ErrorCode.INVITE_ACCEPT_RATE_LIMITED) {
         toast.error('Too many join attempts', {
@@ -52,7 +170,7 @@ function InvitePage() {
     }
   };
 
-  if (inviteQuery.status !== 'success') {
+  if (!inviteDetails) {
     return (
       <main className="flex min-h-screen items-center justify-center p-6">
         <p className="text-muted-foreground">Loading invite...</p>
@@ -60,8 +178,8 @@ function InvitePage() {
     );
   }
 
-  const inviterLabel = inviteQuery.data.inviterName ?? inviteQuery.data.inviterEmail;
-  const inviterEmail = inviteQuery.data.inviterEmail;
+  const inviterLabel = inviteDetails.inviterName ?? inviteDetails.inviterEmail;
+  const inviterEmail = inviteDetails.inviterEmail;
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-muted/20 p-6">
@@ -69,8 +187,8 @@ function InvitePage() {
         <CardHeader>
           <CardTitle>Join workspace</CardTitle>
           <CardDescription>
-            {inviterLabel} has invited you to join <strong>{inviteQuery.data.workspaceName}</strong>{' '}
-            as a {inviteQuery.data.role}.
+            {inviterLabel} has invited you to join <strong>{inviteDetails.workspaceName}</strong> as
+            a {inviteDetails.role}.
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
@@ -78,13 +196,13 @@ function InvitePage() {
             <div className="flex items-center justify-between gap-3">
               <div>
                 <p className="text-muted-foreground text-xs uppercase tracking-wide">Workspace</p>
-                <p className="font-medium">{inviteQuery.data.workspaceName}</p>
+                <p className="font-medium">{inviteDetails.workspaceName}</p>
               </div>
               <Badge
-                variant={inviteQuery.data.role === 'admin' ? 'secondary' : 'outline'}
+                variant={inviteDetails.role === 'admin' ? 'secondary' : 'outline'}
                 className="capitalize"
               >
-                {inviteQuery.data.role}
+                {inviteDetails.role}
               </Badge>
             </div>
             <div>
@@ -93,7 +211,7 @@ function InvitePage() {
               {inviterEmail && <p className="text-muted-foreground text-xs">{inviterEmail}</p>}
             </div>
             <p className="text-muted-foreground text-sm">
-              Expires {formatDate(inviteQuery.data.expiresAt)}
+              Expires {formatDate(inviteDetails.expiresAt)}
             </p>
           </div>
 

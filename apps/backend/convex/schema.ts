@@ -170,6 +170,21 @@ export default defineSchema({
     .index('by_workspaceId', ['workspaceId'])
     .index('by_status_expiresAt', ['status', 'expiresAt']),
 
+  teamMemberRequests: defineTable({
+    workspaceId: v.id('workspaces'),
+    requestedByUserId: v.id('users'),
+    operation: v.literal('accept_invite'),
+    status: v.union(v.literal('pending'), v.literal('completed'), v.literal('failed')),
+    resultWorkspaceKey: v.optional(v.string()),
+    resultWorkspaceName: v.optional(v.string()),
+    errorCode: v.optional(v.string()),
+    expiresAt: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_requestedByUserId', ['requestedByUserId'])
+    .index('by_workspaceId', ['workspaceId'])
+    .index('by_status_expiresAt', ['status', 'expiresAt']),
+
   r2DeleteQueue: defineTable({
     key: v.string(),
     reason: v.string(),

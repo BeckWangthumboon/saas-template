@@ -263,7 +263,7 @@ export interface ErrorContextMap {
   };
   [ErrorCode.BILLING_PLAN_REQUIRED]: {
     workspaceId: string;
-    feature: 'team_members';
+    feature: 'invites' | 'team_members';
   };
   [ErrorCode.BILLING_ACCOUNT_DELETE_BLOCKED]: {
     workspaceNames: string[];

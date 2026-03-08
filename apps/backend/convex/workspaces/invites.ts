@@ -4,21 +4,25 @@ import { v } from 'convex/values';
 import { internal } from '../_generated/api';
 import type { Doc, Id } from '../_generated/dataModel';
 import { getEmailSuppressionByEmail } from '../emails/suppressions';
-import { getWorkspaceEntitlementsSnapshot } from '../entitlements/service';
 import { throwAppErrorForConvex } from '../errors';
 import { internalMutation, mutation, type MutationCtx, query, type QueryCtx } from '../functions';
 import { logger } from '../logging';
 import { rateLimiter } from '../rateLimiter';
 import { getActiveUserByEmail, getActiveUserById, getAuthenticatedUser } from '../users/helpers';
 import { isActiveWorkspace } from './helpers';
-import { requireWorkspaceAdminOrOwner, type WorkspaceMembership } from './utils';
+import { requireWorkspaceAdminOrOwner } from './utils';
 
 // 7 days
 const INVITE_EXPIRATION_MS = 7 * 24 * 60 * 60 * 1000;
 const INVITE_REQUEST_TTL_MS = 24 * 60 * 60 * 1000;
+const TEAM_MEMBER_REQUEST_TTL_MS = 24 * 60 * 60 * 1000;
+// Autumn gates access to team members, but active-member usage stays in Convex.
+const MAX_WORKSPACE_MEMBERS = 50;
 
 type InviteRole = 'admin' | 'member';
 type InviteRequestStatus = 'pending' | 'completed' | 'failed';
+type TeamMemberRequestStatus = 'pending' | 'completed' | 'failed';
+type TeamMemberRequestOperation = 'accept_invite';
 
 interface InviteCreationActor {
   membership: Doc<'workspaceMembers'>;
@@ -33,7 +37,7 @@ interface PreparedInviteCreation {
   inviterDisplayName: string | undefined;
 }
 
-function formatName(firstName: string | null, lastName: string | null): string | null {
+function formatName(firstName: string | null, lastName: string | null) {
   if (firstName || lastName) {
     return [firstName, lastName].filter(Boolean).join(' ');
   }
@@ -116,7 +120,7 @@ async function getInviterInfo(ctx: QueryCtx | MutationCtx, invite: Doc<'workspac
 async function validateInvitePermission(
   ctx: QueryCtx | MutationCtx,
   workspaceId: Id<'workspaces'>,
-): Promise<WorkspaceMembership> {
+) {
   const { membership, user } = await requireWorkspaceAdminOrOwner(ctx, workspaceId, 'invite');
 
   return { membership, user };
@@ -131,7 +135,7 @@ async function lookupUserByEmail(
   ctx: QueryCtx | MutationCtx,
   workspaceId: Id<'workspaces'>,
   email: string,
-): Promise<{ user: Doc<'users'> | null; isAlreadyMember: boolean }> {
+) {
   const user = await getActiveUserByEmail(ctx, email);
 
   if (!user) {
@@ -158,7 +162,7 @@ async function isUserAlreadyMember(
   ctx: QueryCtx | MutationCtx,
   workspaceId: Id<'workspaces'>,
   userId: Id<'users'>,
-): Promise<boolean> {
+) {
   const membership = await ctx.db
     .query('workspaceMembers')
     .withIndex('by_workspaceId_userId', (q) =>
@@ -182,7 +186,7 @@ async function hasActiveInvite(
   workspaceId: Id<'workspaces'>,
   email: string,
   now: number,
-): Promise<boolean> {
+) {
   const activeInvite = await ctx.db
     .query('workspaceInvites')
     .withIndex('by_workspaceId_email', (q) => q.eq('workspaceId', workspaceId).eq('email', email))
@@ -315,10 +319,6 @@ async function prepareInviteCreation(
     }
   }
 
-  const now = Date.now();
-  const entitlements = await getWorkspaceInviteEntitlements(ctx, args.workspaceId, now);
-  assertCanCreateInvite(args.workspaceId, entitlements);
-
   const workspace = await ctx.db.get('workspaces', args.workspaceId);
   if (!workspace || !isActiveWorkspace(workspace)) {
     return throwAppErrorForConvex(ErrorCode.WORKSPACE_ACCESS_DENIED, {
@@ -352,7 +352,7 @@ async function prepareInviteCreation(
     normalizedEmail,
     workspace,
     inviteeUser,
-    now,
+    now: Date.now(),
     inviterDisplayName:
       formatName(actor.user.firstName ?? null, actor.user.lastName ?? null) ?? undefined,
   };
@@ -475,6 +475,13 @@ async function getInviteRequest(ctx: QueryCtx | MutationCtx, requestId: Id<'invi
   return ctx.db.get('inviteRequests', requestId);
 }
 
+async function getTeamMemberRequest(
+  ctx: QueryCtx | MutationCtx,
+  requestId: Id<'teamMemberRequests'>,
+) {
+  return ctx.db.get('teamMemberRequests', requestId);
+}
+
 type AuthenticatedUser = Awaited<ReturnType<typeof getAuthenticatedUser>>;
 
 /** Result of validating an invite for acceptance */
@@ -512,32 +519,13 @@ type InviteAcceptanceValidationResult =
       userEmail: string;
     };
 
-interface WorkspaceInviteEntitlements {
-  limits: {
-    members: number | null;
-    invites: number | null;
-  };
-  features: {
-    team_members: boolean;
-  };
-  usage: {
-    memberCount: number;
-    pendingInviteCount: number;
-  };
-  isLocked: boolean;
-  graceEndsAt: number | undefined;
-}
-
 /**
  * Ensures the authenticated user matches an invite recipient.
  *
  * If the invite was bound to a specific user ID, that takes precedence.
  * Otherwise the invite is matched by normalized email address.
  */
-function getInviteRecipientMismatch(
-  invite: Doc<'workspaceInvites'>,
-  user: AuthenticatedUser,
-): { inviteEmail: string; userEmail: string } | null {
+function getInviteRecipientMismatch(invite: Doc<'workspaceInvites'>, user: AuthenticatedUser) {
   if (invite.invitedUserId) {
     if (user._id !== invite.invitedUserId) {
       return {
@@ -559,33 +547,6 @@ function getInviteRecipientMismatch(
   return null;
 }
 
-/**
- * Loads current workspace billing state and derived entitlements for invite flows.
- */
-async function getWorkspaceInviteEntitlements(
-  ctx: MutationCtx,
-  workspaceId: Id<'workspaces'>,
-  now: number,
-): Promise<WorkspaceInviteEntitlements> {
-  const { entitlements } = await getWorkspaceEntitlementsSnapshot(ctx, workspaceId, now);
-
-  return {
-    limits: {
-      members: entitlements.limits.members,
-      invites: entitlements.limits.invites,
-    },
-    features: {
-      team_members: entitlements.features.team_members,
-    },
-    usage: {
-      memberCount: entitlements.usage.memberCount,
-      pendingInviteCount: entitlements.usage.pendingInviteCount,
-    },
-    isLocked: entitlements.isLocked,
-    graceEndsAt: entitlements.graceEndsAt,
-  };
-}
-
 const throwMemberLimitError = (
   workspaceId: Id<'workspaces'>,
   currentUsage: number,
@@ -598,59 +559,64 @@ const throwMemberLimitError = (
     maxAllowed,
   });
 
-/**
- * Ensures invite creation is allowed under current plan and billing lock state.
- */
-function assertCanCreateInvite(
-  workspaceId: Id<'workspaces'>,
-  entitlements: WorkspaceInviteEntitlements,
-): void {
-  if (entitlements.isLocked) {
-    return throwAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_LOCKED, {
-      workspaceId: workspaceId as string,
-      graceEndsAt: entitlements.graceEndsAt,
-    });
-  }
-
-  if (!entitlements.features.team_members) {
-    return throwAppErrorForConvex(ErrorCode.BILLING_PLAN_REQUIRED, {
-      workspaceId: workspaceId as string,
-      feature: 'team_members',
-    });
-  }
+function getInviteAcceptanceResult({ workspace }: Pick<ValidatedInvite, 'workspace'>) {
+  return {
+    workspaceKey: workspace.workspaceKey,
+    workspaceName: workspace.name,
+  };
 }
 
-/**
- * Ensures invite acceptance is allowed under current plan and billing lock state.
- */
-function assertCanAcceptInvite(
-  workspaceId: Id<'workspaces'>,
-  entitlements: WorkspaceInviteEntitlements,
-): void {
-  if (entitlements.isLocked) {
-    return throwAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_LOCKED, {
-      workspaceId: workspaceId as string,
-      graceEndsAt: entitlements.graceEndsAt,
+async function getActiveWorkspaceMemberCount(ctx: MutationCtx, workspaceId: Id<'workspaces'>) {
+  const memberships = await ctx.db
+    .query('workspaceMembers')
+    .withIndex('by_workspaceId', (q) => q.eq('workspaceId', workspaceId))
+    .collect();
+
+  const users = await Promise.all(
+    memberships.map((membership) => getActiveUserById(ctx, membership.userId)),
+  );
+  return users.filter((user) => user !== null).length;
+}
+
+async function recoverAcceptedInviteMembership(ctx: MutationCtx, validatedInvite: ValidatedInvite) {
+  const { invite, user } = validatedInvite;
+
+  if (invite.acceptedByUserId && invite.acceptedByUserId !== user._id) {
+    return throwAppErrorForConvex(ErrorCode.INVITE_EMAIL_MISMATCH, {
+      inviteEmail: invite.email,
+      userEmail: user.email,
     });
   }
 
-  if (!entitlements.features.team_members) {
-    return throwAppErrorForConvex(ErrorCode.BILLING_PLAN_REQUIRED, {
-      workspaceId: workspaceId as string,
-      feature: 'team_members',
-    });
+  const membership = await ctx.db
+    .query('workspaceMembers')
+    .withIndex('by_workspaceId_userId', (q) =>
+      q.eq('workspaceId', invite.workspaceId).eq('userId', user._id),
+    )
+    .unique();
+
+  if (membership) {
+    return;
   }
 
-  if (
-    entitlements.limits.members !== null &&
-    entitlements.usage.memberCount >= entitlements.limits.members
-  ) {
-    return throwMemberLimitError(
-      workspaceId,
-      entitlements.usage.memberCount,
-      entitlements.limits.members,
-    );
-  }
+  const now = Date.now();
+  await ctx.db.insert('workspaceMembers', {
+    userId: user._id,
+    workspaceId: invite.workspaceId,
+    role: invite.role,
+    updatedAt: now,
+  });
+
+  logger.warn({
+    event: 'invite.accepted_recovered_membership',
+    category: 'INVITE',
+    context: {
+      inviteId: invite._id,
+      workspaceId: invite.workspaceId,
+      userId: user._id,
+      role: invite.role,
+    },
+  });
 }
 
 /**
@@ -944,6 +910,216 @@ export const getCreateInviteRequest = query({
   },
 });
 
+export const failTeamMemberRequest = internalMutation({
+  args: {
+    requestId: v.id('teamMemberRequests'),
+    errorCode: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const request = await getTeamMemberRequest(ctx, args.requestId);
+    if (!request || request.status === 'completed') {
+      return null;
+    }
+
+    await ctx.db.patch('teamMemberRequests', request._id, {
+      status: 'failed' satisfies TeamMemberRequestStatus,
+      errorCode: args.errorCode,
+      updatedAt: Date.now(),
+    });
+
+    return null;
+  },
+});
+
+export const acceptInviteAfterAutumnCheck = internalMutation({
+  args: {
+    requestId: v.id('teamMemberRequests'),
+    workspaceId: v.id('workspaces'),
+    token: v.string(),
+  },
+  handler: async (ctx, args) => {
+    const request = await getTeamMemberRequest(ctx, args.requestId);
+    if (!request) {
+      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+        details: 'Team member request not found',
+      });
+    }
+    if (request.workspaceId !== args.workspaceId) {
+      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+        details: 'Team member request workspace mismatch',
+      });
+    }
+
+    if (
+      request.status === 'completed' &&
+      request.resultWorkspaceKey &&
+      request.resultWorkspaceName
+    ) {
+      return {
+        workspaceKey: request.resultWorkspaceKey,
+        workspaceName: request.resultWorkspaceName,
+      };
+    }
+
+    if (request.status === 'failed') {
+      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+        details: 'Team member request already failed',
+      });
+    }
+
+    const validation = await validateInviteForAcceptance(ctx, args.token);
+
+    if (validation.status === 'already_accepted') {
+      await recoverAcceptedInviteMembership(ctx, validation.data);
+
+      logger.info({
+        event: 'invite.accepted_idempotent',
+        category: 'INVITE',
+        context: {
+          inviteId: validation.data.invite._id,
+          workspaceId: validation.data.invite.workspaceId,
+          userId: validation.data.user._id,
+          role: validation.data.invite.role,
+        },
+      });
+
+      const result = getInviteAcceptanceResult(validation.data);
+
+      await ctx.db.patch('teamMemberRequests', request._id, {
+        status: 'completed' satisfies TeamMemberRequestStatus,
+        resultWorkspaceKey: result.workspaceKey,
+        resultWorkspaceName: result.workspaceName,
+        errorCode: undefined,
+        updatedAt: Date.now(),
+      });
+
+      return result;
+    }
+
+    if (validation.status === 'already_member') {
+      logger.info({
+        event: 'invite.accepted_already_member',
+        category: 'INVITE',
+        context: {
+          inviteId: validation.data.invite._id,
+          workspaceId: validation.data.invite.workspaceId,
+          userId: validation.data.user._id,
+          role: validation.data.invite.role,
+        },
+      });
+
+      const result = getInviteAcceptanceResult(validation.data);
+
+      await ctx.db.patch('teamMemberRequests', request._id, {
+        status: 'completed' satisfies TeamMemberRequestStatus,
+        resultWorkspaceKey: result.workspaceKey,
+        resultWorkspaceName: result.workspaceName,
+        errorCode: undefined,
+        updatedAt: Date.now(),
+      });
+
+      return result;
+    }
+
+    if (validation.status !== 'valid') {
+      return throwInviteAcceptanceValidationError(args.token, validation);
+    }
+
+    const { invite, user, workspace } = validation.data;
+    const memberCount = await getActiveWorkspaceMemberCount(ctx, invite.workspaceId);
+    if (memberCount >= MAX_WORKSPACE_MEMBERS) {
+      return throwMemberLimitError(invite.workspaceId, memberCount, MAX_WORKSPACE_MEMBERS);
+    }
+
+    const now = Date.now();
+    await ctx.db.patch('workspaceInvites', invite._id, {
+      status: 'accepted',
+      acceptedByUserId: user._id,
+      acceptedAt: now,
+      updatedAt: now,
+    });
+
+    await ctx.db.insert('workspaceMembers', {
+      userId: user._id,
+      workspaceId: invite.workspaceId,
+      role: invite.role,
+      updatedAt: now,
+    });
+
+    logger.info({
+      event: 'invite.accepted',
+      category: 'INVITE',
+      context: {
+        inviteId: invite._id,
+        workspaceId: invite.workspaceId,
+        userId: user._id,
+        role: invite.role,
+      },
+    });
+
+    const result = getInviteAcceptanceResult({ workspace });
+
+    await ctx.db.patch('teamMemberRequests', request._id, {
+      status: 'completed' satisfies TeamMemberRequestStatus,
+      resultWorkspaceKey: result.workspaceKey,
+      resultWorkspaceName: result.workspaceName,
+      errorCode: undefined,
+      updatedAt: now,
+    });
+
+    return result;
+  },
+});
+
+export const getAcceptInviteRequest = query({
+  args: {
+    requestId: v.id('teamMemberRequests'),
+  },
+  handler: async (ctx, args) => {
+    const user = await getAuthenticatedUser(ctx);
+    const request = await getTeamMemberRequest(ctx, args.requestId);
+
+    if (!request) {
+      return {
+        status: 'failed' as const,
+        errorCode: ErrorCode.INTERNAL_ERROR,
+      };
+    }
+
+    if (request.requestedByUserId !== user._id) {
+      return throwAppErrorForConvex(ErrorCode.WORKSPACE_ACCESS_DENIED, {
+        workspaceId: request.workspaceId as string,
+      });
+    }
+
+    if (request.status === 'completed') {
+      if (!request.resultWorkspaceKey || !request.resultWorkspaceName) {
+        return {
+          status: 'failed' as const,
+          errorCode: ErrorCode.INTERNAL_ERROR,
+        };
+      }
+
+      return {
+        status: 'completed' as const,
+        workspaceKey: request.resultWorkspaceKey,
+        workspaceName: request.resultWorkspaceName,
+      };
+    }
+
+    if (request.status === 'failed') {
+      return {
+        status: 'failed' as const,
+        errorCode: request.errorCode ?? ErrorCode.INTERNAL_ERROR,
+      };
+    }
+
+    return {
+      status: request.status,
+    };
+  },
+});
+
 /**
  * Gets invite details for the acceptance page.
  * Requires authentication to verify the user matches the invite.
@@ -994,79 +1170,40 @@ export const acceptInvite = mutation({
     const validation = await validateInviteForAcceptance(ctx, args.token);
 
     if (validation.status === 'already_accepted') {
-      const { invite, user, workspace } = validation.data;
-      if (invite.acceptedByUserId && invite.acceptedByUserId !== user._id) {
-        return throwAppErrorForConvex(ErrorCode.INVITE_EMAIL_MISMATCH, {
-          inviteEmail: invite.email,
-          userEmail: user.email,
-        });
-      }
-
-      const membership = await ctx.db
-        .query('workspaceMembers')
-        .withIndex('by_workspaceId_userId', (q) =>
-          q.eq('workspaceId', invite.workspaceId).eq('userId', user._id),
-        )
-        .unique();
-
-      if (!membership) {
-        const now = Date.now();
-        await ctx.db.insert('workspaceMembers', {
-          userId: user._id,
-          workspaceId: invite.workspaceId,
-          role: invite.role,
-          updatedAt: now,
-        });
-
-        logger.warn({
-          event: 'invite.accepted_recovered_membership',
-          category: 'INVITE',
-          context: {
-            inviteId: invite._id,
-            workspaceId: invite.workspaceId,
-            userId: user._id,
-            role: invite.role,
-          },
-        });
-      }
+      await recoverAcceptedInviteMembership(ctx, validation.data);
 
       logger.info({
         event: 'invite.accepted_idempotent',
         category: 'INVITE',
         context: {
-          inviteId: invite._id,
-          workspaceId: invite.workspaceId,
-          userId: user._id,
-          role: invite.role,
+          inviteId: validation.data.invite._id,
+          workspaceId: validation.data.invite.workspaceId,
+          userId: validation.data.user._id,
+          role: validation.data.invite.role,
         },
       });
 
       return {
-        workspaceId: invite.workspaceId,
-        workspaceKey: workspace.workspaceKey,
-        workspaceName: workspace.name,
-        role: invite.role,
+        status: 'completed' as const,
+        ...getInviteAcceptanceResult(validation.data),
       };
     }
 
     if (validation.status === 'already_member') {
-      const { invite, user, workspace } = validation.data;
       logger.info({
         event: 'invite.accepted_already_member',
         category: 'INVITE',
         context: {
-          inviteId: invite._id,
-          workspaceId: invite.workspaceId,
-          userId: user._id,
-          role: invite.role,
+          inviteId: validation.data.invite._id,
+          workspaceId: validation.data.invite.workspaceId,
+          userId: validation.data.user._id,
+          role: validation.data.invite.role,
         },
       });
 
       return {
-        workspaceId: invite.workspaceId,
-        workspaceKey: workspace.workspaceKey,
-        workspaceName: workspace.name,
-        role: invite.role,
+        status: 'completed' as const,
+        ...getInviteAcceptanceResult(validation.data),
       };
     }
 
@@ -1075,7 +1212,6 @@ export const acceptInvite = mutation({
     }
 
     const { invite, user, workspace } = validation.data;
-
     const rateLimitStatus = await rateLimiter.limit(ctx, 'acceptInviteByUser', {
       key: user.authId,
     });
@@ -1096,41 +1232,30 @@ export const acceptInvite = mutation({
     }
 
     const now = Date.now();
-
-    const entitlements = await getWorkspaceInviteEntitlements(ctx, invite.workspaceId, now);
-    assertCanAcceptInvite(invite.workspaceId, entitlements);
-
-    // update invite to accepted and create membership
-    await ctx.db.patch('workspaceInvites', invite._id, {
-      status: 'accepted',
-      acceptedByUserId: user._id,
-      acceptedAt: now,
-      updatedAt: now,
-    });
-
-    await ctx.db.insert('workspaceMembers', {
-      userId: user._id,
+    const requestId = await ctx.db.insert('teamMemberRequests', {
       workspaceId: invite.workspaceId,
-      role: invite.role,
+      requestedByUserId: user._id,
+      operation: 'accept_invite' satisfies TeamMemberRequestOperation,
+      status: 'pending' satisfies TeamMemberRequestStatus,
+      expiresAt: now + TEAM_MEMBER_REQUEST_TTL_MS,
       updatedAt: now,
     });
 
-    logger.info({
-      event: 'invite.accepted',
-      category: 'INVITE',
-      context: {
-        inviteId: invite._id,
+    await ctx.scheduler.runAfter(
+      0,
+      internal.workspaces.teamMemberCheck.processAcceptInviteRequest,
+      {
+        requestId,
         workspaceId: invite.workspaceId,
-        userId: user._id,
-        role: invite.role,
+        workspaceKey: workspace.workspaceKey,
+        workspaceName: workspace.name,
+        token: args.token,
       },
-    });
+    );
 
     return {
-      workspaceId: invite.workspaceId,
-      workspaceKey: workspace.workspaceKey,
-      workspaceName: workspace.name,
-      role: invite.role,
+      status: 'pending' as const,
+      requestId,
     };
   },
 });
@@ -1243,6 +1368,32 @@ export const cleanupExpiredInviteRequests = internalMutation({
 
     for (const request of [...pending, ...completed, ...failed]) {
       await ctx.db.delete('inviteRequests', request._id);
+    }
+
+    return null;
+  },
+});
+
+export const cleanupExpiredTeamMemberRequests = internalMutation({
+  args: {},
+  returns: v.null(),
+  handler: async (ctx) => {
+    const now = Date.now();
+    const pending = await ctx.db
+      .query('teamMemberRequests')
+      .withIndex('by_status_expiresAt', (q) => q.eq('status', 'pending').lt('expiresAt', now))
+      .collect();
+    const completed = await ctx.db
+      .query('teamMemberRequests')
+      .withIndex('by_status_expiresAt', (q) => q.eq('status', 'completed').lt('expiresAt', now))
+      .collect();
+    const failed = await ctx.db
+      .query('teamMemberRequests')
+      .withIndex('by_status_expiresAt', (q) => q.eq('status', 'failed').lt('expiresAt', now))
+      .collect();
+
+    for (const request of [...pending, ...completed, ...failed]) {
+      await ctx.db.delete('teamMemberRequests', request._id);
     }
 
     return null;
