@@ -1,3 +1,4 @@
+import cache from '@convex-dev/action-cache/convex.config.js';
 import actionRetrier from '@convex-dev/action-retrier/convex.config.js';
 import r2 from '@convex-dev/r2/convex.config';
 import rateLimiter from '@convex-dev/rate-limiter/convex.config.js';
@@ -7,6 +8,7 @@ import workpool from '@convex-dev/workpool/convex.config.js';
 import { defineApp } from 'convex/server';
 
 const app = defineApp();
+app.use(cache);
 app.use(actionRetrier);
 app.use(rateLimiter);
 app.use(r2);

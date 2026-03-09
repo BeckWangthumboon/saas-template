@@ -1,6 +1,4 @@
 import { api, type Id } from '@saas/convex-api';
-import type { AppErrorData } from '@saas/shared/errors';
-import { ErrorCode, parseAppError } from '@saas/shared/errors';
 import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { format } from 'date-fns';
 import { RotateCwIcon } from 'lucide-react';
@@ -9,7 +7,12 @@ import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { BillingProvider, type BillingState, useBilling } from '@/features/billing';
+import {
+  BillingProvider,
+  type BillingState,
+  loadBillingRouteState,
+  useBilling,
+} from '@/features/billing';
 import {
   isWorkspaceEntitlementsReady,
   isWorkspaceReady,
@@ -20,38 +23,9 @@ import { useConvexAction } from '@/hooks';
 import { cn } from '@/lib/utils';
 
 export const Route = createFileRoute('/_app/w/$workspaceKey/settings/billing')({
-  loader: async ({ context, params }): Promise<BillingState> => {
-    try {
-      const billing = await context.convexClient.action(
-        api.billing.index.getWorkspaceBillingSummary,
-        {
-          workspaceKey: params.workspaceKey,
-        },
-      );
-
-      return {
-        status: 'ready',
-        billing,
-      };
-    } catch (error: unknown) {
-      return {
-        status: 'error',
-        error:
-          parseAppError(error) ??
-          createInternalBillingError(
-            error instanceof Error ? error.message : 'Unable to load billing details',
-          ),
-      };
-    }
-  },
-  component: BillingSettingsPage,
-});
-
-const createInternalBillingError = (message: string): AppErrorData => ({
-  code: ErrorCode.INTERNAL_ERROR,
-  category: 'INTERNAL',
-  message,
-  timestamp: new Date().toISOString(),
+  loader: async ({ context, params }): Promise<BillingState> =>
+    loadBillingRouteState(context, params.workspaceKey),
+  component: BillingRoutePage,
 });
 
 const formatPlanKey = (planKey: 'free' | 'pro_monthly' | 'pro_yearly') => {
@@ -108,7 +82,7 @@ const formatTimestamp = (timestamp: number | undefined) => {
   return format(new Date(timestamp), 'MMM d, yyyy');
 };
 
-function BillingSettingsPage() {
+function BillingRoutePage() {
   const workspaceContext = useWorkspace();
   const billingState = Route.useLoaderData();
 
@@ -122,19 +96,26 @@ function BillingSettingsPage() {
 
   return (
     <BillingProvider role={workspaceContext.role} state={billingState}>
-      <BillingSettingsContent workspaceId={workspaceContext.workspaceId as Id<'workspaces'>} />
+      <BillingSettingsContent
+        workspaceId={workspaceContext.workspaceId as Id<'workspaces'>}
+        workspaceKey={workspaceContext.workspaceKey}
+      />
     </BillingProvider>
   );
 }
 
 interface BillingSettingsContentProps {
   workspaceId: Id<'workspaces'>;
+  workspaceKey: string;
 }
 
-function BillingSettingsContent({ workspaceId }: BillingSettingsContentProps) {
+function BillingSettingsContent({ workspaceId, workspaceKey }: BillingSettingsContentProps) {
   const entitlementsContext = useWorkspaceEntitlements();
   const { execute: checkout } = useConvexAction(api.billing.index.checkout);
   const { execute: billingPortal } = useConvexAction(api.billing.index.billingPortal);
+  const { execute: reloadBilling, state: reloadState } = useConvexAction(
+    api.billing.index.getWorkspaceBillingSummary,
+  );
   const router = useRouter();
   const billingState = useBilling();
   const { canManageBilling } = billingState;
@@ -162,6 +143,7 @@ function BillingSettingsContent({ workspaceId }: BillingSettingsContentProps) {
   const isCheckoutLoading =
     pendingAction === 'checkout_monthly' || pendingAction === 'checkout_yearly';
   const isPortalLoading = pendingAction === 'portal';
+  const isReloading = reloadState.status === 'loading';
   const isEntitlementsReady = isWorkspaceEntitlementsReady(entitlementsContext);
 
   const handleStartCheckout = async (planKey: 'pro_monthly' | 'pro_yearly') => {
@@ -229,16 +211,36 @@ function BillingSettingsContent({ workspaceId }: BillingSettingsContentProps) {
     }
   };
 
-  const handleReload = () => {
-    void router.invalidate();
+  const handleReload = async () => {
+    const result = await reloadBilling({
+      workspaceKey,
+      refresh: true,
+    });
+
+    if (result.isErr()) {
+      toast.error('Failed to reload billing', {
+        description: result.error.message,
+      });
+      return;
+    }
+
+    await router.invalidate();
   };
 
   if (billingState.status === 'error') {
     return (
       <div className="space-y-3">
         <p className="text-muted-foreground">{billingState.error.message}</p>
-        <Button variant="outline" size="icon" onClick={handleReload} aria-label="Reload billing">
-          <RotateCwIcon className="size-4" />
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => {
+            void handleReload();
+          }}
+          aria-label="Reload billing"
+          disabled={isReloading}
+        >
+          <RotateCwIcon className={cn('size-4', isReloading && 'animate-spin')} />
         </Button>
       </div>
     );
@@ -278,8 +280,16 @@ function BillingSettingsContent({ workspaceId }: BillingSettingsContentProps) {
           <h1 className="text-xl font-semibold">Billing</h1>
           <p className="text-muted-foreground text-sm">Simple billing for your workspace.</p>
         </div>
-        <Button variant="outline" size="icon" onClick={handleReload} aria-label="Reload billing">
-          <RotateCwIcon className="size-4" />
+        <Button
+          variant="outline"
+          size="icon"
+          onClick={() => {
+            void handleReload();
+          }}
+          aria-label="Reload billing"
+          disabled={isReloading}
+        >
+          <RotateCwIcon className={cn('size-4', isReloading && 'animate-spin')} />
         </Button>
       </div>
 

@@ -1,14 +1,15 @@
+import { ActionCache } from '@convex-dev/action-cache';
 import { AUTUMN_PLAN_IDS } from '@saas/shared/billing/ids';
 import { ErrorCode } from '@saas/shared/errors';
 import { ProductStatus } from 'autumn-js';
 import { v } from 'convex/values';
 
-import { internal } from '../_generated/api';
+import { components, internal } from '../_generated/api';
 import type { Id } from '../_generated/dataModel';
 import { getPlanTier } from '../entitlements/service';
 import { convexEnv } from '../env';
 import { throwAppErrorForConvex } from '../errors';
-import { action } from '../functions';
+import { action, type ActionCtx, internalAction } from '../functions';
 import { logger } from '../logging';
 import {
   billingPortal as autumnBillingPortal,
@@ -18,14 +19,10 @@ import {
   track as autumnTrack,
   type WorkspaceBillingCustomer,
 } from './autumn';
-import {
-  type BillingSummary,
-  billingSummaryValidator,
-  paidPlanKeyValidator,
-  workspaceLookupArgFields,
-} from './types';
+import { type BillingSummary, paidPlanKeyValidator, workspaceLookupArgFields } from './types';
 
 const ORIGIN = convexEnv.appOrigin;
+const BILLING_SUMMARY_CACHE_TTL_MS = 1000 * 30;
 
 const getWorkspaceBillingSettingsPath = (workspaceKey: string) =>
   `/w/${workspaceKey}/settings/billing`;
@@ -36,23 +33,12 @@ const getCheckoutSuccessUrl = (workspaceKey: string) =>
 const getPortalReturnUrl = (workspaceKey: string) =>
   `${ORIGIN}${getWorkspaceBillingSettingsPath(workspaceKey)}`;
 
-const workspaceFeatureCheckResultValidator = v.object({
-  allowed: v.boolean(),
-  customerId: v.string(),
-  featureId: v.string(),
-});
-
-const workspaceFeatureTrackResultValidator = v.object({
-  id: v.string(),
-  code: v.string(),
-  customerId: v.string(),
-  featureId: v.optional(v.string()),
-  eventName: v.optional(v.string()),
-});
-
 type AutumnCustomerResult = Awaited<ReturnType<typeof autumnGetCustomer>>;
 type AutumnCustomer = Exclude<AutumnCustomerResult['data'], null>;
 type AutumnCustomerProduct = AutumnCustomer['products'][number];
+interface WorkspaceBillingSummaryLookupArgs {
+  workspaceKey: string;
+}
 
 const toPlanKey = (productId: string) => {
   if (productId === AUTUMN_PLAN_IDS.free) {
@@ -147,52 +133,78 @@ const toBillingSummary = (args: {
   };
 };
 
+const getWorkspaceBillingSummaryFromAutumn = async (
+  ctx: ActionCtx,
+  args: WorkspaceBillingSummaryLookupArgs,
+) => {
+  const workspace: WorkspaceBillingCustomer = await ctx.runQuery(
+    internal.billing.internal.getCustomerForMember,
+    args,
+  );
+
+  const result = await autumnGetCustomer(workspace.workspaceId);
+
+  if (result.error) {
+    if (result.statusCode === 404) {
+      return toBillingSummary({
+        workspaceId: workspace.workspaceId,
+        customer: null,
+      });
+    }
+
+    logger.error({
+      event: 'billing.summary.failed',
+      category: 'BILLING',
+      context: {
+        workspaceId: workspace.workspaceId,
+        errorCode: result.error.code,
+        statusCode: result.statusCode,
+      },
+      error: result.error,
+    });
+
+    return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+      details: 'Autumn workspace billing summary fetch failed',
+    });
+  }
+
+  return toBillingSummary({
+    workspaceId: workspace.workspaceId,
+    customer: result.data,
+  });
+};
+
+const billingSummaryCache = new ActionCache(components.actionCache, {
+  action: internal.billing.index.getWorkspaceBillingSummaryUncached,
+  name: 'workspaceBillingSummary',
+  ttl: BILLING_SUMMARY_CACHE_TTL_MS,
+});
+
+export const getWorkspaceBillingSummaryUncached = internalAction({
+  args: {
+    workspaceKey: v.string(),
+  },
+  handler: async (ctx, args) => getWorkspaceBillingSummaryFromAutumn(ctx, args),
+});
+
 /**
- * Returns billing projection for a workspace by reading Autumn on demand.
+ * Returns a cached billing projection for a workspace by reading Autumn on demand.
  *
- * @param workspaceId - The workspace to read billing data for.
+ * @param workspaceKey - The workspace key to read billing data for.
  * @returns Billing summary including plan and provider billing status.
  * @throws WORKSPACE_ACCESS_DENIED if the caller is not a workspace member.
  */
 export const getWorkspaceBillingSummary = action({
-  args: workspaceLookupArgFields,
-  returns: billingSummaryValidator,
-  handler: async (ctx, args) => {
-    const workspace: WorkspaceBillingCustomer = await ctx.runQuery(
-      internal.billing.internal.getCustomerForMember,
-      args,
-    );
+  args: {
+    workspaceKey: v.string(),
+    refresh: v.optional(v.boolean()),
+  },
+  handler: async (ctx, args): Promise<BillingSummary> => {
+    const cacheArgs = {
+      workspaceKey: args.workspaceKey,
+    };
 
-    const result = await autumnGetCustomer(workspace.workspaceId);
-
-    if (result.error) {
-      if (result.statusCode === 404) {
-        return toBillingSummary({
-          workspaceId: workspace.workspaceId,
-          customer: null,
-        });
-      }
-
-      logger.error({
-        event: 'billing.summary.failed',
-        category: 'BILLING',
-        context: {
-          workspaceId: workspace.workspaceId,
-          errorCode: result.error.code,
-          statusCode: result.statusCode,
-        },
-        error: result.error,
-      });
-
-      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
-        details: 'Autumn workspace billing summary fetch failed',
-      });
-    }
-
-    return toBillingSummary({
-      workspaceId: workspace.workspaceId,
-      customer: result.data,
-    });
+    return billingSummaryCache.fetch(ctx, cacheArgs, { force: args.refresh });
   },
 });
 
@@ -204,7 +216,6 @@ export const check = action({
     sendEvent: v.optional(v.boolean()),
     withPreview: v.optional(v.boolean()),
   },
-  returns: workspaceFeatureCheckResultValidator,
   handler: async (ctx, args) => {
     const workspace: WorkspaceBillingCustomer = await ctx.runQuery(
       internal.billing.internal.getCustomerForMember,
@@ -256,7 +267,6 @@ export const track = action({
     idempotencyKey: v.optional(v.string()),
     properties: v.optional(v.record(v.string(), v.any())),
   },
-  returns: workspaceFeatureTrackResultValidator,
   handler: async (ctx, args) => {
     const workspace: WorkspaceBillingCustomer = await ctx.runQuery(
       internal.billing.internal.getCustomerForManager,
@@ -317,7 +327,6 @@ export const checkout = action({
     ...workspaceLookupArgFields,
     planKey: paidPlanKeyValidator,
   },
-  returns: v.object({ url: v.string() }),
   handler: async (ctx, args) => {
     const workspace: WorkspaceBillingCustomer = await ctx.runQuery(
       internal.billing.internal.getCustomerForManager,
@@ -380,7 +389,6 @@ export const checkout = action({
  */
 export const billingPortal = action({
   args: workspaceLookupArgFields,
-  returns: v.object({ url: v.string() }),
   handler: async (ctx, args) => {
     const workspace: WorkspaceBillingCustomer = await ctx.runQuery(
       internal.billing.internal.getCustomerForManager,
