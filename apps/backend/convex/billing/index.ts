@@ -1,5 +1,6 @@
 import { AUTUMN_PLAN_IDS } from '@saas/shared/billing/ids';
 import { ErrorCode } from '@saas/shared/errors';
+import { ProductStatus } from 'autumn-js';
 import { v } from 'convex/values';
 
 import { internal } from '../_generated/api';
@@ -7,17 +8,22 @@ import type { Id } from '../_generated/dataModel';
 import { getPlanTier } from '../entitlements/service';
 import { convexEnv } from '../env';
 import { throwAppErrorForConvex } from '../errors';
-import { action, query, type QueryCtx } from '../functions';
+import { action } from '../functions';
 import { logger } from '../logging';
-import { getWorkspaceMembership } from '../workspaces/utils';
 import {
   billingPortal as autumnBillingPortal,
   check as autumnCheck,
   checkout as autumnCheckout,
+  getCustomer as autumnGetCustomer,
   track as autumnTrack,
   type WorkspaceBillingCustomer,
 } from './autumn';
-import { billingSummaryValidator, paidPlanKeyValidator, workspaceLookupArgFields } from './types';
+import {
+  type BillingSummary,
+  billingSummaryValidator,
+  paidPlanKeyValidator,
+  workspaceLookupArgFields,
+} from './types';
 
 const ORIGIN = convexEnv.appOrigin;
 
@@ -44,55 +50,149 @@ const workspaceFeatureTrackResultValidator = v.object({
   eventName: v.optional(v.string()),
 });
 
-/**
- * Fetches workspace billing state for a member.
- *
- * @param ctx - Convex query context.
- * @param workspaceId - The workspace to resolve billing state for.
- * @returns Workspace billing state.
- * @throws WORKSPACE_ACCESS_DENIED if the caller is not a workspace member.
- * @throws BILLING_WORKSPACE_STATE_MISSING if billing state does not exist.
- */
-const getWorkspaceBillingStateForMember = async (ctx: QueryCtx, workspaceId: Id<'workspaces'>) => {
-  await getWorkspaceMembership(ctx, workspaceId);
+type AutumnCustomerResult = Awaited<ReturnType<typeof autumnGetCustomer>>;
+type AutumnCustomer = Exclude<AutumnCustomerResult['data'], null>;
+type AutumnCustomerProduct = AutumnCustomer['products'][number];
 
-  const state = await ctx.db
-    .query('workspaceBillingState')
-    .withIndex('by_workspaceId', (q) => q.eq('workspaceId', workspaceId))
-    .unique();
-
-  if (!state) {
-    return throwAppErrorForConvex(ErrorCode.BILLING_WORKSPACE_STATE_MISSING, {
-      workspaceId,
-    });
+const toPlanKey = (productId: string) => {
+  if (productId === AUTUMN_PLAN_IDS.free) {
+    return 'free';
   }
 
-  return state;
+  if (productId === AUTUMN_PLAN_IDS.proMonthly) {
+    return 'pro_monthly';
+  }
+
+  if (productId === AUTUMN_PLAN_IDS.proYearly) {
+    return 'pro_yearly';
+  }
+
+  return null;
+};
+
+const toBillingStatus = (status: AutumnCustomerProduct['status']) => {
+  switch (status) {
+    case ProductStatus.Trialing:
+      return 'trialing';
+    case ProductStatus.Active:
+      return 'active';
+    case ProductStatus.PastDue:
+      return 'past_due';
+    case ProductStatus.Scheduled:
+      return 'scheduled';
+    case ProductStatus.Expired:
+      return 'expired';
+    default:
+      return null;
+  }
+};
+
+const toBillingSummary = (args: {
+  workspaceId: Id<'workspaces'>;
+  customer: AutumnCustomer | null;
+  now?: number;
+}): BillingSummary => {
+  if (!args.customer) {
+    return {
+      workspaceId: args.workspaceId,
+      planKey: 'free' as const,
+      tier: getPlanTier('free'),
+      status: 'none' as const,
+      periodEnd: undefined,
+      cancelAtPeriodEnd: false,
+      updatedAt: args.now ?? Date.now(),
+    };
+  }
+
+  const paidProduct = args.customer.products.find((product) => {
+    const planKey = toPlanKey(product.id);
+    return planKey !== null && planKey !== 'free' && toBillingStatus(product.status) !== null;
+  });
+
+  if (!paidProduct) {
+    return {
+      workspaceId: args.workspaceId,
+      planKey: 'free' as const,
+      tier: getPlanTier('free'),
+      status: 'none' as const,
+      periodEnd: undefined,
+      cancelAtPeriodEnd: false,
+      updatedAt: args.now ?? Date.now(),
+    };
+  }
+
+  const planKey = toPlanKey(paidProduct.id);
+  const status = toBillingStatus(paidProduct.status);
+
+  if (planKey === null || planKey === 'free' || status === null) {
+    return {
+      workspaceId: args.workspaceId,
+      planKey: 'free',
+      tier: getPlanTier('free'),
+      status: 'none',
+      periodEnd: undefined,
+      cancelAtPeriodEnd: false,
+      updatedAt: args.now ?? Date.now(),
+    };
+  }
+
+  return {
+    workspaceId: args.workspaceId,
+    planKey,
+    tier: getPlanTier(planKey),
+    status,
+    periodEnd: paidProduct.current_period_end ?? paidProduct.trial_ends_at ?? undefined,
+    cancelAtPeriodEnd: paidProduct.canceled_at != null,
+    updatedAt: args.now ?? Date.now(),
+  };
 };
 
 /**
- * Returns billing projection for a workspace.
+ * Returns billing projection for a workspace by reading Autumn on demand.
  *
  * @param workspaceId - The workspace to read billing data for.
  * @returns Billing summary including plan and provider billing status.
  * @throws WORKSPACE_ACCESS_DENIED if the caller is not a workspace member.
- * @throws BILLING_WORKSPACE_STATE_MISSING if billing state does not exist.
  */
-export const getWorkspaceBillingSummary = query({
-  args: { workspaceId: v.id('workspaces') },
+export const getWorkspaceBillingSummary = action({
+  args: workspaceLookupArgFields,
   returns: billingSummaryValidator,
   handler: async (ctx, args) => {
-    const state = await getWorkspaceBillingStateForMember(ctx, args.workspaceId);
+    const workspace: WorkspaceBillingCustomer = await ctx.runQuery(
+      internal.billing.internal.getCustomerForMember,
+      args,
+    );
 
-    return {
-      workspaceId: args.workspaceId,
-      planKey: state.planKey,
-      tier: getPlanTier(state.planKey),
-      status: state.status,
-      periodEnd: state.periodEnd,
-      cancelAtPeriodEnd: state.cancelAtPeriodEnd,
-      updatedAt: state.updatedAt,
-    };
+    const result = await autumnGetCustomer(workspace.workspaceId);
+
+    if (result.error) {
+      if (result.statusCode === 404) {
+        return toBillingSummary({
+          workspaceId: workspace.workspaceId,
+          customer: null,
+        });
+      }
+
+      logger.error({
+        event: 'billing.summary.failed',
+        category: 'BILLING',
+        context: {
+          workspaceId: workspace.workspaceId,
+          errorCode: result.error.code,
+          statusCode: result.statusCode,
+        },
+        error: result.error,
+      });
+
+      return throwAppErrorForConvex(ErrorCode.INTERNAL_ERROR, {
+        details: 'Autumn workspace billing summary fetch failed',
+      });
+    }
+
+    return toBillingSummary({
+      workspaceId: workspace.workspaceId,
+      customer: result.data,
+    });
   },
 });
 

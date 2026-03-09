@@ -336,9 +336,9 @@ const errorMessages: Record<ErrorCode, string> = {
     'This email address cannot receive invitations due to a suppression preference',
   [ErrorCode.INVITE_EMAIL_SCHEDULE_FAILED]:
     'Failed to schedule invitation email. Please try again.',
-  [ErrorCode.BILLING_PRODUCT_ID_REQUIRED]: 'Polar product ID is required',
-  [ErrorCode.BILLING_PRODUCT_ID_UNKNOWN]: 'Unknown Polar product ID',
-  [ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN]: 'Unknown Polar subscription status',
+  [ErrorCode.BILLING_PRODUCT_ID_REQUIRED]: 'Billing product ID is required',
+  [ErrorCode.BILLING_PRODUCT_ID_UNKNOWN]: 'Unknown billing product ID',
+  [ErrorCode.BILLING_SUBSCRIPTION_STATUS_UNKNOWN]: 'Unknown billing subscription status',
   [ErrorCode.BILLING_ENTITLEMENT_LIMIT_REACHED]:
     'Your workspace has reached the current plan limit',
   [ErrorCode.BILLING_PLAN_REQUIRED]: 'This feature requires a paid plan',
@@ -348,7 +348,7 @@ const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.BILLING_WORKSPACE_LOCKED]:
     'Workspace access is temporarily restricted due to billing issues',
   [ErrorCode.BILLING_WORKSPACE_STATE_MISSING]: 'Workspace billing state is missing',
-  [ErrorCode.BILLING_PLAN_PRODUCT_MAPPING_MISSING]: 'Missing Polar product mapping for plan',
+  [ErrorCode.BILLING_PLAN_PRODUCT_MAPPING_MISSING]: 'Missing billing product mapping for plan',
   [ErrorCode.BILLING_CHECKOUT_CREATE_FAILED]: 'Failed to create checkout session',
   [ErrorCode.BILLING_SUBSCRIPTION_FETCH_FAILED]: 'Failed to fetch subscription',
   [ErrorCode.BILLING_CUSTOMER_ID_MISSING]: 'Missing customer ID for billing portal session',

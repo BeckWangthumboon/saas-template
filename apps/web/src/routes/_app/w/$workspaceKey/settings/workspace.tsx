@@ -135,8 +135,7 @@ function WorkspaceSettingsPage() {
       if (result.error.code === ErrorCode.BILLING_WORKSPACE_DELETE_BLOCKED) {
         setDeleteDialogOpen(false);
         toast.error('Cancel billing before deleting', {
-          description:
-            'This workspace is still billable. Cancel in Billing, then retry once status is canceled.',
+          description: 'This workspace is still billable. Resolve billing first, then retry.',
         });
 
         if (billingPath) {

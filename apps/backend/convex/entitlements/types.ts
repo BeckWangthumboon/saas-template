@@ -12,7 +12,8 @@ export const billingStatusValidator = v.union(
   v.literal('trialing'),
   v.literal('active'),
   v.literal('past_due'),
-  v.literal('canceled'),
+  v.literal('scheduled'),
+  v.literal('expired'),
 );
 
 export const planTierValidator = v.union(v.literal('free'), v.literal('pro'));

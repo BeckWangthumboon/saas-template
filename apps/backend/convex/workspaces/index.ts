@@ -277,7 +277,7 @@ export const leaveWorkspace = mutation({
 /**
  * Tombstones a workspace and removes its members and invites.
  * Only workspace owners can delete a workspace.
- * Billable workspaces must be canceled first via billing portal.
+ * Billable workspaces must be resolved in billing before deletion.
  *
  * @param workspaceId - The ID of the workspace to delete.
  * @throws WORKSPACE_INSUFFICIENT_ROLE if caller is not an owner.

@@ -1,18 +1,21 @@
-import type { Id } from '@saas/convex-api';
-import { api } from '@saas/convex-api';
+import type { api } from '@saas/convex-api';
+import type { AppErrorData } from '@saas/shared/errors';
 import type { FunctionReturnType } from 'convex/server';
-import { createContext, useContext, useMemo } from 'react';
+import { createContext, type ReactNode, useContext } from 'react';
 
-import { useConvexQuery } from '@/hooks';
-
-type BillingSummary = FunctionReturnType<typeof api.billing.index.getWorkspaceBillingSummary>;
 type WorkspaceRole = 'owner' | 'admin' | 'member';
 
-interface BillingContextValue {
-  status: 'loading' | 'ready';
-  billing: BillingSummary | undefined;
-  canManageBilling: boolean;
-}
+export type BillingSummary = FunctionReturnType<
+  typeof api.billing.index.getWorkspaceBillingSummary
+>;
+
+export type BillingState =
+  | { status: 'ready'; billing: BillingSummary }
+  | { status: 'error'; error: AppErrorData };
+
+type BillingContextValue =
+  | ({ status: 'ready'; billing: BillingSummary } & { canManageBilling: boolean })
+  | ({ status: 'error'; error: AppErrorData } & { canManageBilling: boolean });
 
 const BillingContext = createContext<BillingContextValue | null>(null);
 
@@ -31,30 +34,20 @@ export function useBilling(): BillingContextValue {
 }
 
 interface BillingProviderProps {
-  children: React.ReactNode;
-  workspaceId: Id<'workspaces'>;
+  children: ReactNode;
   role: WorkspaceRole;
+  state: BillingState;
 }
 
 /**
- * Provides workspace billing summary and checkout/portal actions.
- * This provider is intentionally scoped to billing workflows and does not
- * expose any entitlement checks.
+ * Provides loader-backed billing state to billing UI without fetching inside the provider.
  */
-export function BillingProvider({ children, workspaceId, role }: BillingProviderProps) {
-  const { status, data } = useConvexQuery(api.billing.index.getWorkspaceBillingSummary, {
-    workspaceId,
-  });
-
+export function BillingProvider({ children, role, state }: BillingProviderProps) {
   const canManageBilling = role === 'owner' || role === 'admin';
 
-  const value = useMemo<BillingContextValue>(() => {
-    return {
-      status: status === 'success' ? 'ready' : 'loading',
-      billing: data,
-      canManageBilling,
-    };
-  }, [canManageBilling, data, status]);
-
-  return <BillingContext.Provider value={value}>{children}</BillingContext.Provider>;
+  return (
+    <BillingContext.Provider value={{ ...state, canManageBilling }}>
+      {children}
+    </BillingContext.Provider>
+  );
 }

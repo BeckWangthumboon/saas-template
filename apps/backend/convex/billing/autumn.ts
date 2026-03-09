@@ -67,3 +67,5 @@ export const billingPortal = (args: { workspace: WorkspaceBillingCustomer; retur
   autumnSdk.customers.billingPortal(args.workspace.workspaceId, {
     return_url: args.returnUrl,
   });
+
+export const getCustomer = (customerId: string) => autumnSdk.customers.get(customerId);

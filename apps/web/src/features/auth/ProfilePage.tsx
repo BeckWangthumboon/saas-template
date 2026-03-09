@@ -103,7 +103,7 @@ export function ProfilePage() {
             : 'Open each paid workspace billing page and cancel first.';
 
         toast.error('Cancel workspace billing first', {
-          description: `${blockedWorkspaceText} Account deletion is only available after status becomes canceled.`,
+          description: `${blockedWorkspaceText} Account deletion is only available once those workspaces are no longer billable.`,
         });
         return;
       }

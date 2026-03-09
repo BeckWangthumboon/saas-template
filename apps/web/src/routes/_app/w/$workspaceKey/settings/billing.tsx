@@ -1,12 +1,15 @@
 import { api, type Id } from '@saas/convex-api';
-import { createFileRoute } from '@tanstack/react-router';
+import type { AppErrorData } from '@saas/shared/errors';
+import { ErrorCode, parseAppError } from '@saas/shared/errors';
+import { createFileRoute, useRouter } from '@tanstack/react-router';
 import { format } from 'date-fns';
+import { RotateCwIcon } from 'lucide-react';
 import { useEffect, useRef, useState } from 'react';
 import { toast } from 'sonner';
 
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { BillingProvider, useBilling } from '@/features/billing';
+import { BillingProvider, type BillingState, useBilling } from '@/features/billing';
 import {
   isWorkspaceEntitlementsReady,
   isWorkspaceReady,
@@ -14,10 +17,39 @@ import {
   useWorkspaceEntitlements,
 } from '@/features/workspaces';
 import { useConvexAction } from '@/hooks';
+import { convexClient } from '@/lib/convexClient';
 import { cn } from '@/lib/utils';
 
 export const Route = createFileRoute('/_app/w/$workspaceKey/settings/billing')({
+  loader: async ({ params }) => {
+    try {
+      const billing = await convexClient.action(api.billing.index.getWorkspaceBillingSummary, {
+        workspaceKey: params.workspaceKey,
+      });
+
+      return {
+        status: 'ready',
+        billing,
+      };
+    } catch (error: unknown) {
+      return {
+        status: 'error',
+        error:
+          parseAppError(error) ??
+          createInternalBillingError(
+            error instanceof Error ? error.message : 'Unable to load billing details',
+          ),
+      };
+    }
+  },
   component: BillingSettingsPage,
+});
+
+const createInternalBillingError = (message: string): AppErrorData => ({
+  code: ErrorCode.INTERNAL_ERROR,
+  category: 'INTERNAL',
+  message,
+  timestamp: new Date().toISOString(),
 });
 
 const formatPlanKey = (planKey: 'free' | 'pro_monthly' | 'pro_yearly') => {
@@ -34,7 +66,9 @@ const formatPlanKey = (planKey: 'free' | 'pro_monthly' | 'pro_yearly') => {
 const getPlanTier = (planKey: 'free' | 'pro_monthly' | 'pro_yearly') =>
   planKey === 'free' ? 'free' : 'pro';
 
-const formatStatus = (value: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled') => {
+const formatStatus = (
+  value: 'none' | 'trialing' | 'active' | 'past_due' | 'scheduled' | 'expired',
+) => {
   if (value === 'past_due') {
     return 'Past due';
   }
@@ -43,15 +77,21 @@ const formatStatus = (value: 'none' | 'trialing' | 'active' | 'past_due' | 'canc
     return 'No subscription';
   }
 
+  if (value === 'scheduled') {
+    return 'Scheduled';
+  }
+
   return `${value.charAt(0).toUpperCase()}${value.slice(1)}`;
 };
 
-const getStatusClassName = (value: 'none' | 'trialing' | 'active' | 'past_due' | 'canceled') => {
+const getStatusClassName = (
+  value: 'none' | 'trialing' | 'active' | 'past_due' | 'scheduled' | 'expired',
+) => {
   if (value === 'active' || value === 'trialing') {
     return 'text-foreground';
   }
 
-  if (value === 'past_due' || value === 'canceled') {
+  if (value === 'past_due') {
     return 'text-destructive';
   }
 
@@ -68,6 +108,7 @@ const formatTimestamp = (timestamp: number | undefined) => {
 
 function BillingSettingsPage() {
   const workspaceContext = useWorkspace();
+  const billingState = Route.useLoaderData();
 
   if (!isWorkspaceReady(workspaceContext)) {
     if (workspaceContext.status === 'empty') {
@@ -78,10 +119,7 @@ function BillingSettingsPage() {
   }
 
   return (
-    <BillingProvider
-      workspaceId={workspaceContext.workspaceId as Id<'workspaces'>}
-      role={workspaceContext.role}
-    >
+    <BillingProvider role={workspaceContext.role} state={billingState}>
       <BillingSettingsContent workspaceId={workspaceContext.workspaceId as Id<'workspaces'>} />
     </BillingProvider>
   );
@@ -95,7 +133,9 @@ function BillingSettingsContent({ workspaceId }: BillingSettingsContentProps) {
   const entitlementsContext = useWorkspaceEntitlements();
   const { execute: checkout } = useConvexAction(api.billing.index.checkout);
   const { execute: billingPortal } = useConvexAction(api.billing.index.billingPortal);
-  const { status, billing, canManageBilling } = useBilling();
+  const router = useRouter();
+  const billingState = useBilling();
+  const { canManageBilling } = billingState;
   const hasShownCheckoutSuccessRef = useRef(false);
   const [pendingAction, setPendingAction] = useState<
     'checkout_monthly' | 'checkout_yearly' | 'portal' | null
@@ -187,29 +227,58 @@ function BillingSettingsContent({ workspaceId }: BillingSettingsContentProps) {
     }
   };
 
-  if (status === 'loading' || !billing || !isEntitlementsReady) {
+  const handleReload = () => {
+    void router.invalidate();
+  };
+
+  if (billingState.status === 'error') {
+    return (
+      <div className="space-y-3">
+        <p className="text-muted-foreground">{billingState.error.message}</p>
+        <Button variant="outline" size="icon" onClick={handleReload} aria-label="Reload billing">
+          <RotateCwIcon className="size-4" />
+        </Button>
+      </div>
+    );
+  }
+
+  if (!isEntitlementsReady) {
     return <p className="text-muted-foreground">Loading billing...</p>;
   }
 
+  const { billing } = billingState;
   const displayPlanKey = billing.planKey;
   const displayTier = getPlanTier(displayPlanKey);
-  const displayStatus = billing.status === 'canceled' ? 'none' : billing.status;
+  const displayStatus = billing.status;
   const statusClassName = getStatusClassName(displayStatus);
   const isFreeTier = displayTier === 'free';
   const billingCycleText = isFreeTier
     ? 'No billing cycle'
-    : billing.cancelAtPeriodEnd
-      ? `Ends ${formatTimestamp(billing.periodEnd)}`
-      : `Renews ${formatTimestamp(billing.periodEnd)}`;
+    : displayStatus === 'scheduled'
+      ? billing.periodEnd
+        ? `Scheduled for ${formatTimestamp(billing.periodEnd)}`
+        : 'Scheduled'
+      : displayStatus === 'expired'
+        ? billing.periodEnd
+          ? `Ended ${formatTimestamp(billing.periodEnd)}`
+          : 'Expired'
+        : billing.cancelAtPeriodEnd
+          ? `Ends ${formatTimestamp(billing.periodEnd)}`
+          : `Renews ${formatTimestamp(billing.periodEnd)}`;
   const {
     entitlements: { usage },
   } = entitlementsContext;
 
   return (
     <div className="max-w-2xl space-y-8">
-      <div>
-        <h1 className="text-xl font-semibold">Billing</h1>
-        <p className="text-muted-foreground text-sm">Simple billing for your workspace.</p>
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-semibold">Billing</h1>
+          <p className="text-muted-foreground text-sm">Simple billing for your workspace.</p>
+        </div>
+        <Button variant="outline" size="icon" onClick={handleReload} aria-label="Reload billing">
+          <RotateCwIcon className="size-4" />
+        </Button>
       </div>
 
       <section className="space-y-6 rounded-xl border bg-card p-5">
