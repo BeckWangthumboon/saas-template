@@ -76,11 +76,13 @@ function BillingSettingsPage() {
     return <p className="text-muted-foreground">Loading workspace...</p>;
   }
 
+  const workspaceId = workspaceContext.workspaceId || null;
+  if (!workspaceId) {
+    return <p className="text-muted-foreground">Loading workspace...</p>;
+  }
+
   return (
-    <BillingProvider
-      workspaceId={workspaceContext.workspaceId as Id<'workspaces'>}
-      role={workspaceContext.role}
-    >
+    <BillingProvider workspaceId={workspaceId as Id<'workspaces'>} role={workspaceContext.role}>
       <BillingSettingsContent />
     </BillingProvider>
   );
