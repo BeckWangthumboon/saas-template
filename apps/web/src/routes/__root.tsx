@@ -1,9 +1,10 @@
-import { createRootRoute, ErrorComponent, Outlet } from '@tanstack/react-router';
+import { createRootRouteWithContext, ErrorComponent, Outlet } from '@tanstack/react-router';
 import { TanStackRouterDevtools } from '@tanstack/react-router-devtools';
 
 import { Toaster } from '@/components/ui/sonner';
+import type { AppRouterContext } from '@/lib/routerContext';
 
-export const Route = createRootRoute({
+export const Route = createRootRouteWithContext<AppRouterContext>()({
   component: RootLayout,
   errorComponent: RootErrorBoundary,
   notFoundComponent: NotFoundPage,

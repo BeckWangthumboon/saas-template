@@ -17,15 +17,17 @@ import {
   useWorkspaceEntitlements,
 } from '@/features/workspaces';
 import { useConvexAction } from '@/hooks';
-import { convexClient } from '@/lib/convexClient';
 import { cn } from '@/lib/utils';
 
 export const Route = createFileRoute('/_app/w/$workspaceKey/settings/billing')({
-  loader: async ({ params }): Promise<BillingState> => {
+  loader: async ({ context, params }): Promise<BillingState> => {
     try {
-      const billing = await convexClient.action(api.billing.index.getWorkspaceBillingSummary, {
-        workspaceKey: params.workspaceKey,
-      });
+      const billing = await context.convexClient.action(
+        api.billing.index.getWorkspaceBillingSummary,
+        {
+          workspaceKey: params.workspaceKey,
+        },
+      );
 
       return {
         status: 'ready',

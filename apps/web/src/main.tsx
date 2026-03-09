@@ -10,9 +10,13 @@ import { createRoot } from 'react-dom/client';
 
 import { env } from './env';
 import { convexClient } from './lib/convexClient';
+import type { AppRouterContext } from './lib/routerContext';
 import { routeTree } from './routeTree.gen';
 
-const router = createRouter({ routeTree });
+const router = createRouter({
+  routeTree,
+  context: { convexClient } satisfies AppRouterContext,
+});
 
 declare module '@tanstack/react-router' {
   interface Register {
