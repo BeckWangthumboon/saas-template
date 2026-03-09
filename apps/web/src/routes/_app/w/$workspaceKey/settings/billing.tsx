@@ -21,7 +21,7 @@ import { convexClient } from '@/lib/convexClient';
 import { cn } from '@/lib/utils';
 
 export const Route = createFileRoute('/_app/w/$workspaceKey/settings/billing')({
-  loader: async ({ params }) => {
+  loader: async ({ params }): Promise<BillingState> => {
     try {
       const billing = await convexClient.action(api.billing.index.getWorkspaceBillingSummary, {
         workspaceKey: params.workspaceKey,
