@@ -10,6 +10,9 @@
     "dev:reseed-data": "bun run dev:reset-data && bun run dev:seed-data",
     "generate": "bunx convex dev --once",
     "lint": "eslint convex --fix --cache --cache-location ../../.eslintcache",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:coverage": "vitest run --coverage",
     "typecheck": "tsc --noEmit -p convex/tsconfig.json",
     "format": "prettier --write --log-level silent convex *.json",
     "format:check": "prettier --check --log-level silent convex *.json",
@@ -30,6 +33,10 @@
     "zod": "^4.3.6"
   },
   "devDependencies": {
-    "@types/node": "^24.10.9"
+    "@edge-runtime/vm": "^5.0.0",
+    "@types/node": "^24.10.9",
+    "@vitest/coverage-v8": "^4.0.18",
+    "convex-test": "^0.0.41",
+    "vitest": "^4.0.18"
   }
 }
