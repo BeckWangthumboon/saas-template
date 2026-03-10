@@ -2,6 +2,8 @@
 
 Convex + React SaaS starter with workspace tenancy, auth, billing, invites, email, and avatar uploads.
 
+For the AI Demand Share product contract, start with [notes/spec.md](/home/beckthemaster/Documents/code/projects/ai-seo/notes/spec.md).
+
 See [docs/invariants.md](/home/beckthemaster/Documents/code/projects/ai-seo/docs/invariants.md) for the small set of non-obvious backend rules worth preserving.
 
 ## Prereqs

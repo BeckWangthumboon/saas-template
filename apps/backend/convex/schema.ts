@@ -99,6 +99,49 @@ const deletedWorkspace = v.object({
   deletedByUserId: v.id('users'),
 });
 
+const trackedProduct = v.object({
+  workspaceId: v.id('workspaces'),
+  status: v.union(v.literal('active'), v.literal('archived')),
+  name: v.string(),
+  brand: v.string(),
+  product: v.string(),
+  latestRunId: v.optional(v.id('runs')),
+  updatedAt: v.number(),
+});
+
+const runStatus = v.union(
+  v.literal('queued'),
+  v.literal('running'),
+  v.literal('completed'),
+  v.literal('failed'),
+  v.literal('canceled'),
+);
+
+const runCurrentStage = v.union(
+  v.literal('queued'),
+  v.literal('running'),
+  v.literal('completed'),
+  v.literal('failed'),
+  v.literal('canceled'),
+);
+
+const queryFacet = v.union(
+  v.literal('generic'),
+  v.literal('target_customer'),
+  v.literal('use_case'),
+  v.literal('differentiator'),
+  v.literal('competitor'),
+  v.literal('mixed'),
+);
+
+const queryStatus = v.union(
+  v.literal('pending'),
+  v.literal('running'),
+  v.literal('completed'),
+  v.literal('failed'),
+  v.literal('skipped'),
+);
+
 export default defineSchema({
   users: defineTable(v.union(activeUser, deletingUser, deletionFailedUser, deletedUser))
     .index('by_authId', ['authId'])
@@ -214,4 +257,56 @@ export default defineSchema({
     .index('by_providerEventId', ['providerEventId'])
     .index('by_workspaceId', ['workspaceId'])
     .index('by_status', ['status']),
+
+  trackedProducts: defineTable(trackedProduct)
+    .index('by_workspaceId', ['workspaceId'])
+    .index('by_workspaceId_status', ['workspaceId', 'status'])
+    .index('by_workspaceId_updatedAt', ['workspaceId', 'updatedAt']),
+
+  runs: defineTable({
+    workspaceId: v.id('workspaces'),
+    trackedProductId: v.id('trackedProducts'),
+    status: runStatus,
+    triggerType: v.union(v.literal('baseline'), v.literal('scheduled'), v.literal('manual')),
+    providerName: v.string(),
+    model: v.string(),
+    currentStage: runCurrentStage,
+    workflowId: v.optional(v.string()),
+    scheduledFor: v.optional(v.number()),
+    startedAt: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    failedAt: v.optional(v.number()),
+    canceledAt: v.optional(v.number()),
+    errorSummary: v.optional(v.string()),
+    totalQueries: v.number(),
+    completedQueries: v.number(),
+    failedQueries: v.number(),
+    updatedAt: v.number(),
+  })
+    .index('by_trackedProductId', ['trackedProductId'])
+    .index('by_trackedProductId_status', ['trackedProductId', 'status'])
+    .index('by_workspaceId', ['workspaceId'])
+    .index('by_workspaceId_status', ['workspaceId', 'status'])
+    .index('by_workflowId', ['workflowId']),
+
+  runQueries: defineTable({
+    runId: v.id('runs'),
+    workspaceId: v.id('workspaces'),
+    trackedProductId: v.id('trackedProducts'),
+    position: v.number(),
+    prompt: v.string(),
+    facet: queryFacet,
+    status: queryStatus,
+    attemptCount: v.number(),
+    providerName: v.string(),
+    model: v.string(),
+    error: v.optional(v.string()),
+    latencyMs: v.optional(v.number()),
+    completedAt: v.optional(v.number()),
+    updatedAt: v.number(),
+  })
+    .index('by_runId', ['runId'])
+    .index('by_runId_status', ['runId', 'status'])
+    .index('by_runId_position', ['runId', 'position'])
+    .index('by_trackedProductId', ['trackedProductId']),
 });
