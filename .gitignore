@@ -59,3 +59,5 @@ coverage
 .codex
 .opencode
 .agents
+
+cli
