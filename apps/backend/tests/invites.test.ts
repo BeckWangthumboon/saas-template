@@ -5,7 +5,6 @@ import {
   expectAppError,
   getDoc,
   seedBillingState,
-  seedContact,
   seedInvite,
   seedMembership,
   seedUser,
@@ -13,7 +12,7 @@ import {
   TEST_NOW,
 } from './lib/fixtures';
 
-describe('invites and contacts', () => {
+describe('invites', () => {
   beforeEach(() => {
     vi.useFakeTimers();
     vi.setSystemTime(TEST_NOW);
@@ -149,55 +148,6 @@ describe('invites and contacts', () => {
           inviteeRole: 'member',
         }),
       'INVITE_EMAIL_SUPPRESSED',
-    );
-  });
-
-  test('contacts enforce membership, validation, and update ordering', async () => {
-    const t = createConvexTest();
-    const ownerId = await seedUser(t, { email: 'owner@example.test' });
-    const outsiderId = await seedUser(t, { email: 'outsider@example.test' });
-    const workspaceId = await seedWorkspace(t, ownerId);
-    await seedMembership(t, workspaceId, ownerId, 'owner');
-    await seedBillingState(t, workspaceId, { planKey: 'pro_monthly', status: 'active' });
-
-    const owner = await getDoc(t, 'users', ownerId);
-    const createdContactId = await t
-      .withIdentity(authForUser(owner!))
-      .mutation(api.contacts.index.createContact, {
-        workspaceId,
-        name: '  Jane Doe ',
-        email: 'JANE@Example.test ',
-        notes: '  hello  ',
-      });
-
-    const created = await getDoc(t, 'contacts', createdContactId);
-    expect(created).toMatchObject({
-      name: 'Jane Doe',
-      email: 'jane@example.test',
-      notes: 'hello',
-    });
-
-    await seedContact(t, {
-      workspaceId,
-      createdByUserId: ownerId,
-      name: 'Older',
-      updatedAt: TEST_NOW - 1_000,
-    });
-
-    const listed = await t
-      .withIdentity(authForUser(owner!))
-      .query(api.contacts.index.listContacts, {
-        workspaceId,
-      });
-    expect(listed[0]?.name).toBe('Jane Doe');
-
-    const outsider = await getDoc(t, 'users', outsiderId);
-    await expectAppError(
-      () =>
-        t.withIdentity(authForUser(outsider!)).query(api.contacts.index.listContacts, {
-          workspaceId,
-        }),
-      'WORKSPACE_ACCESS_DENIED',
     );
   });
 });

@@ -1,7 +1,7 @@
 import type { Id } from '@saas/convex-api';
 import { createFileRoute, Outlet, useLocation } from '@tanstack/react-router';
 import { useAuth } from '@workos-inc/authkit-react';
-import { FilesIcon, LayoutDashboardIcon, SettingsIcon, UsersIcon } from 'lucide-react';
+import { LayoutDashboardIcon, SettingsIcon, UsersIcon } from 'lucide-react';
 
 import { Button } from '@/components/ui/button';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -86,8 +86,6 @@ function WorkspaceLayoutReadyContent({
   const workspaceBasePath = getWorkspacePath();
   const settingsPath = getWorkspacePath('/settings');
   const membersPath = getWorkspacePath('/members');
-  const contactsPath = getWorkspacePath('/contacts');
-  const filesPath = getWorkspacePath('/files');
   const billingPath = getWorkspacePath('/settings/billing');
   const isWorkspaceScopedPath =
     location.pathname === workspaceBasePath ||
@@ -112,18 +110,6 @@ function WorkspaceLayoutReadyContent({
     label: 'Overview',
     href: getWorkspacePath(),
     icon: LayoutDashboardIcon,
-  });
-
-  appPages.push({
-    label: 'Contacts',
-    href: contactsPath,
-    icon: UsersIcon,
-  });
-
-  appPages.push({
-    label: 'Files',
-    href: filesPath,
-    icon: FilesIcon,
   });
 
   if (entitlementsContext.canAccessMembersPage) {

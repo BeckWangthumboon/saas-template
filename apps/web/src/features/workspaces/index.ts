@@ -1,10 +1,3 @@
-export {
-  type FinalizeWorkspaceFileUploadResult,
-  useWorkspaceFiles,
-  type UseWorkspaceFilesReturn,
-  type WorkspaceFileDownloadResult,
-  type WorkspaceFileRecord,
-} from './hooks/useWorkspaceFiles';
 export { InviteMemberDialog } from './InviteMemberDialog';
 export { MemberRoleChangeDialog } from './MemberRoleChangeDialog';
 export { RemoveMemberDialog } from './RemoveMemberDialog';

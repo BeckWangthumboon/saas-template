@@ -120,30 +120,6 @@ export default defineSchema({
     .index('by_workspaceId', ['workspaceId'])
     .index('by_workspaceId_userId', ['workspaceId', 'userId']),
 
-  contacts: defineTable({
-    workspaceId: v.id('workspaces'),
-    name: v.string(),
-    email: v.optional(v.string()),
-    notes: v.optional(v.string()),
-    createdByUserId: v.id('users'),
-    updatedAt: v.number(),
-  })
-    .index('by_workspaceId', ['workspaceId'])
-    .index('by_workspaceId_name', ['workspaceId', 'name']),
-
-  workspaceFiles: defineTable({
-    workspaceId: v.id('workspaces'),
-    uploadedByUserId: v.id('users'),
-    fileName: v.string(),
-    contentType: v.optional(v.string()),
-    size: v.number(),
-    key: v.string(),
-    updatedAt: v.number(),
-  })
-    .index('by_workspaceId', ['workspaceId'])
-    .index('by_workspaceId_key', ['workspaceId', 'key'])
-    .index('by_key', ['key']),
-
   uploads: defineTable({
     key: v.string(),
     kind: v.string(),

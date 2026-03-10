@@ -45,45 +45,6 @@ const DEMO_PENDING_INVITE = {
   token: 'demo-pro-team-pending-invite',
 } as const;
 
-const DEMO_CONTACTS = {
-  solo: [
-    {
-      name: 'Taylor Morgan',
-      email: 'taylor.morgan@example.com',
-      notes: 'Solo test contact for quick create/edit/delete checks.',
-    },
-    {
-      name: 'Jordan Lee',
-      email: 'jordan.lee@example.com',
-      notes: 'Potential renewal customer next quarter.',
-    },
-  ],
-  teamPro: [
-    {
-      name: 'Priya Kapoor',
-      email: 'priya.kapoor@northstar.io',
-      notes: 'Primary buyer for the Pro team workspace.',
-    },
-    {
-      name: 'Noah Kim',
-      email: 'noah.kim@northstar.io',
-      notes: 'Technical approver and migration lead.',
-    },
-    {
-      name: 'Avery Chen',
-      email: 'avery.chen@northstar.io',
-      notes: 'Finance contact for procurement paperwork.',
-    },
-  ],
-  billingIssue: [
-    {
-      name: 'Remy Patel',
-      email: 'remy.patel@laggingpay.io',
-      notes: 'Billing escalation point while subscription is past due.',
-    },
-  ],
-} as const;
-
 type TableName = keyof DataModel;
 type ActiveUser = Extract<Doc<'users'>, { status: 'active' }>;
 type WorkspaceRole = Doc<'workspaceMembers'>['role'];
@@ -114,15 +75,6 @@ interface BillingSeedInput {
   providerSubscriptionId?: string;
   providerSubscriptionUpdatedAt?: number;
   pastDueAt?: number;
-}
-
-interface ContactSeedInput {
-  workspaceId: Id<'workspaces'>;
-  createdByUserId: Id<'users'>;
-  name: string;
-  email?: string;
-  notes?: string;
-  now: number;
 }
 
 /**
@@ -430,109 +382,6 @@ const ensureWorkspaceBillingState = async (
 };
 
 /**
- * Ensures a deterministic contact row exists for a workspace.
- *
- * Duplicate contacts with the same workspace+name are cleaned up so reseeding
- * remains stable over time.
- *
- * @param ctx - Convex mutation context.
- * @param input - Contact seed input.
- * @returns Number of writes performed.
- */
-const ensureContact = async (ctx: MutationCtx, input: ContactSeedInput): Promise<number> => {
-  const normalizedName = input.name.trim();
-  const normalizedEmailInput = input.email?.trim().toLowerCase();
-  const normalizedNotesInput = input.notes?.trim();
-  const normalizedEmail =
-    normalizedEmailInput && normalizedEmailInput.length > 0 ? normalizedEmailInput : undefined;
-  const normalizedNotes =
-    normalizedNotesInput && normalizedNotesInput.length > 0 ? normalizedNotesInput : undefined;
-
-  const existingContacts = await ctx.db
-    .query('contacts')
-    .withIndex('by_workspaceId_name', (q) =>
-      q.eq('workspaceId', input.workspaceId).eq('name', normalizedName),
-    )
-    .collect();
-
-  const sortedContacts = existingContacts.sort((a, b) => a._creationTime - b._creationTime);
-
-  if (sortedContacts.length === 0) {
-    await ctx.db.insert('contacts', {
-      workspaceId: input.workspaceId,
-      name: normalizedName,
-      email: normalizedEmail,
-      notes: normalizedNotes,
-      createdByUserId: input.createdByUserId,
-      updatedAt: input.now,
-    });
-    return 1;
-  }
-
-  const [targetContact, ...duplicates] = sortedContacts;
-
-  let writes = 0;
-
-  for (const duplicate of duplicates) {
-    await ctx.db.delete('contacts', duplicate._id);
-    writes += 1;
-  }
-
-  const shouldPatch =
-    targetContact.email !== normalizedEmail ||
-    targetContact.notes !== normalizedNotes ||
-    targetContact.createdByUserId !== input.createdByUserId;
-
-  if (!shouldPatch) {
-    return writes;
-  }
-
-  await ctx.db.patch('contacts', targetContact._id, {
-    workspaceId: input.workspaceId,
-    name: normalizedName,
-    email: normalizedEmail,
-    notes: normalizedNotes,
-    createdByUserId: input.createdByUserId,
-    updatedAt: input.now,
-  });
-
-  return writes + 1;
-};
-
-/**
- * Ensures a list of deterministic contacts exists for a workspace.
- *
- * @param ctx - Convex mutation context.
- * @param workspaceId - Target workspace.
- * @param createdByUserId - User associated with seeded contacts.
- * @param contacts - Contact specs to seed.
- * @param now - Current timestamp.
- * @returns Number of writes performed.
- */
-const ensureContactsForWorkspace = async (
-  ctx: MutationCtx,
-  workspaceId: Id<'workspaces'>,
-  createdByUserId: Id<'users'>,
-  contacts: readonly { name: string; email?: string; notes?: string }[],
-  now: number,
-): Promise<number> => {
-  let writes = 0;
-
-  for (const contact of contacts) {
-    writes += await ensureContact(ctx, {
-      workspaceId,
-      createdByUserId,
-      name: contact.name,
-      email: contact.email,
-      notes: contact.notes,
-      now,
-    });
-  }
-
-  return writes;
-};
-
-/**
  * Ensures one pending invite exists for the demo team workspace.
  *
  * @param ctx - Convex mutation context.
@@ -745,31 +594,6 @@ export const seedDemoData = internalMutation({
       }),
     ]);
 
-    const contactWritesByWorkspace = await Promise.all([
-      ensureContactsForWorkspace(
-        ctx,
-        soloWorkspaceResult.workspaceId,
-        owner._id,
-        DEMO_CONTACTS.solo,
-        now,
-      ),
-      ensureContactsForWorkspace(
-        ctx,
-        teamWorkspaceResult.workspaceId,
-        owner._id,
-        DEMO_CONTACTS.teamPro,
-        now,
-      ),
-      ensureContactsForWorkspace(
-        ctx,
-        billingIssueWorkspaceResult.workspaceId,
-        owner._id,
-        DEMO_CONTACTS.billingIssue,
-        now,
-      ),
-    ]);
-    const contactsChanged = contactWritesByWorkspace.reduce((total, count) => total + count, 0);
-
     const inviteWrites = await ensurePendingInvite(
       ctx,
       teamWorkspaceResult.workspaceId,
@@ -789,7 +613,6 @@ export const seedDemoData = internalMutation({
         Number(billingIssueWorkspaceResult.changed),
       membershipsChanged: workspaceMembershipWrites.filter(Boolean).length,
       billingStatesChanged: billingWrites.filter(Boolean).length,
-      contactsChanged,
       invitesChanged: inviteWrites,
       ownerUserId: owner._id,
       workspaceIds: {
@@ -837,8 +660,6 @@ export const resetDevData = internalMutation({
       'billingEvents',
       'workspaceInvites',
       'workspaceMembers',
-      'contacts',
-      'workspaceFiles',
       'uploads',
       'r2DeleteQueue',
       'workspaceBillingState',

@@ -32,15 +32,6 @@ export const ErrorCodeSchema = z.enum([
   'WORKSPACE_MEMBER_NOT_FOUND',
   'WORKSPACE_REMOVE_SELF',
   'WORKSPACE_CREATE_RATE_LIMITED',
-  'CONTACT_NAME_EMPTY',
-  'CONTACT_INVALID_EMAIL',
-  'CONTACT_NOT_FOUND',
-  'CONTACT_WRITE_RATE_LIMITED',
-  'WORKSPACE_FILE_UPLOAD_RATE_LIMITED',
-  'WORKSPACE_FILE_NAME_EMPTY',
-  'WORKSPACE_FILE_TOO_LARGE',
-  'WORKSPACE_FILE_NOT_FOUND',
-  'WORKSPACE_FILE_UPLOAD_NOT_FOUND',
   'INVITE_NOT_FOUND',
   'INVITE_EXPIRED',
   'INVITE_ALREADY_ACCEPTED',
@@ -93,15 +84,6 @@ export const ErrorCode = {
   WORKSPACE_MEMBER_NOT_FOUND: 'WORKSPACE_MEMBER_NOT_FOUND',
   WORKSPACE_REMOVE_SELF: 'WORKSPACE_REMOVE_SELF',
   WORKSPACE_CREATE_RATE_LIMITED: 'WORKSPACE_CREATE_RATE_LIMITED',
-  CONTACT_NAME_EMPTY: 'CONTACT_NAME_EMPTY',
-  CONTACT_INVALID_EMAIL: 'CONTACT_INVALID_EMAIL',
-  CONTACT_NOT_FOUND: 'CONTACT_NOT_FOUND',
-  CONTACT_WRITE_RATE_LIMITED: 'CONTACT_WRITE_RATE_LIMITED',
-  WORKSPACE_FILE_UPLOAD_RATE_LIMITED: 'WORKSPACE_FILE_UPLOAD_RATE_LIMITED',
-  WORKSPACE_FILE_NAME_EMPTY: 'WORKSPACE_FILE_NAME_EMPTY',
-  WORKSPACE_FILE_TOO_LARGE: 'WORKSPACE_FILE_TOO_LARGE',
-  WORKSPACE_FILE_NOT_FOUND: 'WORKSPACE_FILE_NOT_FOUND',
-  WORKSPACE_FILE_UPLOAD_NOT_FOUND: 'WORKSPACE_FILE_UPLOAD_NOT_FOUND',
   INVITE_NOT_FOUND: 'INVITE_NOT_FOUND',
   INVITE_EXPIRED: 'INVITE_EXPIRED',
   INVITE_ALREADY_ACCEPTED: 'INVITE_ALREADY_ACCEPTED',
@@ -152,15 +134,6 @@ const errorCategoryMap: Record<ErrorCode, ErrorCategory> = {
   [ErrorCode.WORKSPACE_MEMBER_NOT_FOUND]: ErrorCategory.WORKSPACE,
   [ErrorCode.WORKSPACE_REMOVE_SELF]: ErrorCategory.WORKSPACE,
   [ErrorCode.WORKSPACE_CREATE_RATE_LIMITED]: ErrorCategory.WORKSPACE,
-  [ErrorCode.CONTACT_NAME_EMPTY]: ErrorCategory.WORKSPACE,
-  [ErrorCode.CONTACT_INVALID_EMAIL]: ErrorCategory.WORKSPACE,
-  [ErrorCode.CONTACT_NOT_FOUND]: ErrorCategory.WORKSPACE,
-  [ErrorCode.CONTACT_WRITE_RATE_LIMITED]: ErrorCategory.WORKSPACE,
-  [ErrorCode.WORKSPACE_FILE_UPLOAD_RATE_LIMITED]: ErrorCategory.WORKSPACE,
-  [ErrorCode.WORKSPACE_FILE_NAME_EMPTY]: ErrorCategory.WORKSPACE,
-  [ErrorCode.WORKSPACE_FILE_TOO_LARGE]: ErrorCategory.WORKSPACE,
-  [ErrorCode.WORKSPACE_FILE_NOT_FOUND]: ErrorCategory.WORKSPACE,
-  [ErrorCode.WORKSPACE_FILE_UPLOAD_NOT_FOUND]: ErrorCategory.WORKSPACE,
   [ErrorCode.INVITE_NOT_FOUND]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_EXPIRED]: ErrorCategory.INVITE,
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: ErrorCategory.INVITE,
@@ -223,15 +196,6 @@ export interface ErrorContextMap {
   [ErrorCode.WORKSPACE_MEMBER_NOT_FOUND]: { userId: string; workspaceId: string };
   [ErrorCode.WORKSPACE_REMOVE_SELF]: Record<string, never>;
   [ErrorCode.WORKSPACE_CREATE_RATE_LIMITED]: { retryAfter?: number };
-  [ErrorCode.CONTACT_NAME_EMPTY]: Record<string, never>;
-  [ErrorCode.CONTACT_INVALID_EMAIL]: { email: string };
-  [ErrorCode.CONTACT_NOT_FOUND]: { contactId: string; workspaceId: string };
-  [ErrorCode.CONTACT_WRITE_RATE_LIMITED]: { retryAfter?: number; workspaceId?: string };
-  [ErrorCode.WORKSPACE_FILE_UPLOAD_RATE_LIMITED]: { retryAfter?: number; workspaceId?: string };
-  [ErrorCode.WORKSPACE_FILE_NAME_EMPTY]: Record<string, never>;
-  [ErrorCode.WORKSPACE_FILE_TOO_LARGE]: { maxSizeBytes: number; actualSizeBytes?: number };
-  [ErrorCode.WORKSPACE_FILE_NOT_FOUND]: { fileId: string; workspaceId: string };
-  [ErrorCode.WORKSPACE_FILE_UPLOAD_NOT_FOUND]: { key: string; workspaceId: string };
   [ErrorCode.INVITE_NOT_FOUND]: { token?: string; inviteId?: string };
   [ErrorCode.INVITE_EXPIRED]: { token?: string; hasNewerInvite?: boolean };
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: { token?: string; hasNewerInvite?: boolean };
@@ -310,16 +274,6 @@ const errorMessages: Record<ErrorCode, string> = {
   [ErrorCode.WORKSPACE_REMOVE_SELF]: 'Use leave workspace instead',
   [ErrorCode.WORKSPACE_CREATE_RATE_LIMITED]:
     'Too many workspace creation attempts. Please try again shortly',
-  [ErrorCode.CONTACT_NAME_EMPTY]: 'Contact name cannot be empty',
-  [ErrorCode.CONTACT_INVALID_EMAIL]: 'Contact email is invalid',
-  [ErrorCode.CONTACT_NOT_FOUND]: 'Contact not found',
-  [ErrorCode.CONTACT_WRITE_RATE_LIMITED]: 'Too many contact updates. Please try again shortly',
-  [ErrorCode.WORKSPACE_FILE_UPLOAD_RATE_LIMITED]:
-    'Too many file upload attempts. Please try again shortly',
-  [ErrorCode.WORKSPACE_FILE_NAME_EMPTY]: 'File name cannot be empty',
-  [ErrorCode.WORKSPACE_FILE_TOO_LARGE]: 'File exceeds the allowed size',
-  [ErrorCode.WORKSPACE_FILE_NOT_FOUND]: 'File not found',
-  [ErrorCode.WORKSPACE_FILE_UPLOAD_NOT_FOUND]: 'Uploaded file was not found',
   [ErrorCode.INVITE_NOT_FOUND]: 'Invite not found',
   [ErrorCode.INVITE_EXPIRED]: 'This invite has expired',
   [ErrorCode.INVITE_ALREADY_ACCEPTED]: 'This invite has already been accepted',
@@ -520,22 +474,6 @@ export const ConvexErrors = {
         ErrorCode.WORKSPACE_CREATE_RATE_LIMITED,
         retryAfter ? { retryAfter } : undefined,
       ),
-    contactNameEmpty: () => createAppErrorForConvex(ErrorCode.CONTACT_NAME_EMPTY),
-    contactInvalidEmail: (email: string) =>
-      createAppErrorForConvex(ErrorCode.CONTACT_INVALID_EMAIL, { email }),
-    contactNotFound: (contactId: string, workspaceId: string) =>
-      createAppErrorForConvex(ErrorCode.CONTACT_NOT_FOUND, { contactId, workspaceId }),
-    contactWriteRateLimited: (context?: ErrorContextMap['CONTACT_WRITE_RATE_LIMITED']) =>
-      createAppErrorForConvex(ErrorCode.CONTACT_WRITE_RATE_LIMITED, context),
-    fileUploadRateLimited: (context?: ErrorContextMap['WORKSPACE_FILE_UPLOAD_RATE_LIMITED']) =>
-      createAppErrorForConvex(ErrorCode.WORKSPACE_FILE_UPLOAD_RATE_LIMITED, context),
-    fileNameEmpty: () => createAppErrorForConvex(ErrorCode.WORKSPACE_FILE_NAME_EMPTY),
-    fileTooLarge: (context: ErrorContextMap['WORKSPACE_FILE_TOO_LARGE']) =>
-      createAppErrorForConvex(ErrorCode.WORKSPACE_FILE_TOO_LARGE, context),
-    fileNotFound: (fileId: string, workspaceId: string) =>
-      createAppErrorForConvex(ErrorCode.WORKSPACE_FILE_NOT_FOUND, { fileId, workspaceId }),
-    fileUploadNotFound: (key: string, workspaceId: string) =>
-      createAppErrorForConvex(ErrorCode.WORKSPACE_FILE_UPLOAD_NOT_FOUND, { key, workspaceId }),
   },
   invite: {
     notFound: (context?: ErrorContextMap['INVITE_NOT_FOUND']) =>

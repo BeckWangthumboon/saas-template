@@ -230,52 +230,6 @@ export const seedInvite = async (
     }),
   );
 
-export const seedContact = async (
-  t: BackendTestConvex,
-  options: {
-    workspaceId: Id<'workspaces'>;
-    createdByUserId: Id<'users'>;
-    name?: string;
-    email?: string;
-    notes?: string;
-    updatedAt?: number;
-  },
-) =>
-  t.run((ctx) =>
-    ctx.db.insert('contacts', {
-      workspaceId: options.workspaceId,
-      createdByUserId: options.createdByUserId,
-      name: options.name ?? `Contact ${nextSuffix('contact')}`,
-      email: options.email,
-      notes: options.notes,
-      updatedAt: options.updatedAt ?? TEST_NOW,
-    }),
-  );
-
-export const seedWorkspaceFile = async (
-  t: BackendTestConvex,
-  options: {
-    workspaceId: Id<'workspaces'>;
-    uploadedByUserId: Id<'users'>;
-    fileName?: string;
-    contentType?: string;
-    size?: number;
-    key?: string;
-    updatedAt?: number;
-  },
-) =>
-  t.run((ctx) =>
-    ctx.db.insert('workspaceFiles', {
-      workspaceId: options.workspaceId,
-      uploadedByUserId: options.uploadedByUserId,
-      fileName: options.fileName ?? `file-${nextSuffix('file')}.txt`,
-      contentType: options.contentType ?? 'text/plain',
-      size: options.size ?? 128,
-      key: options.key ?? `workspaces/${options.workspaceId}/file-${nextSuffix('key')}.txt`,
-      updatedAt: options.updatedAt ?? TEST_NOW,
-    }),
-  );
-
 export const seedPendingUpload = async (
   t: BackendTestConvex,
   options: {

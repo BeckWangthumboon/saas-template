@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router';
-import { ArrowRightIcon, FilesIcon, type LucideIcon, SettingsIcon, UsersIcon } from 'lucide-react';
+import { ArrowRightIcon, type LucideIcon, SettingsIcon, UsersIcon } from 'lucide-react';
 
 import { Card, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import {
@@ -25,18 +25,6 @@ interface WorkspacePageLink extends WorkspacePage {
 }
 
 const pages = [
-  {
-    title: 'Contacts',
-    description: 'Create and manage contacts with simple CRUD flows.',
-    slug: 'contacts',
-    icon: UsersIcon,
-  },
-  {
-    title: 'Files',
-    description: 'Upload and manage workspace files.',
-    slug: 'files',
-    icon: FilesIcon,
-  },
   {
     title: 'Members',
     description: 'Manage workspace members and their permissions.',

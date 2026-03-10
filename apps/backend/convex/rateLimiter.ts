@@ -1,4 +1,4 @@
-import { HOUR, MINUTE, RateLimiter } from '@convex-dev/rate-limiter';
+import { HOUR, RateLimiter } from '@convex-dev/rate-limiter';
 
 import { components } from './_generated/api';
 
@@ -8,12 +8,6 @@ const rateLimits = {
     rate: 10,
     period: HOUR,
     capacity: 3,
-  },
-  requestWorkspaceUploadUrlByActor: {
-    kind: 'token bucket',
-    rate: 120,
-    period: HOUR,
-    capacity: 10,
   },
   createWorkspaceByUser: {
     kind: 'token bucket',
@@ -32,12 +26,6 @@ const rateLimits = {
     rate: 30,
     period: HOUR,
     capacity: 10,
-  },
-  mutateContactsByActor: {
-    kind: 'token bucket',
-    rate: 180,
-    period: MINUTE,
-    capacity: 60,
   },
 } as const;
 

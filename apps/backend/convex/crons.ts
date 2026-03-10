@@ -35,12 +35,6 @@ crons.daily(
 );
 
 crons.daily(
-  'cleanup expired workspace file uploads',
-  { hourUTC: 4, minuteUTC: 0 },
-  internal.workspaceFiles.upload.cleanupExpiredWorkspaceFileUploads,
-);
-
-crons.daily(
   'cleanup expired avatar uploads',
   { hourUTC: 4, minuteUTC: 30 },
   internal.users.avatar.cleanupExpiredAvatarUploads,
